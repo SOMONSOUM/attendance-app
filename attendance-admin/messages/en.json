@@ -1,0 +1,49 @@
+{
+  "admin": {
+    "title": "Attendance Admin",
+    "events": "Events",
+    "settings": "Theme settings",
+    "create": "Create event",
+    "upload": "Upload pre-registration"
+  },
+  "adminShell": {
+    "brandSubtitle": "Event attendance",
+    "searchPlaceholder": "Search events, guests, QR codes...",
+    "runAi": "Run AI",
+    "customize": "Customize",
+    "menu": "Menu",
+    "system": "System",
+    "signedIn": "Signed in",
+    "nav": {
+      "dashboard": "Dashboard",
+      "events": "Events",
+      "registrations": "Registrations",
+      "attendance": "Attendance",
+      "people": "People",
+      "roles": "Roles & RBAC",
+      "theme": "Theme Builder",
+      "settings": "Settings"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure organization defaults, localization, security, and system preferences.",
+    "savedLocally": "Saved locally",
+    "organization": "Organization",
+    "organizationName": "Organization name",
+    "translate": "Translate",
+    "english": "English",
+    "khmer": "Khmer",
+    "timezone": "Timezone",
+    "appearance": "Appearance",
+    "mode": "Mode",
+    "light": "Light",
+    "dark": "Dark",
+    "systemMode": "System",
+    "languageHint": "Language changes keep the current page and switch the locale prefix.",
+    "system": "System",
+    "database": "Database",
+    "apiUrl": "API URL",
+    "attendanceAppUrl": "Attendance app URL"
+  }
+}

@@ -1,9 +1,0 @@
-{
-  "admin": {
-    "title": "Attendance Admin",
-    "events": "Events",
-    "settings": "Theme settings",
-    "create": "Create event",
-    "upload": "Upload pre-registration"
-  }
-}

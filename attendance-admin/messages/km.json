@@ -1,0 +1,49 @@
+{
+  "admin": {
+    "title": "គ្រប់គ្រងវត្តមាន",
+    "events": "កម្មវិធី",
+    "settings": "ការកំណត់រចនាបថ",
+    "create": "បង្កើតកម្មវិធី",
+    "upload": "បញ្ចូលបញ្ជីឈ្មោះ"
+  },
+  "adminShell": {
+    "brandSubtitle": "វត្តមានកម្មវិធី",
+    "searchPlaceholder": "ស្វែងរកកម្មវិធី ភ្ញៀវ ឬកូដ QR...",
+    "runAi": "ដំណើរការ AI",
+    "customize": "កែតម្រូវ",
+    "menu": "ម៉ឺនុយ",
+    "system": "ប្រព័ន្ធ",
+    "signedIn": "បានចូលប្រើ",
+    "nav": {
+      "dashboard": "ផ្ទាំងគ្រប់គ្រង",
+      "events": "កម្មវិធី",
+      "registrations": "ការចុះឈ្មោះ",
+      "attendance": "វត្តមាន",
+      "people": "មនុស្ស",
+      "roles": "តួនាទី និងសិទ្ធិ",
+      "theme": "កែរចនាបថ",
+      "settings": "ការកំណត់"
+    }
+  },
+  "settings": {
+    "title": "ការកំណត់",
+    "description": "កំណត់លំនាំដើមស្ថាប័ន ភាសា សុវត្ថិភាព និងចំណូលចិត្តប្រព័ន្ធ។",
+    "savedLocally": "បានរក្សាទុកក្នុងម៉ាស៊ីន",
+    "organization": "ស្ថាប័ន",
+    "organizationName": "ឈ្មោះស្ថាប័ន",
+    "translate": "ប្ដូរភាសា",
+    "english": "អង់គ្លេស",
+    "khmer": "ខ្មែរ",
+    "timezone": "តំបន់ម៉ោង",
+    "appearance": "រូបរាង",
+    "mode": "របៀប",
+    "light": "ភ្លឺ",
+    "dark": "ងងឹត",
+    "systemMode": "តាមប្រព័ន្ធ",
+    "languageHint": "ការប្ដូរភាសានឹងរក្សាទំព័របច្ចុប្បន្ន ហើយប្ដូរបុព្វបទភាសា។",
+    "system": "ប្រព័ន្ធ",
+    "database": "មូលដ្ឋានទិន្នន័យ",
+    "apiUrl": "URL របស់ API",
+    "attendanceAppUrl": "URL របស់កម្មវិធីវត្តមាន"
+  }
+}

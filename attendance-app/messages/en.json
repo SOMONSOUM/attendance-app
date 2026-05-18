@@ -1,0 +1,31 @@
+{
+  "scan": {
+    "search": "Search your name",
+    "join": "Join event",
+    "register": "Register manually",
+    "english": "English",
+    "khmer": "Khmer",
+    "preRegistered": "Pre-registered",
+    "openRegistration": "Open registration",
+    "searchPlaceholder": "Search English or Khmer name",
+    "searchButton": "Search",
+    "searching": "Searching registered names...",
+    "noMatch": "No matching registration found. Try your English or Khmer full name.",
+    "registrationDetails": "Registration details",
+    "fullNameEn": "Full name English",
+    "fullNameKm": "Full name Khmer",
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "position": "Position",
+    "department": "Department",
+    "khmerName": "Khmer name",
+    "gender": "Gender",
+    "selectBeforeJoining": "Search and select your pre-registered name before joining.",
+    "readyStatus": "Ready to verify location",
+    "checkingLocation": "Checking your location...",
+    "confirmedStatus": "Attendance confirmed. Thank you.",
+    "couldNotJoin": "Could not join event",
+    "locationRequired": "Location permission is required to join this event."
+  }
+}
