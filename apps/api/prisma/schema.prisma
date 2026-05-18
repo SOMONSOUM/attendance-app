@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EventMode {
+  PRE_REGISTERED
+  OPEN_REGISTRATION
+}
+
+enum AttendanceStatus {
+  JOINED
+  CANCELLED
+}
+
+enum ThemeAppearance {
+  light
+  dark
+  system
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String?      @unique
+  passwordHash String?
+  fullNameEn   String
+  fullNameKm   String?
+  gender       Gender?
+  position     String?
+  department   String?
+  roles        UserRole[]
+  attendances  Attendance[]
+  refreshTokens RefreshToken[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  jti       String    @unique
+  tokenHash String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model Permission {
+  id        String           @id @default(cuid())
+  resource  String
+  action    String
+  roles     RolePermission[]
+  createdAt DateTime         @default(now())
+
+  @@unique([resource, action])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Event {
+  id             String              @id @default(cuid())
+  name           String
+  description    String?             @db.Text
+  mode           EventMode
+  locationName   String
+  latitude       Decimal             @db.Decimal(10, 7)
+  longitude      Decimal             @db.Decimal(10, 7)
+  radiusMeters   Int                 @default(100)
+  startsAt       DateTime
+  endsAt         DateTime
+  qrCodes        EventQrCode[]
+  registrations  EventRegistration[]
+  attendances    Attendance[]
+  theme          EventTheme?
+  createdById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model EventQrCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  active    Boolean  @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model EventRegistration {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fullNameEn String
+  fullNameKm String?
+  gender     Gender?
+  position   String?
+  department String?
+  source     String   @default("UPLOAD")
+  createdAt  DateTime @default(now())
+
+  @@index([eventId, fullNameEn])
+  @@index([eventId, fullNameKm])
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  eventId         String
+  event           Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrationId  String?
+  fullNameEn      String
+  fullNameKm      String?
+  gender          Gender?
+  position        String?
+  department      String?
+  latitude        Decimal          @db.Decimal(10, 7)
+  longitude       Decimal          @db.Decimal(10, 7)
+  distanceMeters  Int
+  status          AttendanceStatus @default(JOINED)
+  createdAt       DateTime         @default(now())
+
+  @@unique([eventId, registrationId])
+}
+
+model EventTheme {
+  eventId            String          @id
+  event              Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  primaryColor       String          @default("#2563eb")
+  backgroundColor    String          @default("#f8fafc")
+  backgroundImageUrl String?
+  fontFamily         String          @default("Inter")
+  fontSize           Int             @default(16)
+  radius             Int             @default(8)
+  appearance         ThemeAppearance @default(system)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
