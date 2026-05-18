@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import type { Multer } from "multer";
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -95,7 +96,9 @@ export class EventsController {
     return this.events.update(eventId, dto);
   }
 
-  @ApiOperation({ summary: "Delete event and related QR/registration/attendance data" })
+  @ApiOperation({
+    summary: "Delete event and related QR/registration/attendance data",
+  })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @RequirePermissions("events:delete")
   @Delete(":eventId")
