@@ -6,24 +6,32 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import {
+  CircleAlert,
   Check,
   CheckCircle2,
   Languages,
-  LocateFixed,
   Monitor,
   Moon,
   QrCode,
   Search,
   Sun,
   UserRoundPlus,
+  X,
 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import {
+  NativeSelect,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { type AppearanceMode } from "@/components/appearance-provider";
-import { api } from "@/lib/api";
+import { ApiRequestError, api } from "@/lib/api";
 
 type Registration = {
   id: string;
@@ -39,7 +47,7 @@ type Event = {
   name: string;
   description?: string | null;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
-  locationName: string;
+  locationName?: string;
   startsAt: string;
   endsAt: string;
   theme?: {
@@ -58,7 +66,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ locale: string }>();
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [query, setQuery] = useQueryState("q", { defaultValue: "" });
   const [results, setResults] = useState<Registration[]>([]);
   const [selected, setSelected] = useState<Registration | null>(null);
@@ -73,53 +81,38 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   });
   const [status, setStatus] = useState<string>(t("readyStatus"));
   const [busy, setBusy] = useState(false);
+  const [alreadyJoinedOpen, setAlreadyJoinedOpen] = useState(false);
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    if (!localStorage.getItem("attendance-appearance")) {
-      setTheme(event.theme?.appearance ?? "system");
-    }
-  }, [event.theme?.appearance, setTheme]);
+  }, []);
 
   useEffect(() => {
     setAppearance((theme as AppearanceMode | undefined) ?? "system");
   }, [theme]);
 
   const effectiveAppearance = mounted ? appearance : "light";
-  const resolvedDark = mounted && resolvedTheme === "dark";
 
   const themeStyle = useMemo(() => {
     const primaryColor = event.theme?.primaryColor ?? "#5b3fd5";
-    const pageBackground = resolvedDark
-      ? "#111018"
-      : event.theme?.backgroundColor ?? "#fbfafc";
+    const backgroundImageUrl = event.theme?.backgroundImageUrl;
 
     return {
-      "--primary": primaryColor,
-      "--primary-foreground": readableForeground(primaryColor),
-      "--background": pageBackground,
-      "--foreground": resolvedDark ? "#f7f4ff" : "#17131f",
-      "--card": resolvedDark ? "#191724" : "#ffffff",
-      "--card-foreground": resolvedDark ? "#f7f4ff" : "#17131f",
-      "--secondary": resolvedDark ? "#262138" : "#f3f0fb",
-      "--secondary-foreground": resolvedDark ? "#f7f4ff" : "#2d2544",
-      "--muted": resolvedDark ? "#211e2d" : "#f5f3f8",
-      "--border": resolvedDark ? "#343047" : "#e7e3ee",
-      "--input": resolvedDark ? "#403a55" : "#ded8eb",
-      "--ring": primaryColor,
+      "--event-primary": primaryColor,
+      "--event-primary-foreground": readableForeground(primaryColor),
+      "--event-background": event.theme?.backgroundColor ?? "#fbfafc",
       "--radius": `${event.theme?.radius ?? 8}px`,
       fontFamily: `${event.theme?.fontFamily ?? "Inter"}, "Noto Sans Khmer", system-ui, sans-serif`,
       fontSize: `${event.theme?.fontSize ?? 16}px`,
-      backgroundColor: pageBackground,
-      backgroundImage: event.theme?.backgroundImageUrl
-        ? `${resolvedDark ? "linear-gradient(rgba(17,16,24,.84), rgba(17,16,24,.92))" : "linear-gradient(rgba(247,249,252,.86), rgba(247,249,252,.92))"}, url(${event.theme.backgroundImageUrl})`
+      backgroundImage: backgroundImageUrl
+        ? `linear-gradient(var(--scan-image-overlay), var(--scan-image-overlay)), url(${backgroundImageUrl})`
         : undefined,
       backgroundSize: "cover",
       backgroundPosition: "center",
     } as CSSProperties;
-  }, [event.theme, resolvedDark]);
+  }, [event.theme]);
 
   function changeLocale(locale: string) {
     const nextPath = pathname.replace(/^\/(en|km)(?=\/|$)/, `/${locale}`);
@@ -166,34 +159,27 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   async function join() {
     setBusy(true);
     setStatus(t("checkingLocation"));
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const payload = {
-          ...(selected ?? form),
-          registrationId: selected?.id,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-        try {
-          await api(`/attendance/qr/${code}/join`, {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
-          setStatus(t("confirmedStatus"));
-        } catch (error) {
-          setStatus(
-            error instanceof Error ? error.message : t("couldNotJoin"),
-          );
-        } finally {
-          setBusy(false);
-        }
-      },
-      () => {
-        setStatus(t("locationRequired"));
-        setBusy(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+    const payload = {
+      ...(selected ?? form),
+      registrationId: selected?.id,
+    };
+
+    try {
+      await api(`/attendance/qr/${code}/join`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setStatus(t("confirmedStatus"));
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
+        setAlreadyJoinedOpen(true);
+        setStatus(t("alreadyJoinedStatus"));
+      } else {
+        setStatus(error instanceof Error ? error.message : t("couldNotJoin"));
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -203,15 +189,19 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
     >
       <div className="mx-auto max-w-2xl space-y-5">
         <div className="flex flex-wrap justify-end gap-2">
-          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
             <Languages size={16} className="text-primary" />
             <Select
               value={params.locale}
-              onChange={(event) => changeLocale(event.target.value)}
-              className="h-8 border-0 bg-transparent px-1"
+              onValueChange={(value) => changeLocale(value)}
             >
-              <option value="en">{t("english")}</option>
-              <option value="km">{t("khmer")}</option>
+              <SelectTrigger className="h-9 min-w-24 border-0 bg-transparent px-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">{t("english")}</SelectItem>
+                <SelectItem value="km">{t("khmer")}</SelectItem>
+              </SelectContent>
             </Select>
           </div>
           <div className="flex gap-1 rounded-md border border-border bg-card p-1">
@@ -247,7 +237,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
             </span>
           </div>
           <p className="text-sm font-medium text-muted-fg">
-            {event.locationName}
+            {new Date(event.startsAt).toLocaleString()}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             {event.name}
@@ -273,7 +263,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                   aria-label={t("searchButton")}
                 >
                   <Search size={18} />
-                    <span className="sm:hidden">{t("searchButton")}</span>
+                  <span className="sm:hidden">{t("searchButton")}</span>
                 </Button>
               </div>
               <div className="grid gap-2">
@@ -301,7 +291,9 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                       ) : null}
                     </span>
                     <span className="min-w-0">
-                      <strong className="block truncate">{person.fullNameEn}</strong>
+                      <strong className="block truncate">
+                        {person.fullNameEn}
+                      </strong>
                       <span className="block truncate text-sm text-muted-fg">
                         {[person.fullNameKm, person.position, person.department]
                           .filter(Boolean)
@@ -343,7 +335,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                   setForm({ ...form, fullNameKm: e.target.value })
                 }
               />
-              <Select
+              <NativeSelect
                 value={form.gender}
                 onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                   setForm({ ...form, gender: e.target.value })
@@ -352,7 +344,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                 <option value="MALE">{t("male")}</option>
                 <option value="FEMALE">{t("female")}</option>
                 <option value="OTHER">{t("other")}</option>
-              </Select>
+              </NativeSelect>
               <Input
                 placeholder={t("position")}
                 value={form.position}
@@ -397,13 +389,59 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
             {status === t("confirmedStatus") ? (
               <CheckCircle2 size={18} />
             ) : (
-              <LocateFixed size={18} />
+              <Check size={18} />
             )}
             {t("join")}
           </Button>
           <p className="text-center text-sm text-muted-fg">{status}</p>
         </Card>
       </div>
+
+      {alreadyJoinedOpen ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="already-joined-title"
+        >
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 text-card-foreground shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+                  <CircleAlert size={22} />
+                </span>
+                <div>
+                  <h2
+                    id="already-joined-title"
+                    className="text-lg font-semibold"
+                  >
+                    {t("alreadyJoinedTitle")}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-fg">
+                    {t("alreadyJoinedMessage")}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="size-8 shrink-0 px-0"
+                aria-label={t("close")}
+                onClick={() => setAlreadyJoinedOpen(false)}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+            <Button
+              type="button"
+              className="mt-5 w-full"
+              onClick={() => setAlreadyJoinedOpen(false)}
+            >
+              {t("ok")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

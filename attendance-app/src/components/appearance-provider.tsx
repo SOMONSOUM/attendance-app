@@ -5,11 +5,17 @@ import { ThemeProvider } from "next-themes";
 
 export type AppearanceMode = "light" | "dark" | "system";
 
-export function AppearanceProvider({ children }: { children: ReactNode }) {
+export function AppearanceProvider({
+  children,
+  defaultTheme = "system",
+}: {
+  children: ReactNode;
+  defaultTheme?: AppearanceMode;
+}) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme={defaultTheme}
       enableSystem
       storageKey="attendance-appearance"
     >

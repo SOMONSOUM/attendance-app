@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, Download, QrCode, RefreshCw } from "lucide-react";
+import { CalendarPlus, Clock, Download, QrCode, RefreshCw, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AdminShell,
@@ -31,26 +31,62 @@ export function DashboardPageContent() {
   });
   const events = eventsQuery.data ?? [];
   const users = usersQuery.data ?? [];
-  const registrations = events.reduce(
-    (sum, event) => sum + (event._count?.registrations ?? 0),
+  const totalUsers = events.reduce(
+    (sum, event) => sum + (event.summary?.totalUsers ?? 0),
     0,
   );
   const checkedIn = events.reduce(
-    (sum, event) => sum + (event._count?.attendances ?? 0),
+    (sum, event) => sum + (event.summary?.checkedIn ?? 0),
     0,
   );
-  const joinRate = registrations
-    ? Math.round((checkedIn / registrations) * 100)
+  const activeEvents = events.filter((event) => eventStatus(event) === "Live");
+  const upcomingEvents = events.filter((event) => eventStatus(event) === "Ready");
+  const averageJoinRate = events.length
+    ? Math.round(
+        events.reduce((sum, event) => sum + (event.summary?.joinRate ?? 0), 0) /
+          events.length,
+      )
     : 0;
+  const needsAttention = events
+    .filter((event) => eventStatus(event) === "Live" && (event.summary?.checkedIn ?? 0) === 0)
+    .length;
+  const recentAttendances = events
+    .flatMap((event) =>
+      (event.recentAttendances ?? []).map((attendance) => ({
+        ...attendance,
+        eventName: event.name,
+      })),
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, 6);
 
   const metrics = [
-    { label: "Events", value: String(events.length), sub: "Loaded from MySQL" },
-    { label: "Users", value: String(users.length), sub: "Login accounts" },
-    { label: "Checked in", value: String(checkedIn), sub: "Attendance rows" },
     {
-      label: "Join rate",
-      value: `${joinRate}%`,
-      sub: `${registrations} registrations`,
+      label: "Live events",
+      value: String(activeEvents.length),
+      sub: `${upcomingEvents.length} upcoming`,
+      icon: Clock,
+    },
+    {
+      label: "Expected people",
+      value: String(totalUsers),
+      sub: "Registered or joined",
+      icon: Users,
+    },
+    {
+      label: "Recent check-ins",
+      value: String(recentAttendances.length),
+      sub: `${checkedIn} all-time check-ins`,
+      icon: QrCode,
+    },
+    {
+      label: "Avg join rate",
+      value: `${averageJoinRate}%`,
+      sub: needsAttention ? `${needsAttention} live event needs activity` : "All live events active",
+      icon: RefreshCw,
     },
   ];
 
@@ -58,7 +94,7 @@ export function DashboardPageContent() {
     <AdminShell
       active="Dashboard"
       title="Good morning, Admin"
-      description="Live database overview for events, users, registrations, and attendance."
+      description="Operational overview for live events, check-ins, and attendee progress."
       action={
         <Button asChild>
           <a href="/en/events">
@@ -70,22 +106,25 @@ export function DashboardPageContent() {
     >
       <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric) => (
-            <Card key={metric.label}>
-              <CardContent className="p-4">
-                <div className="mb-5 flex items-center justify-between">
-                  <p className="text-sm font-medium">{metric.label}</p>
-                  <span className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-fg">
-                    <QrCode size={14} />
-                  </span>
-                </div>
-                <p className="text-3xl font-semibold tracking-tight">
-                  {metric.value}
-                </p>
-                <p className="mt-1 text-xs text-muted-fg">{metric.sub}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {metrics.map((metric) => {
+            const Icon = metric.icon;
+            return (
+              <Card key={metric.label}>
+                <CardContent className="p-4">
+                  <div className="mb-5 flex items-center justify-between">
+                    <p className="text-sm font-medium">{metric.label}</p>
+                    <span className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-fg">
+                      <Icon size={14} />
+                    </span>
+                  </div>
+                  <p className="text-3xl font-semibold tracking-tight">
+                    {metric.value}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-fg">{metric.sub}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.45fr_0.9fr]">
@@ -108,11 +147,7 @@ export function DashboardPageContent() {
                 </div>
                 <div className="flex items-end justify-between gap-3 border-l border-border pl-4">
                   {events.slice(0, 6).map((event) => {
-                    const total = event._count?.registrations ?? 0;
-                    const joined = event._count?.attendances ?? 0;
-                    const height = total
-                      ? Math.max((joined / total) * 100, 8)
-                      : 8;
+                    const height = Math.max(event.summary?.joinRate ?? 0, 8);
                     return (
                       <div
                         key={event.id}
@@ -135,15 +170,15 @@ export function DashboardPageContent() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Database health</CardTitle>
+              <CardTitle>Operations mix</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <MixRow
                 label="Events with QR"
                 value={events.filter((event) => event.qrCodes?.length).length}
               />
-              <MixRow label="Registrations" value={registrations} />
-              <MixRow label="Attendance rows" value={checkedIn} />
+              <MixRow label="Expected people" value={totalUsers} />
+              <MixRow label="Checked in" value={checkedIn} />
               <MixRow
                 label="Admin users"
                 value={
@@ -155,6 +190,36 @@ export function DashboardPageContent() {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent check-ins</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {recentAttendances.length ? (
+              recentAttendances.map((attendance) => (
+                <div
+                  key={attendance.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-background p-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{attendance.fullNameEn}</p>
+                    <p className="truncate text-xs text-muted-fg">
+                      {attendance.eventName}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-fg">
+                    {new Date(attendance.createdAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-fg">
+                No recent check-ins yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         <TableShell>
           <SectionToolbar title="Recent events">
@@ -184,11 +249,12 @@ export function DashboardPageContent() {
                     {new Date(event.startsAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-muted-fg">
-                    {event._count?.attendances ?? 0}/
-                    {event._count?.registrations ?? 0}
+                    {event.summary?.checkedIn ?? 0}/{event.summary?.totalUsers ?? 0}
                   </TableCell>
                   <TableCell>
-                    <StatusPill tone="green">Synced</StatusPill>
+                    <StatusPill tone={eventTone(event)}>
+                      {eventStatus(event)}
+                    </StatusPill>
                   </TableCell>
                 </TableRow>
               ))}
@@ -199,6 +265,21 @@ export function DashboardPageContent() {
     </AdminShell>
   );
 }
+
+function eventStatus(event: { startsAt: string; endsAt: string }) {
+  const now = Date.now();
+  if (new Date(event.startsAt).getTime() > now) return "Ready";
+  if (new Date(event.endsAt).getTime() < now) return "Closed";
+  return "Live";
+}
+
+function eventTone(event: { startsAt: string; endsAt: string }) {
+  const status = eventStatus(event);
+  if (status === "Live") return "green";
+  if (status === "Ready") return "purple";
+  return "amber";
+}
+
 
 function MixRow({ label, value }: { label: string; value: number }) {
   return (

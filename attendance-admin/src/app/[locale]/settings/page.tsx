@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { Languages, Monitor, Moon, Save, Sun } from "lucide-react";
 import { AdminShell, DataSourceBadge } from "@/components/admin/admin-shell";
-import type { AppearanceMode } from "@/components/providers/appearance-provider";
+import {
+  type AppearanceMode,
+  useAppearance,
+} from "@/components/providers/appearance-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,7 @@ export default function SettingsPage() {
   const pathname = usePathname();
   const params = useParams<{ locale: string }>();
   const [isPending, startTransition] = useTransition();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useAppearance();
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
 
   useEffect(() => {

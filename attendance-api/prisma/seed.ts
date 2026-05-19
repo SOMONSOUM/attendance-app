@@ -1,8 +1,14 @@
-require("dotenv/config");
+import "dotenv/config";
 
-const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
-const { PrismaClient } = require("@prisma/client");
-const { hash } = require("bcryptjs");
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import {
+  AttendanceStatus,
+  EventMode,
+  Gender,
+  PrismaClient,
+  ThemeAppearance,
+} from "@prisma/client";
+import { hash } from "bcryptjs";
 
 type PermissionSeed = [resource: string, action: string];
 
@@ -17,7 +23,7 @@ type UserSeed = {
   email: string;
   fullNameEn: string;
   fullNameKm: string | null;
-  gender: "MALE" | "FEMALE" | "OTHER";
+  gender: Gender;
   position: string;
   department: string;
   role: string;
@@ -27,7 +33,7 @@ type RegistrationSeed = {
   id: string;
   fullNameEn: string;
   fullNameKm: string | null;
-  gender: "MALE" | "FEMALE" | "OTHER";
+  gender: Gender;
   position: string;
   department: string;
 };
@@ -67,7 +73,9 @@ const roles: RoleSeed[] = [
   {
     name: "admin",
     description: "Full application access for managing events and users.",
-    permissions: permissions.map(([resource, action]) => `${resource}:${action}`),
+    permissions: permissions.map(
+      ([resource, action]) => `${resource}:${action}`,
+    ),
   },
   {
     name: "operator",
@@ -95,7 +103,7 @@ const users: UserSeed[] = [
     email: "admin@example.com",
     fullNameEn: "Admin User",
     fullNameKm: null,
-    gender: "OTHER",
+    gender: Gender.OTHER,
     position: "System Administrator",
     department: "Information Technology",
     role: "admin",
@@ -105,7 +113,7 @@ const users: UserSeed[] = [
     email: "operator@example.com",
     fullNameEn: "Event Operator",
     fullNameKm: null,
-    gender: "FEMALE",
+    gender: Gender.FEMALE,
     position: "Event Coordinator",
     department: "Operations",
     role: "operator",
@@ -115,7 +123,7 @@ const users: UserSeed[] = [
     email: "viewer@example.com",
     fullNameEn: "Attendance Viewer",
     fullNameKm: null,
-    gender: "MALE",
+    gender: Gender.MALE,
     position: "HR Officer",
     department: "Human Resources",
     role: "viewer",
@@ -125,39 +133,50 @@ const users: UserSeed[] = [
 const sampleEvent = {
   id: "seed-event-tech-summit-2026",
   name: "Khmer Tech Summit 2026",
-  description: "Demo event with QR check-in, registrations, attendance, and theme data.",
-  mode: "PRE_REGISTERED",
+  description:
+    "Demo event with QR check-in, registrations, attendance, and theme data.",
+  mode: EventMode.PRE_REGISTERED,
   locationName: "Phnom Penh Convention Center",
-  latitude: 11.5564,
-  longitude: 104.9282,
+  latitude: "11.5564000",
+  longitude: "104.9282000",
   radiusMeters: 250,
   startsAt: new Date("2026-06-01T01:30:00.000Z"),
   endsAt: new Date("2026-06-01T10:30:00.000Z"),
   createdById: "seed-user-admin",
 };
 
+const sampleTheme = {
+  primaryColor: "#2563eb",
+  backgroundColor: "#f8fafc",
+  backgroundImageUrl: null,
+  fontFamily: "Inter",
+  fontSize: 16,
+  radius: 8,
+  appearance: ThemeAppearance.system,
+};
+
 const registrations: RegistrationSeed[] = [
   {
     id: "seed-registration-sok-dara",
     fullNameEn: "Sok Dara",
-    fullNameKm: null,
-    gender: "MALE",
+    fullNameKm: "សុខ ដារ៉ា",
+    gender: Gender.MALE,
     position: "Software Engineer",
     department: "Engineering",
   },
   {
     id: "seed-registration-chan-sophea",
     fullNameEn: "Chan Sophea",
-    fullNameKm: null,
-    gender: "FEMALE",
+    fullNameKm: "ចាន សុភា",
+    gender: Gender.FEMALE,
     position: "Product Manager",
     department: "Product",
   },
   {
     id: "seed-registration-kim-sovann",
     fullNameEn: "Kim Sovann",
-    fullNameKm: null,
-    gender: "OTHER",
+    fullNameKm: "គីម សុវណ្ណ",
+    gender: Gender.OTHER,
     position: "Designer",
     department: "Creative",
   },
@@ -263,9 +282,10 @@ async function seedUsers(
 }
 
 async function seedEvent() {
+  const { id: eventId, ...eventData } = sampleEvent;
   const event = await prisma.event.upsert({
-    where: { id: sampleEvent.id },
-    update: sampleEvent,
+    where: { id: eventId },
+    update: eventData,
     create: sampleEvent,
   });
 
@@ -285,72 +305,65 @@ async function seedEvent() {
 
   await prisma.eventTheme.upsert({
     where: { eventId: event.id },
-    update: {
-      primaryColor: "#2563eb",
-      backgroundColor: "#f8fafc",
-      fontFamily: "Inter",
-      fontSize: 16,
-      radius: 8,
-      appearance: "system",
-    },
+    update: sampleTheme,
     create: {
       eventId: event.id,
-      primaryColor: "#2563eb",
-      backgroundColor: "#f8fafc",
-      fontFamily: "Inter",
-      fontSize: 16,
-      radius: 8,
-      appearance: "system",
+      ...sampleTheme,
     },
   });
 
   for (const registrationSeed of registrations) {
+    const { id: registrationId, ...registrationData } = registrationSeed;
+
     await prisma.eventRegistration.upsert({
-      where: { id: registrationSeed.id },
+      where: { id: registrationId },
       update: {
         eventId: event.id,
-        ...registrationSeed,
+        ...registrationData,
         source: "SEED",
       },
       create: {
+        id: registrationId,
         eventId: event.id,
-        ...registrationSeed,
+        ...registrationData,
         source: "SEED",
       },
     });
   }
 
+  const checkedInRegistration = registrations[0];
+
   await prisma.attendance.upsert({
     where: {
       eventId_registrationId: {
         eventId: event.id,
-        registrationId: "seed-registration-sok-dara",
+        registrationId: checkedInRegistration.id,
       },
     },
     update: {
-      fullNameEn: "Sok Dara",
-      fullNameKm: null,
-      gender: "MALE",
-      position: "Software Engineer",
-      department: "Engineering",
-      latitude: 11.55645,
-      longitude: 104.92825,
+      fullNameEn: checkedInRegistration.fullNameEn,
+      fullNameKm: "សុខ ដារ៉ា",
+      gender: checkedInRegistration.gender,
+      position: checkedInRegistration.position,
+      department: checkedInRegistration.department,
+      latitude: "11.5564500",
+      longitude: "104.9282500",
       distanceMeters: 8,
-      status: "JOINED",
+      status: AttendanceStatus.JOINED,
     },
     create: {
       eventId: event.id,
-      registrationId: "seed-registration-sok-dara",
+      registrationId: checkedInRegistration.id,
       userId: "seed-user-admin",
-      fullNameEn: "Sok Dara",
-      fullNameKm: null,
-      gender: "MALE",
-      position: "Software Engineer",
-      department: "Engineering",
-      latitude: 11.55645,
-      longitude: 104.92825,
+      fullNameEn: checkedInRegistration.fullNameEn,
+      fullNameKm: "សុខ ដារ៉ា",
+      gender: checkedInRegistration.gender,
+      position: checkedInRegistration.position,
+      department: checkedInRegistration.department,
+      latitude: "11.5564500",
+      longitude: "104.9282500",
       distanceMeters: 8,
-      status: "JOINED",
+      status: AttendanceStatus.JOINED,
     },
   });
 }

@@ -22,10 +22,15 @@
     "khmerName": "Khmer name",
     "gender": "Gender",
     "selectBeforeJoining": "Search and select your pre-registered name before joining.",
-    "readyStatus": "Ready to verify location",
-    "checkingLocation": "Checking your location...",
+    "readyStatus": "Ready to confirm attendance",
+    "checkingLocation": "Confirming your attendance...",
     "confirmedStatus": "Attendance confirmed. Thank you.",
+    "alreadyJoinedStatus": "This attendance was already confirmed.",
+    "alreadyJoinedTitle": "Already joined",
+    "alreadyJoinedMessage": "This user has already joined this event.",
+    "close": "Close",
+    "ok": "OK",
     "couldNotJoin": "Could not join event",
-    "locationRequired": "Location permission is required to join this event."
+    "locationRequired": "Please try again to join this event."
   }
 }

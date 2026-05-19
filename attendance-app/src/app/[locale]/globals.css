@@ -73,7 +73,7 @@ body {
   color: var(--secondary-foreground);
 }
 .text-muted-fg {
-  color: color-mix(in srgb, var(--foreground) 64%, transparent);
+  color: color-mix(in srgb, var(--foreground) 76%, transparent);
 }
 .text-primary {
   color: var(--primary);
@@ -97,7 +97,61 @@ body {
   --tw-ring-color: var(--ring);
 }
 
+select option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+select option:checked {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.dark select option {
+  background-color: #171827;
+  color: #f8fafc;
+}
+
+.dark select option:checked {
+  background-color: #2e3350;
+  color: #ffffff;
+}
+
 .scan-theme .rounded-lg,
 .scan-theme .rounded-md {
   border-radius: var(--radius);
+}
+
+.scan-theme {
+  --primary: var(--event-primary, #5b3fd5);
+  --primary-foreground: var(--event-primary-foreground, #ffffff);
+  --background: var(--event-background, #fbfafc);
+  --foreground: #17131f;
+  --card: #ffffff;
+  --card-foreground: #17131f;
+  --secondary: color-mix(in srgb, var(--primary) 9%, #ffffff);
+  --secondary-foreground: #251f35;
+  --muted: color-mix(in srgb, var(--primary) 5%, #f7f6fb);
+  --border: color-mix(in srgb, var(--primary) 16%, #ded8eb);
+  --input: color-mix(in srgb, var(--primary) 20%, #d8d2e4);
+  --ring: var(--primary);
+  --scan-image-overlay: rgba(247, 249, 252, 0.9);
+}
+
+.dark .scan-theme {
+  --background: #0f1018;
+  --foreground: #f8fafc;
+  --card: #171827;
+  --card-foreground: #f8fafc;
+  --secondary: color-mix(in srgb, var(--primary) 18%, #24263a);
+  --secondary-foreground: #f7f8ff;
+  --muted: #222437;
+  --border: #41445f;
+  --input: #535773;
+  --ring: color-mix(in srgb, var(--primary) 72%, #ffffff);
+  --scan-image-overlay: rgba(15, 16, 24, 0.9);
+}
+
+.dark .scan-theme .text-muted-fg {
+  color: color-mix(in srgb, var(--foreground) 82%, transparent);
 }

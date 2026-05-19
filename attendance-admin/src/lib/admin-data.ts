@@ -6,14 +6,25 @@ export type EventRecord = {
   description?: string | null;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   locationName: string;
-  latitude: string | number;
-  longitude: string | number;
-  radiusMeters: number;
+  latitude?: string | number;
+  longitude?: string | number;
+  radiusMeters?: number;
   startsAt: string;
   endsAt: string;
   theme?: EventTheme | null;
+  shifts?: EventShift[];
   qrCodes?: { id: string; code: string; active: boolean }[];
   _count?: { attendances: number; registrations: number };
+  summary?: EventSummary;
+  recentAttendances?: AttendanceRecord[];
+};
+
+export type EventSummary = {
+  totalUsers: number;
+  registrations: number;
+  checkedIn: number;
+  joinRate: number;
+  remaining: number;
 };
 
 export type EventTheme = {
@@ -26,16 +37,20 @@ export type EventTheme = {
   appearance: "light" | "dark" | "system";
 };
 
+export type EventShift = {
+  id?: string;
+  name: string;
+  startsAt: string;
+  endsAt: string;
+};
+
 export type EventForm = {
   name: string;
   description?: string;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
-  locationName: string;
-  latitude: number;
-  longitude: number;
-  radiusMeters: number;
   startsAt: string;
   endsAt: string;
+  shifts?: EventShift[];
   theme: EventTheme;
 };
 
@@ -89,9 +104,26 @@ export type AttendanceRecord = {
   gender?: string | null;
   position?: string | null;
   department?: string | null;
-  distanceMeters: number;
+  distanceMeters?: number;
   status: "JOINED" | "CANCELLED";
   createdAt: string;
+};
+
+export type EventRosterRecord = {
+  id: string;
+  eventId: string;
+  registrationId: string | null;
+  attendanceId: string | null;
+  shiftId?: string | null;
+  shiftName?: string | null;
+  fullNameEn: string;
+  fullNameKm?: string | null;
+  gender?: string | null;
+  position?: string | null;
+  department?: string | null;
+  joined: boolean;
+  status: "JOINED" | "CANCELLED" | "NOT_YET";
+  joinedAt?: string | null;
 };
 
 export const eventKeys = {
@@ -138,6 +170,24 @@ export function deleteEvent(id: string) {
 
 export function getEventQr(id: string) {
   return api<{ code: string; qrImage: string }>(`/events/${id}/qr`);
+}
+
+export function uploadRegistrations(eventId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return api<{ count: number }>(`/events/${eventId}/registrations/upload`, {
+    method: "POST",
+    body: formData,
+    headers: {},
+  });
+}
+
+export function copyRegistrations(eventId: string, sourceEventId: string) {
+  return api<{ count: number }>(
+    `/events/${eventId}/registrations/copy/${sourceEventId}`,
+    { method: "POST" },
+  );
 }
 
 export function listUsers() {
@@ -193,6 +243,26 @@ export function assignUserRole(id: string, roleName: string) {
 
 export function listAttendance(eventId: string) {
   return api<AttendanceRecord[]>(`/attendance/events/${eventId}`);
+}
+
+export function listEventRoster(eventId: string) {
+  return api<EventRosterRecord[]>(`/attendance/events/${eventId}/roster`);
+}
+
+export function joinRegisteredAttendee(
+  eventId: string,
+  registrationId: string,
+) {
+  return api<AttendanceRecord>(
+    `/attendance/events/${eventId}/registrations/${registrationId}/join`,
+    { method: "POST" },
+  );
+}
+
+export function cancelAttendance(attendanceId: string) {
+  return api<{ cancelled: true }>(`/attendance/${attendanceId}`, {
+    method: "DELETE",
+  });
 }
 
 export function hasPermission(

@@ -5,6 +5,30 @@ type ApiResponse<T> = {
   data: T;
 };
 
+type ApiErrorResponse = {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: string[];
+  };
+  statusCode: number;
+};
+
+export class ApiRequestError extends Error {
+  code: string;
+  statusCode: number;
+  details?: string[];
+
+  constructor(response: ApiErrorResponse) {
+    super(response.error.message);
+    this.name = "ApiRequestError";
+    this.code = response.error.code;
+    this.statusCode = response.statusCode;
+    this.details = response.error.details;
+  }
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}/api${path}`, {
     ...init,
@@ -14,8 +38,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     },
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(await res.text());
   const payload = (await res.json()) as ApiResponse<T> | T;
+
+  if (!res.ok) {
+    if (isApiErrorResponse(payload)) throw new ApiRequestError(payload);
+    throw new Error("Request failed");
+  }
+
   return isApiResponse(payload) ? payload.data : payload;
 }
 
@@ -27,5 +56,15 @@ function isApiResponse<T>(
     typeof payload === "object" &&
     "success" in payload &&
     "data" in payload
+  );
+}
+
+function isApiErrorResponse(payload: unknown): payload is ApiErrorResponse {
+  return (
+    !!payload &&
+    typeof payload === "object" &&
+    "success" in payload &&
+    (payload as { success: unknown }).success === false &&
+    "error" in payload
   );
 }

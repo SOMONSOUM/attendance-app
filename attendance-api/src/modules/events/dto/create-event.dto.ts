@@ -2,10 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { EventMode, ThemeAppearance } from "@prisma/client";
 import {
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -54,6 +54,20 @@ export class EventThemeDto {
   appearance?: ThemeAppearance;
 }
 
+export class EventShiftDto {
+  @ApiProperty({ example: "Morning shift" })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ example: "2026-06-01T01:30:00.000Z" })
+  @IsDateString()
+  startsAt!: string;
+
+  @ApiProperty({ example: "2026-06-01T05:00:00.000Z" })
+  @IsDateString()
+  endsAt!: string;
+}
+
 export class CreateEventDto {
   @ApiProperty({ example: "Khmer Tech Summit 2026" })
   @IsString()
@@ -73,23 +87,25 @@ export class CreateEventDto {
   @IsEnum(EventMode)
   mode!: EventMode;
 
-  @ApiProperty({ example: "Phnom Penh Convention Center" })
+  @ApiPropertyOptional({ example: "Not required" })
+  @IsOptional()
   @IsString()
-  locationName!: string;
+  locationName?: string;
 
-  @ApiProperty({ example: 11.5564 })
-  @IsNumber()
-  latitude!: number;
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  latitude?: number;
 
-  @ApiProperty({ example: 104.9282 })
-  @IsNumber()
-  longitude!: number;
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  longitude?: number;
 
-  @ApiProperty({ example: 150, minimum: 10, maximum: 5000 })
+  @ApiPropertyOptional({ example: 0, minimum: 0, maximum: 5000 })
+  @IsOptional()
   @IsInt()
-  @Min(10)
+  @Min(0)
   @Max(5000)
-  radiusMeters!: number;
+  radiusMeters?: number;
 
   @ApiProperty({ example: "2026-06-01T01:30:00.000Z" })
   @IsDateString()
@@ -104,4 +120,11 @@ export class CreateEventDto {
   @ValidateNested()
   @Type(() => EventThemeDto)
   theme?: EventThemeDto;
+
+  @ApiPropertyOptional({ type: [EventShiftDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventShiftDto)
+  shifts?: EventShiftDto[];
 }

@@ -1,4 +1,5 @@
 import { ScanClient } from "./scan-client";
+import { AppearanceProvider } from "@/components/appearance-provider";
 import { api } from "@/lib/api";
 
 type EventTheme = {
@@ -16,7 +17,7 @@ type Event = {
   name: string;
   description?: string | null;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
-  locationName: string;
+  locationName?: string;
   startsAt: string;
   endsAt: string;
   theme?: EventTheme | null;
@@ -33,5 +34,9 @@ export default async function ScanPage({
 }) {
   const { code } = await params;
   const event = await getEvent(code);
-  return <ScanClient code={code} event={event} />;
+  return (
+    <AppearanceProvider defaultTheme={event.theme?.appearance ?? "system"}>
+      <ScanClient code={code} event={event} />
+    </AppearanceProvider>
+  );
 }

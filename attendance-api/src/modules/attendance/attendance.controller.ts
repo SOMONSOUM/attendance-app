@@ -1,13 +1,15 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiTags,
 } from "@nestjs/swagger";
 import {
+  alreadyJoinedError,
   apiError,
   apiSuccess,
   attendanceExample,
@@ -25,7 +27,7 @@ export class AttendanceController {
 
   @Public()
   @ApiOperation({
-    summary: "Join event from QR code after geofence validation",
+    summary: "Join event from QR code",
   })
   @ApiParam({ name: "code", example: "QR-CODE-EXAMPLE-123" })
   @ApiOkResponse({
@@ -33,8 +35,12 @@ export class AttendanceController {
     schema: { example: apiSuccess(attendanceExample) },
   })
   @ApiBadRequestResponse({
-    description: "Outside event radius or validation failed",
+    description: "Validation failed",
     schema: { example: apiError },
+  })
+  @ApiConflictResponse({
+    description: "User already joined this event",
+    schema: { example: alreadyJoinedError },
   })
   @Post("qr/:code/join")
   join(@Param("code") code: string, @Body() dto: JoinEventDto) {
@@ -51,5 +57,33 @@ export class AttendanceController {
   @Get("events/:eventId")
   list(@Param("eventId") eventId: string) {
     return this.attendance.list(eventId);
+  }
+
+  @ApiOperation({ summary: "List all event attendees with joined status" })
+  @ApiParam({ name: "eventId", example: "clxevent001" })
+  @RequirePermissions("attendance:read")
+  @Get("events/:eventId/roster")
+  roster(@Param("eventId") eventId: string) {
+    return this.attendance.roster(eventId);
+  }
+
+  @ApiOperation({ summary: "Mark a registered attendee as joined" })
+  @ApiParam({ name: "eventId", example: "clxevent001" })
+  @ApiParam({ name: "registrationId", example: "clxregistration001" })
+  @RequirePermissions("attendance:create")
+  @Post("events/:eventId/registrations/:registrationId/join")
+  joinRegistration(
+    @Param("eventId") eventId: string,
+    @Param("registrationId") registrationId: string,
+  ) {
+    return this.attendance.joinRegistration(eventId, registrationId);
+  }
+
+  @ApiOperation({ summary: "Cancel an attendee check-in" })
+  @ApiParam({ name: "attendanceId", example: "clxattendance001" })
+  @RequirePermissions("attendance:create")
+  @Delete(":attendanceId")
+  cancel(@Param("attendanceId") attendanceId: string) {
+    return this.attendance.cancel(attendanceId);
   }
 }

@@ -18,6 +18,17 @@ export const apiError = {
   path: "/api/example",
 };
 
+export const alreadyJoinedError = {
+  success: false,
+  error: {
+    code: "ALREADY_JOINED",
+    message: "This user already joined the event.",
+  },
+  statusCode: 409,
+  timestamp: "2026-05-18T03:00:00.000Z",
+  path: "/api/attendance/qr/QR-CODE-EXAMPLE-123/join",
+};
+
 export const authSessionExample = apiSuccess({
   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access",
   refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh",
@@ -34,10 +45,10 @@ export const eventExample = {
   name: "Khmer Tech Summit 2026",
   description: "Annual product and engineering attendance event.",
   mode: "PRE_REGISTERED",
-  locationName: "Phnom Penh Convention Center",
-  latitude: "11.5564000",
-  longitude: "104.9282000",
-  radiusMeters: 150,
+  locationName: "Not required",
+  latitude: "0.0000000",
+  longitude: "0.0000000",
+  radiusMeters: 0,
   startsAt: "2026-06-01T01:30:00.000Z",
   endsAt: "2026-06-01T10:30:00.000Z",
   createdAt: "2026-05-18T03:00:00.000Z",
@@ -90,9 +101,9 @@ export const attendanceExample = {
   gender: "MALE",
   position: "Engineering Manager",
   department: "Technology",
-  latitude: "11.5564000",
-  longitude: "104.9282000",
-  distanceMeters: 18,
+  latitude: "0.0000000",
+  longitude: "0.0000000",
+  distanceMeters: 0,
   status: "JOINED",
   createdAt: "2026-05-18T03:00:00.000Z",
 };

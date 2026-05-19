@@ -1,20 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Gender } from "@prisma/client";
-import { IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsEnum, IsOptional, IsString } from "class-validator";
 
 export class JoinEventDto {
-  @ApiProperty({ example: 11.5564 })
-  @IsNumber()
-  latitude!: number;
+  @ApiPropertyOptional({ example: 11.5564 })
+  @IsOptional()
+  latitude?: number;
 
-  @ApiProperty({ example: 104.9282 })
-  @IsNumber()
-  longitude!: number;
+  @ApiPropertyOptional({ example: 104.9282 })
+  @IsOptional()
+  longitude?: number;
 
   @ApiPropertyOptional({ example: "clxregistration001" })
   @IsOptional()
   @IsString()
   registrationId?: string;
+
+  @ApiPropertyOptional({ example: "clxshift001" })
+  @IsOptional()
+  @IsString()
+  shiftId?: string;
 
   @ApiProperty({ example: "Sok Dara" })
   @IsString()

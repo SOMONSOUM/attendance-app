@@ -40,11 +40,31 @@ apiClient.interceptors.response.use(
 );
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = init?.body instanceof FormData;
+  if (isFormData) {
+    const response = await fetch(`/api${path}`, {
+      method: init.method ?? "GET",
+      body: init.body,
+      credentials: "same-origin",
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error?.message ?? "Something went wrong");
+    }
+    return payload?.data ?? payload;
+  }
+
   const response = await apiClient.request<T>({
     url: path,
     method: init?.method ?? "GET",
-    data: init?.body ? JSON.parse(String(init.body)) : undefined,
-    headers: init?.headers as Record<string, string> | undefined,
+    data: isFormData
+      ? init.body
+      : init?.body
+        ? JSON.parse(String(init.body))
+        : undefined,
+    headers: isFormData
+      ? undefined
+      : (init?.headers as Record<string, string> | undefined),
   });
 
   return response as T;

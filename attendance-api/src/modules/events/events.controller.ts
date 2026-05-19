@@ -149,6 +149,18 @@ export class EventsController {
     return this.events.uploadRegistrations(eventId, file);
   }
 
+  @ApiOperation({ summary: "Copy registrations from another event" })
+  @ApiParam({ name: "eventId", example: "clxevent001" })
+  @ApiParam({ name: "sourceEventId", example: "clxsourceevent001" })
+  @RequirePermissions("registrations:create")
+  @Post(":eventId/registrations/copy/:sourceEventId")
+  copyRegistrations(
+    @Param("eventId") eventId: string,
+    @Param("sourceEventId") sourceEventId: string,
+  ) {
+    return this.events.copyRegistrations(eventId, sourceEventId);
+  }
+
   @ApiOperation({ summary: "Search registrations for attendee check-in" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @ApiQuery({ name: "q", required: false, example: "Sok" })

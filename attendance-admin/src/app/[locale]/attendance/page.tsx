@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, LocateFixed } from "lucide-react";
+import { Download, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AdminShell,
@@ -46,7 +46,7 @@ export default function AttendancePage() {
     <AdminShell
       active="Attendance"
       title="Attendance"
-      description="Audit check-ins, location distance, scan time, and attendee status from the database."
+      description="Audit check-ins, scan time, and attendee status from the database."
       action={
         <Button>
           <Download size={16} />
@@ -68,8 +68,10 @@ export default function AttendancePage() {
             ))}
           </Select>
           <Button variant="outline" className="h-8">
-            <LocateFixed size={14} />
-            {selectedEvent ? `${selectedEvent.radiusMeters}m range` : "Range"}
+            <Users size={14} />
+            {selectedEvent
+              ? `${selectedEvent.summary?.checkedIn ?? rows.length} checked in`
+              : "Attendees"}
           </Button>
         </SectionToolbar>
         {attendanceQuery.isLoading ? (
@@ -81,7 +83,6 @@ export default function AttendancePage() {
                 <TableHead>Attendee</TableHead>
                 <TableHead>Event</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Distance</TableHead>
                 <TableHead>Check-in time</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -95,9 +96,6 @@ export default function AttendancePage() {
                   </TableCell>
                   <TableCell className="text-muted-fg">
                     {row.department ?? "-"}
-                  </TableCell>
-                  <TableCell className="text-muted-fg">
-                    {row.distanceMeters}m
                   </TableCell>
                   <TableCell className="text-muted-fg">
                     {new Date(row.createdAt).toLocaleString()}

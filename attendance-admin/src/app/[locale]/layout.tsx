@@ -17,6 +17,24 @@ export default async function LocaleLayout({
   const messages = await getMessages();
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `
+(() => {
+  try {
+    const storedTheme = localStorage.getItem("admin-appearance") || "system";
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const theme = storedTheme === "system" ? systemTheme : storedTheme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+  } catch {}
+})();
+            `.trim(),
+          }}
+        />
+      </head>
       <body>
         <AppearanceProvider>
           <NextIntlClientProvider messages={messages}>

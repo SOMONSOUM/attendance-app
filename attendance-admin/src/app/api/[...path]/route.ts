@@ -38,7 +38,7 @@ async function proxyApiRequest(request: NextRequest, context: RouteContext) {
   const isAuthRequest = pathname.startsWith("auth/");
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-  const body = hasBody(request.method) ? await request.text() : undefined;
+  const body = hasBody(request.method) ? await request.arrayBuffer() : undefined;
 
   const apiResponse = await forwardRequest(request, pathname, body, accessToken);
   if (apiResponse.status !== 401 || !refreshToken || isAuthRequest) {
@@ -62,7 +62,7 @@ async function proxyApiRequest(request: NextRequest, context: RouteContext) {
 async function forwardRequest(
   request: NextRequest,
   pathname: string,
-  body?: string,
+  body?: BodyInit,
   accessToken?: string,
 ) {
   const headers = new Headers(request.headers);

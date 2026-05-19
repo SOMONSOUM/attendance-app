@@ -2,17 +2,17 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { EventMode } from "@prisma/client";
 import {
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   Max,
   Min,
   ValidateNested,
 } from "class-validator";
-import { EventThemeDto } from "./create-event.dto";
+import { EventShiftDto, EventThemeDto } from "./create-event.dto";
 
 export class UpdateEventDto {
   @ApiPropertyOptional({ example: "Khmer Tech Summit 2026" })
@@ -37,18 +37,16 @@ export class UpdateEventDto {
 
   @ApiPropertyOptional({ example: 11.5564 })
   @IsOptional()
-  @IsNumber()
   latitude?: number;
 
   @ApiPropertyOptional({ example: 104.9282 })
   @IsOptional()
-  @IsNumber()
   longitude?: number;
 
-  @ApiPropertyOptional({ example: 150, minimum: 10, maximum: 5000 })
+  @ApiPropertyOptional({ example: 0, minimum: 0, maximum: 5000 })
   @IsOptional()
   @IsInt()
-  @Min(10)
+  @Min(0)
   @Max(5000)
   radiusMeters?: number;
 
@@ -67,4 +65,11 @@ export class UpdateEventDto {
   @ValidateNested()
   @Type(() => EventThemeDto)
   theme?: EventThemeDto;
+
+  @ApiPropertyOptional({ type: [EventShiftDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventShiftDto)
+  shifts?: EventShiftDto[];
 }
