@@ -145,8 +145,9 @@ export class EventsController {
   upload(
     @Param("eventId") eventId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body("placeId") placeId?: string,
   ) {
-    return this.events.uploadRegistrations(eventId, file);
+    return this.events.uploadRegistrations(eventId, file, placeId);
   }
 
   @ApiOperation({ summary: "Copy registrations from another event" })
@@ -161,6 +162,19 @@ export class EventsController {
     return this.events.copyRegistrations(eventId, sourceEventId);
   }
 
+  @ApiOperation({ summary: "Copy registrations from a reusable import" })
+  @ApiParam({ name: "eventId", example: "clxevent001" })
+  @ApiParam({ name: "importId", example: "clximport001" })
+  @RequirePermissions("registrations:create")
+  @Post(":eventId/registrations/import/:importId")
+  copyRegistrationsFromImport(
+    @Param("eventId") eventId: string,
+    @Param("importId") importId: string,
+    @Body("placeId") placeId?: string,
+  ) {
+    return this.events.copyRegistrationsFromImport(eventId, importId, placeId);
+  }
+
   @ApiOperation({ summary: "Search registrations for attendee check-in" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @ApiQuery({ name: "q", required: false, example: "Sok" })
@@ -170,7 +184,11 @@ export class EventsController {
   })
   @Public()
   @Get(":eventId/registrations/search")
-  search(@Param("eventId") eventId: string, @Query("q") query = "") {
-    return this.events.searchRegistrations(eventId, query);
+  search(
+    @Param("eventId") eventId: string,
+    @Query("q") query = "",
+    @Query("placeId") placeId?: string,
+  ) {
+    return this.events.searchRegistrations(eventId, query, placeId);
   }
 }

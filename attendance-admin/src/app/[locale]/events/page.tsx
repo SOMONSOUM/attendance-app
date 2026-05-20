@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import {
   createEvent,
-  copyRegistrations,
+  copyRegistrationImport,
   deleteEvent,
   eventKeys,
   getCurrentUser,
@@ -43,15 +43,18 @@ import {
   hasPermission,
   type EventForm,
   type EventRecord,
+  listRegistrationImports,
   listEvents,
   updateEvent,
-  uploadRegistrations,
+  uploadRegistrationImport,
 } from "@/lib/admin-data";
 
 const initialForm: EventForm = {
   name: "",
   description: "",
   mode: "PRE_REGISTERED",
+  separateQrByPlace: false,
+  places: [],
   startsAt: "2026-06-01T08:30",
   endsAt: "2026-06-01T17:30",
   shifts: [],
@@ -66,6 +69,12 @@ const initialForm: EventForm = {
   },
 };
 
+const wizardSteps = [
+  { label: "Basics", description: "Name and description" },
+  { label: "QR setup", description: "QR mode and attendees" },
+  { label: "Details", description: "Date, shifts, theme" },
+];
+
 export default function EventsPage() {
   const router = useRouter();
   const params = useParams<{ locale: string }>();
@@ -74,7 +83,14 @@ export default function EventsPage() {
   const [editing, setEditing] = useState<EventRecord | null>(null);
   const [form, setForm] = useState<EventForm>(initialForm);
   const [registrationFile, setRegistrationFile] = useState<File | null>(null);
-  const [sourceEventId, setSourceEventId] = useState("");
+  const [placeRegistrationFiles, setPlaceRegistrationFiles] = useState<
+    Record<number, File | null>
+  >({});
+  const [sourceImportId, setSourceImportId] = useState("");
+  const [placeRegistrationImportIds, setPlaceRegistrationImportIds] = useState<
+    Record<number, string>
+  >({});
+  const [step, setStep] = useState(0);
   const [qrEvent, setQrEvent] = useState<EventRecord | null>(null);
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
@@ -83,6 +99,10 @@ export default function EventsPage() {
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: getCurrentUser,
+  });
+  const importsQuery = useQuery({
+    queryKey: ["registration-imports"],
+    queryFn: listRegistrationImports,
   });
   const qrQuery = useQuery({
     queryKey: ["events", qrEvent?.id, "qr"],
@@ -101,11 +121,26 @@ export default function EventsPage() {
         : await createEvent(normalizeForm(form));
 
       if (form.mode === "PRE_REGISTERED") {
-        if (sourceEventId) {
-          await copyRegistrations(savedEvent.id, sourceEventId);
+        if (!form.separateQrByPlace && sourceImportId) {
+          await copyRegistrationImport(savedEvent.id, sourceImportId);
         }
-        if (registrationFile) {
-          await uploadRegistrations(savedEvent.id, registrationFile);
+        if (!form.separateQrByPlace && registrationFile) {
+          const uploaded = await uploadRegistrationImport(registrationFile);
+          await copyRegistrationImport(savedEvent.id, uploaded.id);
+        }
+        if (form.separateQrByPlace) {
+          for (const [index, place] of (savedEvent.places ?? []).entries()) {
+            if (!place.id) continue;
+            const file = placeRegistrationFiles[index];
+            const importId = placeRegistrationImportIds[index];
+
+            if (importId) {
+              await copyRegistrationImport(savedEvent.id, importId, place.id);
+            } else if (file) {
+              const uploaded = await uploadRegistrationImport(file);
+              await copyRegistrationImport(savedEvent.id, uploaded.id, place.id);
+            }
+          }
         }
       }
 
@@ -113,6 +148,7 @@ export default function EventsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["registration-imports"] });
       resetForm();
     },
   });
@@ -123,6 +159,7 @@ export default function EventsPage() {
   });
 
   const events = eventsQuery.data ?? [];
+  const registrationImports = importsQuery.data ?? [];
   const activeCount = useMemo(
     () => events.filter((event) => new Date(event.endsAt) >= new Date()).length,
     [events],
@@ -132,7 +169,10 @@ export default function EventsPage() {
     setEditing(null);
     setForm(initialForm);
     setRegistrationFile(null);
-    setSourceEventId("");
+    setPlaceRegistrationFiles({});
+    setSourceImportId("");
+    setPlaceRegistrationImportIds({});
+    setStep(0);
   }
 
   function startEdit(event: EventRecord) {
@@ -141,12 +181,19 @@ export default function EventsPage() {
       name: event.name,
       description: event.description ?? "",
       mode: event.mode,
+      separateQrByPlace: Boolean(event.separateQrByPlace),
+      places: event.places?.map((place) => ({
+        id: place.id,
+        name: place.name,
+        description: place.description ?? "",
+        locationName: place.locationName ?? "",
+      })) ?? [],
       startsAt: toDatetimeLocal(event.startsAt),
       endsAt: toDatetimeLocal(event.endsAt),
       shifts: event.shifts?.map((shift) => ({
         name: shift.name,
-        startsAt: toDatetimeLocal(shift.startsAt),
-        endsAt: toDatetimeLocal(shift.endsAt),
+        startTime: toTimeInput(shift.startTime),
+        endTime: toTimeInput(shift.endTime),
       })) ?? [],
       theme: {
         primaryColor: event.theme?.primaryColor ?? initialForm.theme.primaryColor,
@@ -160,7 +207,10 @@ export default function EventsPage() {
       },
     });
     setRegistrationFile(null);
-    setSourceEventId("");
+    setPlaceRegistrationFiles({});
+    setSourceImportId("");
+    setPlaceRegistrationImportIds({});
+    setStep(0);
   }
 
   function updateShift(
@@ -171,6 +221,18 @@ export default function EventsPage() {
       ...form,
       shifts: form.shifts?.map((shift, shiftIndex) =>
         shiftIndex === index ? { ...shift, ...patch } : shift,
+      ),
+    });
+  }
+
+  function updatePlace(
+    index: number,
+    patch: Partial<NonNullable<EventForm["places"]>[number]>,
+  ) {
+    setForm({
+      ...form,
+      places: form.places?.map((place, placeIndex) =>
+        placeIndex === index ? { ...place, ...patch } : place,
       ),
     });
   }
@@ -189,7 +251,7 @@ export default function EventsPage() {
         ) : null
       }
     >
-      <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
         <TableShell>
           <SectionToolbar title="Event list">
             <Button variant="outline" className="h-8">
@@ -205,6 +267,7 @@ export default function EventsPage() {
                 <TableRow className="border-t-0">
                   <TableHead>Name</TableHead>
                   <TableHead>Mode</TableHead>
+                  <TableHead>QR mode</TableHead>
                   <TableHead>Total users</TableHead>
                   <TableHead>Checked in</TableHead>
                   <TableHead>Join rate</TableHead>
@@ -224,6 +287,11 @@ export default function EventsPage() {
                     </TableCell>
                     <TableCell className="text-muted-fg">
                       {event.mode.replace("_", " ")}
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill tone={event.separateQrByPlace ? "purple" : "blue"}>
+                        {event.separateQrByPlace ? "By place" : "Single QR"}
+                      </StatusPill>
                     </TableCell>
                     <TableCell className="text-muted-fg">
                       {event.summary?.totalUsers ?? event._count?.registrations ?? 0}
@@ -246,10 +314,18 @@ export default function EventsPage() {
                           className="h-8 px-3"
                           onClick={(clickEvent) => {
                             clickEvent.stopPropagation();
+                            if (event.separateQrByPlace) {
+                              router.push(`/${locale}/events/${event.id}`);
+                              return;
+                            }
                             setQrEvent(event);
                           }}
                         >
-                          <QrCode size={14} />
+                          {event.separateQrByPlace ? (
+                            "View"
+                          ) : (
+                            <QrCode size={14} />
+                          )}
                         </Button>
                         {canUpdate ? (
                           <Button
@@ -289,20 +365,35 @@ export default function EventsPage() {
           )}
         </TableShell>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editing ? "Update event" : "Quick event setup"}
-            </CardTitle>
+        <Card className="overflow-hidden xl:sticky xl:top-20">
+          <CardHeader className="border-b border-border bg-muted/30 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle>{editing ? "Update event" : "Create event"}</CardTitle>
+                <p className="mt-1 text-sm text-muted-fg">
+                  Step {step + 1} of {wizardSteps.length}:{" "}
+                  {wizardSteps[step].description}
+                </p>
+              </div>
+              <StatusPill tone={form.separateQrByPlace ? "purple" : "blue"}>
+                {form.separateQrByPlace ? "By place" : "Single QR"}
+              </StatusPill>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <form
-              className="grid gap-4"
+              className="flex max-h-[calc(100dvh-9rem)] flex-col"
               onSubmit={(event) => {
                 event.preventDefault();
                 saveMutation.mutate();
               }}
             >
+              <div className="border-b border-border p-4">
+                <WizardSteps step={step} onStepChange={setStep} />
+              </div>
+              <div className="grid gap-4 overflow-y-auto p-4">
+              {step === 0 ? (
+                <>
               <Field
                 label="Event name"
                 value={form.name}
@@ -313,6 +404,177 @@ export default function EventsPage() {
                 value={form.description ?? ""}
                 onChange={(value) => setForm({ ...form, description: value })}
               />
+                </>
+              ) : null}
+              {step === 1 ? (
+                <>
+              <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                <div>
+                  <h3 className="text-sm font-semibold">QR code setup</h3>
+                  <p className="mt-1 text-xs text-muted-fg">
+                    Use one QR for the whole event, or create separate QR codes
+                    for each place, hall, or room.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label>QR code mode</Label>
+                  <Select
+                    value={form.separateQrByPlace ? "separate" : "single"}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        separateQrByPlace: event.target.value === "separate",
+                        places:
+                          event.target.value === "separate" &&
+                          !form.places?.length
+                            ? [
+                                {
+                                  name: "Main hall",
+                                  description: "",
+                                  locationName: "Main hall",
+                                },
+                              ]
+                            : form.places,
+                      })
+                    }
+                  >
+                    <option value="single">One QR code for the event</option>
+                    <option value="separate">Separate QR code by place</option>
+                  </Select>
+                </div>
+                {form.separateQrByPlace ? (
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>Places / halls / rooms</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            places: [
+                              ...(form.places ?? []),
+                              {
+                                name: `Place ${(form.places?.length ?? 0) + 1}`,
+                                description: "",
+                                locationName: "",
+                              },
+                            ],
+                          })
+                        }
+                      >
+                        Add place
+                      </Button>
+                    </div>
+                    {form.places?.map((place, index) => (
+                      <div
+                        className="grid gap-3 rounded-md border border-border bg-card p-3"
+                        key={index}
+                      >
+                        <div className="flex items-end gap-2">
+                          <Field
+                            label="Place name"
+                            value={place.name}
+                            onChange={(value) =>
+                              updatePlace(index, { name: value })
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mb-0 h-10"
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                places: form.places?.filter(
+                                  (_, placeIndex) => placeIndex !== index,
+                                ),
+                              })
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        <Field
+                          label="Location / hall / room"
+                          value={place.locationName ?? ""}
+                          onChange={(value) =>
+                            updatePlace(index, { locationName: value })
+                          }
+                        />
+                        <Field
+                          label="Place description"
+                          value={place.description ?? ""}
+                          required={false}
+                          onChange={(value) =>
+                            updatePlace(index, { description: value })
+                          }
+                        />
+                        {form.mode === "PRE_REGISTERED" ? (
+                          <div className="grid gap-3">
+                            <div className="grid gap-2">
+                              <Label>Saved attendee import</Label>
+                              <Select
+                                value={placeRegistrationImportIds[index] ?? ""}
+                                onChange={(event) => {
+                                  const importId = event.target.value;
+                                  setPlaceRegistrationImportIds({
+                                    ...placeRegistrationImportIds,
+                                    [index]: importId,
+                                  });
+                                  if (importId) {
+                                    setPlaceRegistrationFiles({
+                                      ...placeRegistrationFiles,
+                                      [index]: null,
+                                    });
+                                  }
+                                }}
+                              >
+                                <option value="">Do not use saved import</option>
+                                {registrationImports.map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.originalName} ({item.rowCount} users)
+                                  </option>
+                                ))}
+                              </Select>
+                            </div>
+                            <label className="grid gap-2 text-sm font-medium">
+                              Upload Excel for this place
+                              <Input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                disabled={Boolean(
+                                  placeRegistrationImportIds[index],
+                                )}
+                                onChange={(event) =>
+                                  setPlaceRegistrationFiles({
+                                    ...placeRegistrationFiles,
+                                    [index]: event.target.files?.[0] ?? null,
+                                  })
+                                }
+                              />
+                            </label>
+                            {placeRegistrationImportIds[index] ? (
+                              <p className="text-xs text-muted-fg">
+                                Using saved import:{" "}
+                                {registrationImports.find(
+                                  (item) =>
+                                    item.id === placeRegistrationImportIds[index],
+                                )?.originalName ?? "Selected import"}
+                              </p>
+                            ) : placeRegistrationFiles[index] ? (
+                              <p className="text-xs text-muted-fg">
+                                Selected file: {placeRegistrationFiles[index]?.name}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <div className="grid gap-2">
                 <Label>Registration mode</Label>
                 <Select
@@ -328,6 +590,10 @@ export default function EventsPage() {
                   <option value="OPEN_REGISTRATION">Open registration</option>
                 </Select>
               </div>
+                </>
+              ) : null}
+              {step === 2 ? (
+                <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <DateTimeField
                   label="Starts"
@@ -359,8 +625,8 @@ export default function EventsPage() {
                           ...(form.shifts ?? []),
                           {
                             name: `Shift ${(form.shifts?.length ?? 0) + 1}`,
-                            startsAt: form.startsAt,
-                            endsAt: form.endsAt,
+                            startTime: "07:00",
+                            endTime: "12:00",
                           },
                         ],
                       })
@@ -401,18 +667,18 @@ export default function EventsPage() {
                           </Button>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <DateTimeField
+                          <TimeField
                             label="Shift starts"
-                            value={shift.startsAt}
+                            value={shift.startTime}
                             onChange={(value) =>
-                              updateShift(index, { startsAt: value })
+                              updateShift(index, { startTime: value })
                             }
                           />
-                          <DateTimeField
+                          <TimeField
                             label="Shift ends"
-                            value={shift.endsAt}
+                            value={shift.endTime}
                             onChange={(value) =>
-                              updateShift(index, { endsAt: value })
+                              updateShift(index, { endTime: value })
                             }
                           />
                         </div>
@@ -425,7 +691,7 @@ export default function EventsPage() {
                   </p>
                 )}
               </div>
-              {form.mode === "PRE_REGISTERED" ? (
+              {form.mode === "PRE_REGISTERED" && !form.separateQrByPlace ? (
                 <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                   <div className="flex items-center gap-2">
                     <FileSpreadsheet size={16} className="text-primary" />
@@ -434,27 +700,24 @@ export default function EventsPage() {
                         Pre-registration users
                       </h3>
                       <p className="mt-1 text-xs text-muted-fg">
-                        Copy an existing import or upload an Excel file after saving.
+                        Select a saved attendee import or upload an Excel file
+                        after saving.
                       </p>
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Pre-registration imports</Label>
+                    <Label>Saved attendee import</Label>
                     <Select
-                      value={sourceEventId}
-                      onChange={(event) => setSourceEventId(event.target.value)}
+                      value={sourceImportId}
+                      onChange={(event) => {
+                        setSourceImportId(event.target.value);
+                        if (event.target.value) setRegistrationFile(null);
+                      }}
                     >
-                      <option value="">Do not copy existing import</option>
-                      {events
-                        .filter((event) => event.id !== editing?.id)
-                        .filter(
-                          (event) =>
-                            event.mode === "PRE_REGISTERED" &&
-                            (event.summary?.registrations ?? 0) > 0,
-                        )
-                        .map((event) => (
-                          <option key={event.id} value={event.id}>
-                            {event.name} ({event.summary?.registrations ?? 0} users)
+                      <option value="">Do not use saved import</option>
+                      {registrationImports.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.originalName} ({item.rowCount} users)
                           </option>
                         ))}
                     </Select>
@@ -464,14 +727,26 @@ export default function EventsPage() {
                     <Input
                       type="file"
                       accept=".xlsx,.xls"
+                      disabled={Boolean(sourceImportId)}
                       onChange={(event) =>
                         setRegistrationFile(event.target.files?.[0] ?? null)
                       }
                     />
                   </label>
+                  {sourceImportId ? (
+                    <p className="text-xs text-muted-fg">
+                      Using saved import:{" "}
+                      {registrationImports.find((item) => item.id === sourceImportId)
+                        ?.originalName ?? "Selected import"}
+                    </p>
+                  ) : registrationFile ? (
+                    <p className="text-xs text-muted-fg">
+                      Selected file: {registrationFile.name}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-muted-fg">
                     Columns: Fullname English, Fullname Khmer, Gender, Position,
-                    Department, Shift.
+                    Department.
                   </p>
                 </div>
               ) : null}
@@ -579,14 +854,35 @@ export default function EventsPage() {
                   </Select>
                 </div>
               </div>
-              <Button
-                disabled={
-                  saveMutation.isPending || (editing ? !canUpdate : !canCreate)
-                }
-              >
-                <CalendarPlus size={16} />
-                {editing ? "Update event" : "Save and generate QR"}
-              </Button>
+                </>
+              ) : null}
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-border bg-card p-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={step === 0 || saveMutation.isPending}
+                  onClick={() => setStep((value) => Math.max(value - 1, 0))}
+                >
+                  Back
+                </Button>
+                <Button
+                  disabled={
+                    saveMutation.isPending || (editing ? !canUpdate : !canCreate)
+                  }
+                  type={step === 2 ? "submit" : "button"}
+                  onClick={() => {
+                    if (step < 2) setStep((value) => value + 1);
+                  }}
+                >
+                  <CalendarPlus size={16} />
+                  {step < 2
+                    ? "Continue"
+                    : editing
+                      ? "Update event"
+                      : "Save and generate QR"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -599,28 +895,82 @@ export default function EventsPage() {
       >
         {qrQuery.data && qrEvent ? (
           <div className="grid gap-4">
-            <img
-              src={qrQuery.data.qrImage}
-              alt={`${qrEvent.name} QR code`}
-              className="mx-auto size-64 rounded-md border border-border bg-white p-3"
-            />
-            <p className="break-all rounded-md bg-muted p-2 text-xs text-muted-fg">
-              {qrQuery.data.code}
-            </p>
-            <Button
-              onClick={() =>
-                downloadDataUrl(qrQuery.data.qrImage, `${qrEvent.name}-qr.png`)
-              }
-            >
-              <Download size={16} />
-              Download QR
-            </Button>
+            {(qrQuery.data.qrCodes?.length
+              ? qrQuery.data.qrCodes
+              : [{ code: qrQuery.data.code, qrImage: qrQuery.data.qrImage }]
+            ).map((qr) => (
+              <div className="grid gap-3 rounded-md border border-border p-3" key={qr.code}>
+                <p className="text-sm font-medium">
+                  {"placeName" in qr && qr.placeName ? qr.placeName : qrEvent.name}
+                </p>
+                <img
+                  src={qr.qrImage}
+                  alt={`${qrEvent.name} QR code`}
+                  className="mx-auto size-56 rounded-md border border-border bg-white p-3"
+                />
+                <p className="break-all rounded-md bg-muted p-2 text-xs text-muted-fg">
+                  {qr.code}
+                </p>
+                <Button
+                  onClick={() =>
+                    downloadDataUrl(
+                      qr.qrImage,
+                      `${qrEvent.name}-${"placeName" in qr && qr.placeName ? qr.placeName : "qr"}.png`,
+                    )
+                  }
+                >
+                  <Download size={16} />
+                  Download QR
+                </Button>
+              </div>
+            ))}
           </div>
         ) : (
           <p className="text-sm text-muted-fg">Loading QR code...</p>
         )}
       </Dialog>
     </AdminShell>
+  );
+}
+
+function WizardSteps({
+  step,
+  onStepChange,
+}: {
+  step: number;
+  onStepChange: (step: number) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      {wizardSteps.map((item, index) => (
+        <button
+          key={item.label}
+          type="button"
+          className={`flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+            step === index
+              ? "border-primary bg-secondary text-secondary-foreground"
+              : "border-border bg-background hover:bg-muted"
+          }`}
+          onClick={() => onStepChange(index)}
+        >
+          <span
+            className={`grid size-7 shrink-0 place-items-center rounded-md text-sm font-semibold ${
+              step === index
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-fg"
+            }`}
+          >
+            {index + 1}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold">{item.label}</span>
+            <span className="block truncate text-xs text-muted-fg">
+              {item.description}
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -684,14 +1034,45 @@ function DateTimeField({
   );
 }
 
+function TimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      <Input
+        className="h-11"
+        type="time"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+      />
+    </div>
+  );
+}
+
 function normalizeForm(form: EventForm): EventForm {
   return {
     ...form,
     shifts: form.shifts?.map((shift) => ({
-      ...shift,
-      startsAt: new Date(shift.startsAt).toISOString(),
-      endsAt: new Date(shift.endsAt).toISOString(),
+      name: shift.name,
+      startTime: normalizeTime(shift.startTime),
+      endTime: normalizeTime(shift.endTime),
     })),
+    places: form.separateQrByPlace
+      ? form.places?.map((place) => ({
+          id: place.id,
+          name: place.name,
+          description: place.description?.trim() || null,
+          locationName: place.locationName?.trim() || place.name,
+        }))
+      : [],
     theme: {
       ...form.theme,
       backgroundImageUrl: form.theme.backgroundImageUrl?.trim() || null,
@@ -710,6 +1091,19 @@ function clamp(value: number, min: number, max: number) {
 
 function toDatetimeLocal(value: string) {
   return new Date(value).toISOString().slice(0, 16);
+}
+
+function toTimeInput(value: string) {
+  if (!value) return "00:00";
+  if (value.includes("T")) {
+    return new Date(value).toISOString().slice(11, 16);
+  }
+
+  return value.slice(0, 5);
+}
+
+function normalizeTime(value: string) {
+  return value.length === 5 ? value : value.slice(0, 5);
 }
 
 function eventStatus(event: EventRecord) {

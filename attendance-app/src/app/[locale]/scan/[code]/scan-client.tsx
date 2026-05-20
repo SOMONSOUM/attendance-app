@@ -50,6 +50,18 @@ type Event = {
   locationName?: string;
   startsAt: string;
   endsAt: string;
+  shifts: {
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  scanPlace?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    locationName?: string | null;
+  } | null;
   theme?: {
     primaryColor: string;
     backgroundColor: string;
@@ -60,6 +72,8 @@ type Event = {
     appearance: "light" | "dark" | "system";
   } | null;
 };
+
+type WarningKey = "eventNotStarted" | "eventEnded" | "invalidShiftTime";
 
 export function ScanClient({ code, event }: { code: string; event: Event }) {
   const t = useTranslations("scan");
@@ -82,6 +96,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   const [status, setStatus] = useState<string>(t("readyStatus"));
   const [busy, setBusy] = useState(false);
   const [alreadyJoinedOpen, setAlreadyJoinedOpen] = useState(false);
+  const [warning, setWarning] = useState<WarningKey | null>(null);
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [mounted, setMounted] = useState(false);
 
@@ -94,6 +109,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   }, [theme]);
 
   const effectiveAppearance = mounted ? appearance : "light";
+  const scanBlockReason = useMemo(() => getScanBlockReason(event), [event]);
 
   const themeStyle = useMemo(() => {
     const primaryColor = event.theme?.primaryColor ?? "#5b3fd5";
@@ -113,6 +129,10 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       backgroundPosition: "center",
     } as CSSProperties;
   }, [event.theme]);
+
+  useEffect(() => {
+    setWarning(scanBlockReason);
+  }, [scanBlockReason]);
 
   function changeLocale(locale: string) {
     const nextPath = pathname.replace(/^\/(en|km)(?=\/|$)/, `/${locale}`);
@@ -148,7 +168,10 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
     setHasSearched(true);
     try {
       const data = await api<Registration[]>(
-        `/events/${event.id}/registrations/search?q=${encodeURIComponent(value)}`,
+        `/events/${event.id}/registrations/search?${new URLSearchParams({
+          q: value,
+          ...(event.scanPlace?.id ? { placeId: event.scanPlace.id } : {}),
+        })}`,
       );
       setResults(data);
     } finally {
@@ -157,6 +180,11 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   }
 
   async function join() {
+    if (scanBlockReason) {
+      setWarning(scanBlockReason);
+      return;
+    }
+
     setBusy(true);
     setStatus(t("checkingLocation"));
     const payload = {
@@ -174,6 +202,20 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
         setAlreadyJoinedOpen(true);
         setStatus(t("alreadyJoinedStatus"));
+      } else if (
+        error instanceof ApiRequestError &&
+        (error.code === "EVENT_NOT_STARTED" ||
+          error.code === "EVENT_ENDED" ||
+          error.code === "INVALID_SHIFT_TIME")
+      ) {
+        const nextWarning =
+          error.code === "EVENT_NOT_STARTED"
+            ? "eventNotStarted"
+            : error.code === "EVENT_ENDED"
+              ? "eventEnded"
+              : "invalidShiftTime";
+        setWarning(nextWarning);
+        setStatus(t(`${nextWarning}Status`));
       } else {
         setStatus(error instanceof Error ? error.message : t("couldNotJoin"));
       }
@@ -242,6 +284,11 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             {event.name}
           </h1>
+          {event.scanPlace ? (
+            <p className="mt-2 text-sm font-medium text-primary">
+              {event.scanPlace.name}
+            </p>
+          ) : null}
           {event.description ? (
             <p className="mt-3 text-muted-fg">{event.description}</p>
           ) : null}
@@ -379,6 +426,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           <Button
             disabled={
               busy ||
+              Boolean(scanBlockReason) ||
               (event.mode === "PRE_REGISTERED"
                 ? !selected
                 : !form.fullNameEn.trim())
@@ -442,8 +490,119 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           </div>
         </div>
       ) : null}
+
+      {warning ? (
+        <WarningDialog
+          title={t(`${warning}Title`)}
+          message={t(`${warning}Message`)}
+          closeLabel={t("close")}
+          okLabel={t("ok")}
+          onClose={() => setWarning(null)}
+        />
+      ) : null}
     </main>
   );
+}
+
+function WarningDialog({
+  title,
+  message,
+  closeLabel,
+  okLabel,
+  onClose,
+}: {
+  title: string;
+  message: string;
+  closeLabel: string;
+  okLabel: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scan-warning-title"
+    >
+      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 text-card-foreground shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+              <CircleAlert size={22} />
+            </span>
+            <div>
+              <h2 id="scan-warning-title" className="text-lg font-semibold">
+                {title}
+              </h2>
+              <p className="mt-1 text-sm text-muted-fg">{message}</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="size-8 shrink-0 px-0"
+            aria-label={closeLabel}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+        <Button type="button" className="mt-5 w-full" onClick={onClose}>
+          {okLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function getScanBlockReason(event: Event): WarningKey | null {
+  const now = new Date();
+  const startsAt = new Date(event.startsAt);
+  const endsAt = new Date(event.endsAt);
+
+  if (now < startOfDay(startsAt)) return "eventNotStarted";
+  if (now > endOfDay(endsAt)) return "eventEnded";
+  if (!event.shifts.length) return null;
+
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const activeShift = event.shifts.some((shift) =>
+    isWithinShift(nowMinutes, shift.startTime, shift.endTime),
+  );
+
+  return activeShift ? null : "invalidShiftTime";
+}
+
+function isWithinShift(nowMinutes: number, startTime: string, endTime: string) {
+  const startMinutes = toTimeMinutes(startTime);
+  const endMinutes = toTimeMinutes(endTime);
+
+  if (startMinutes <= endMinutes) {
+    return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+  }
+
+  return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+}
+
+function toTimeMinutes(value: string) {
+  if (value.includes("T")) {
+    const time = new Date(value);
+    return time.getUTCHours() * 60 + time.getUTCMinutes();
+  }
+
+  const [hours = "0", minutes = "0"] = value.split(":");
+  return Number(hours) * 60 + Number(minutes);
+}
+
+function startOfDay(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function endOfDay(date: Date) {
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return end;
 }
 
 function Detail({ label, value }: { label: string; value?: string | null }) {

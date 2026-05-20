@@ -11,6 +11,8 @@ export type EventRecord = {
   radiusMeters?: number;
   startsAt: string;
   endsAt: string;
+  separateQrByPlace?: boolean;
+  places?: EventPlace[];
   theme?: EventTheme | null;
   shifts?: EventShift[];
   qrCodes?: { id: string; code: string; active: boolean }[];
@@ -40,14 +42,24 @@ export type EventTheme = {
 export type EventShift = {
   id?: string;
   name: string;
-  startsAt: string;
-  endsAt: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type EventPlace = {
+  id?: string;
+  name: string;
+  description?: string | null;
+  locationName?: string | null;
+  qrCodes?: { id: string; code: string; active: boolean }[];
 };
 
 export type EventForm = {
   name: string;
   description?: string;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  separateQrByPlace?: boolean;
+  places?: EventPlace[];
   startsAt: string;
   endsAt: string;
   shifts?: EventShift[];
@@ -100,6 +112,8 @@ export type UserForm = {
 export type AttendanceRecord = {
   id: string;
   eventId: string;
+  placeId?: string | null;
+  placeName?: string | null;
   fullNameEn: string;
   gender?: string | null;
   position?: string | null;
@@ -114,6 +128,8 @@ export type EventRosterRecord = {
   eventId: string;
   registrationId: string | null;
   attendanceId: string | null;
+  placeId?: string | null;
+  placeName?: string | null;
   shiftId?: string | null;
   shiftName?: string | null;
   fullNameEn: string;
@@ -124,6 +140,26 @@ export type EventRosterRecord = {
   joined: boolean;
   status: "JOINED" | "CANCELLED" | "NOT_YET";
   joinedAt?: string | null;
+};
+
+export type RegistrationImportRecord = {
+  id: string;
+  fileName: string;
+  originalName: string;
+  rowCount: number;
+  status: "IMPORTED" | "VALIDATING" | string;
+  uploadedBy?: {
+    id: string;
+    fullNameEn: string;
+    email?: string | null;
+  } | null;
+  createdAt: string;
+};
+
+export type RegistrationTemplate = {
+  filename: string;
+  mimeType: string;
+  contentBase64: string;
 };
 
 export const eventKeys = {
@@ -169,18 +205,62 @@ export function deleteEvent(id: string) {
 }
 
 export function getEventQr(id: string) {
-  return api<{ code: string; qrImage: string }>(`/events/${id}/qr`);
+  return api<{
+    code: string;
+    qrImage: string;
+    qrCodes?: Array<{
+      id: string;
+      code: string;
+      placeId?: string | null;
+      placeName?: string | null;
+      qrImage: string;
+    }>;
+  }>(`/events/${id}/qr`);
 }
 
-export function uploadRegistrations(eventId: string, file: File) {
+export function uploadRegistrations(eventId: string, file: File, placeId?: string) {
   const formData = new FormData();
   formData.append("file", file);
+  if (placeId) formData.append("placeId", placeId);
 
   return api<{ count: number }>(`/events/${eventId}/registrations/upload`, {
     method: "POST",
     body: formData,
     headers: {},
   });
+}
+
+export function listRegistrationImports() {
+  return api<RegistrationImportRecord[]>("/registration-imports");
+}
+
+export function uploadRegistrationImport(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return api<RegistrationImportRecord>("/registration-imports/upload", {
+    method: "POST",
+    body: formData,
+    headers: {},
+  });
+}
+
+export function getRegistrationTemplate() {
+  return api<RegistrationTemplate>("/registration-imports/template");
+}
+
+export function copyRegistrationImport(
+  eventId: string,
+  importId: string,
+  placeId?: string,
+) {
+  return api<{ count: number }>(
+    `/events/${eventId}/registrations/import/${importId}`,
+    {
+      method: "POST",
+      body: JSON.stringify(placeId ? { placeId } : {}),
+    },
+  );
 }
 
 export function copyRegistrations(eventId: string, sourceEventId: string) {

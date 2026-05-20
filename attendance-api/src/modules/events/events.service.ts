@@ -13,7 +13,6 @@ type UploadRow = {
   Gender?: string;
   Position?: string;
   Department?: string;
-  Shift?: string;
 };
 
 type EventWithSummary = Event & {
@@ -35,31 +34,68 @@ export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateEventDto) {
-    const code = randomBytes(18).toString("base64url");
-    const { shifts, theme, ...eventDto } = dto;
-    const event = await this.prisma.event.create({
-      data: {
-        ...eventDto,
-        locationName: dto.locationName?.trim() || "Not required",
-        latitude: dto.latitude ?? 0,
-        longitude: dto.longitude ?? 0,
-        radiusMeters: dto.radiusMeters ?? 0,
-        startsAt: new Date(dto.startsAt),
-        endsAt: new Date(dto.endsAt),
-        qrCodes: { create: { code } },
-        shifts: {
-          create:
-            shifts?.map((shift) => ({
-              name: shift.name,
-              startsAt: new Date(shift.startsAt),
-              endsAt: new Date(shift.endsAt),
-            })) ?? [],
+    const { places, shifts, theme, ...eventDto } = dto;
+    const separateQrByPlace = Boolean(dto.separateQrByPlace);
+    const code = this.toQrCode();
+    const event = await this.prisma.$transaction(async (tx) => {
+      const createdEvent = await tx.event.create({
+        data: {
+          ...eventDto,
+          separateQrByPlace,
+          locationName: dto.locationName?.trim() || "Not required",
+          latitude: dto.latitude ?? 0,
+          longitude: dto.longitude ?? 0,
+          radiusMeters: dto.radiusMeters ?? 0,
+          startsAt: new Date(dto.startsAt),
+          endsAt: new Date(dto.endsAt),
+          qrCodes: separateQrByPlace ? undefined : { create: { code } },
+          places: separateQrByPlace
+            ? {
+                create:
+                  places?.map((place) => ({
+                    name: place.name,
+                    description: place.description,
+                    locationName: place.locationName?.trim() || place.name,
+                  })) ?? [],
+              }
+            : undefined,
+          shifts: {
+            create:
+              shifts?.map((shift) => ({
+                name: shift.name,
+                startTime: this.toTimeDate(shift.startTime),
+                endTime: this.toTimeDate(shift.endTime),
+              })) ?? [],
+          },
+          theme: { create: theme ?? {} },
         },
-        theme: { create: theme ?? {} },
-      },
-      include: { qrCodes: true, shifts: true, theme: true },
+      });
+
+      if (separateQrByPlace) {
+        const createdPlaces = await tx.eventPlace.findMany({
+          where: { eventId: createdEvent.id },
+        });
+        await tx.eventQrCode.createMany({
+          data: createdPlaces.map((place) => ({
+            eventId: createdEvent.id,
+            placeId: place.id,
+            code: this.toQrCode(),
+          })),
+        });
+      }
+
+      return tx.event.findUniqueOrThrow({
+        where: { id: createdEvent.id },
+        include: {
+          places: { include: { qrCodes: true } },
+          qrCodes: true,
+          shifts: true,
+          theme: true,
+        },
+      });
     });
-    return { ...event, qrImage: await this.toQrImage(code) };
+    const firstCode = event.qrCodes[0]?.code ?? event.places[0]?.qrCodes[0]?.code;
+    return { ...event, qrImage: firstCode ? await this.toQrImage(firstCode) : null };
   }
 
   async list() {
@@ -67,6 +103,7 @@ export class EventsService {
       orderBy: { createdAt: "desc" },
       include: {
         qrCodes: true,
+        places: { include: { qrCodes: true } },
         shifts: true,
         theme: true,
         attendances: {
@@ -82,14 +119,14 @@ export class EventsService {
 
   async update(eventId: string, dto: UpdateEventDto) {
     await this.assertEvent(eventId);
-    const { shifts, theme, ...eventDto } = dto;
+    const { places, shifts, theme, ...eventDto } = dto;
 
     return this.prisma.$transaction(async (tx) => {
       if (shifts) {
         await tx.eventShift.deleteMany({ where: { eventId } });
       }
 
-      return tx.event.update({
+      const event = await tx.event.update({
         where: { id: eventId },
         data: {
           ...eventDto,
@@ -99,8 +136,8 @@ export class EventsService {
             ? {
                 create: shifts.map((shift) => ({
                   name: shift.name,
-                  startsAt: new Date(shift.startsAt),
-                  endsAt: new Date(shift.endsAt),
+                  startTime: this.toTimeDate(shift.startTime),
+                  endTime: this.toTimeDate(shift.endTime),
                 })),
               }
             : undefined,
@@ -115,6 +152,81 @@ export class EventsService {
         },
         include: {
           qrCodes: true,
+          places: { include: { qrCodes: true } },
+          shifts: true,
+          theme: true,
+          _count: { select: { attendances: true, registrations: true } },
+        },
+      });
+
+      if (places) {
+        const incomingPlaceIds = places
+          .map((place) => place.id)
+          .filter((id): id is string => Boolean(id));
+
+        await tx.eventPlace.deleteMany({
+          where: {
+            eventId,
+            id: incomingPlaceIds.length ? { notIn: incomingPlaceIds } : undefined,
+          },
+        });
+
+        for (const place of places) {
+          if (place.id) {
+            await tx.eventPlace.updateMany({
+              where: { id: place.id, eventId },
+              data: {
+                name: place.name,
+                description: place.description,
+                locationName: place.locationName?.trim() || place.name,
+              },
+            });
+          } else {
+            await tx.eventPlace.create({
+              data: {
+                eventId,
+                name: place.name,
+                description: place.description,
+                locationName: place.locationName?.trim() || place.name,
+              },
+            });
+          }
+        }
+
+        const createdPlaces = await tx.eventPlace.findMany({
+          where: { eventId },
+          include: { qrCodes: true },
+        });
+        if (event.separateQrByPlace) {
+          const placesWithoutQr = createdPlaces.filter(
+            (place) => !place.qrCodes.some((qr) => qr.active),
+          );
+          if (placesWithoutQr.length) {
+            await tx.eventQrCode.createMany({
+              data: placesWithoutQr.map((place) => ({
+                eventId,
+                placeId: place.id,
+                code: this.toQrCode(),
+              })),
+            });
+          }
+        } else {
+          const existingEventQr = await tx.eventQrCode.findFirst({
+            where: { eventId, placeId: null, active: true },
+          });
+          if (!existingEventQr) {
+            await tx.eventQrCode.create({
+              data: { eventId, code: this.toQrCode() },
+            });
+          }
+        }
+      }
+
+      return tx.event.findUniqueOrThrow({
+        where: { id: event.id },
+        include: {
+          qrCodes: true,
+          places: { include: { qrCodes: true } },
           shifts: true,
           theme: true,
           _count: { select: { attendances: true, registrations: true } },
@@ -125,14 +237,24 @@ export class EventsService {
 
   async getQr(eventId: string) {
     await this.assertEvent(eventId);
-    const qr = await this.prisma.eventQrCode.findFirst({
+    const qrs = await this.prisma.eventQrCode.findMany({
       where: { eventId, active: true },
       orderBy: { createdAt: "desc" },
+      include: { place: true },
     });
-    if (!qr) throw new NotFoundException("QR code not found");
+    if (!qrs.length) throw new NotFoundException("QR code not found");
     return {
-      code: qr.code,
-      qrImage: await this.toQrImage(qr.code),
+      code: qrs[0].code,
+      qrImage: await this.toQrImage(qrs[0].code),
+      qrCodes: await Promise.all(
+        qrs.map(async (qr) => ({
+          id: qr.id,
+          code: qr.code,
+          placeId: qr.placeId,
+          placeName: qr.place?.name ?? null,
+          qrImage: await this.toQrImage(qr.code),
+        })),
+      ),
     };
   }
 
@@ -145,16 +267,23 @@ export class EventsService {
   async getPublicByCode(code: string) {
     const qr = await this.prisma.eventQrCode.findUnique({
       where: { code },
-      include: { event: { include: { theme: true } } },
+      include: {
+        place: true,
+        event: { include: { theme: true, shifts: true, places: true } },
+      },
     });
     if (!qr?.active)
       throw new NotFoundException("QR code was not found or is inactive");
-    return qr.event;
+    return { ...qr.event, scanPlace: qr.place };
   }
 
-  async uploadRegistrations(eventId: string, file: Express.Multer.File) {
+  async uploadRegistrations(
+    eventId: string,
+    file: Express.Multer.File,
+    placeId?: string,
+  ) {
     await this.assertEvent(eventId);
-    const shifts = await this.prisma.eventShift.findMany({ where: { eventId } });
+    if (placeId) await this.assertPlace(eventId, placeId);
 
     const workbook = XLSX.read(file.buffer);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -163,6 +292,7 @@ export class EventsService {
       .filter((row) => row["Fullname English"] || row["Fullname Khmer"])
       .map((row) => ({
         eventId,
+        placeId,
         fullNameEn:
           row["Fullname English"]?.trim() ??
           row["Fullname Khmer"]?.trim() ??
@@ -171,7 +301,6 @@ export class EventsService {
         gender: row.Gender ? genderMap[row.Gender.toLowerCase()] : undefined,
         position: row.Position?.trim(),
         department: row.Department?.trim(),
-        shiftId: this.matchShiftId(shifts, row.Shift),
       }));
 
     if (!data.length) return { count: 0 };
@@ -179,7 +308,7 @@ export class EventsService {
     return { count: data.length };
   }
 
-  searchRegistrations(eventId: string, query: string) {
+  searchRegistrations(eventId: string, query: string, placeId?: string) {
     const tokens = query
       .trim()
       .split(/\s+/)
@@ -189,6 +318,7 @@ export class EventsService {
     return this.prisma.eventRegistration.findMany({
       where: {
         eventId,
+        placeId: placeId || undefined,
         AND: tokens.map((token) => ({
           OR: [
             { fullNameEn: { contains: token } },
@@ -199,7 +329,6 @@ export class EventsService {
       },
       take: 20,
       orderBy: { fullNameEn: "asc" },
-      include: { shift: true },
     });
   }
 
@@ -226,10 +355,43 @@ export class EventsService {
     return { count: sourceRegistrations.length };
   }
 
+  async copyRegistrationsFromImport(
+    eventId: string,
+    importId: string,
+    placeId?: string,
+  ) {
+    await this.assertEvent(eventId);
+    if (placeId) await this.assertPlace(eventId, placeId);
+    const rows = await this.prisma.registrationImportRow.findMany({
+      where: { importId },
+    });
+
+    if (!rows.length) return { count: 0 };
+
+    await this.prisma.eventRegistration.createMany({
+      data: rows.map((row) => ({
+        eventId,
+        placeId,
+        fullNameEn: row.fullNameEn,
+        fullNameKm: row.fullNameKm,
+        gender: row.gender,
+        position: row.position,
+        department: row.department,
+        source: `IMPORT:${importId}`,
+      })),
+    });
+
+    return { count: rows.length };
+  }
+
   private toQrImage(code: string) {
     return QRCode.toDataURL(
       `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/scan/${code}`,
     );
+  }
+
+  private toQrCode() {
+    return randomBytes(18).toString("base64url");
   }
 
   private withSummary<T extends EventWithSummary>(event: T) {
@@ -254,13 +416,9 @@ export class EventsService {
     };
   }
 
-  private matchShiftId(
-    shifts: { id: string; name: string }[],
-    value: string | undefined,
-  ) {
-    const normalized = value?.trim().toLowerCase();
-    if (!normalized) return undefined;
-    return shifts.find((shift) => shift.name.toLowerCase() === normalized)?.id;
+  private toTimeDate(value: string) {
+    const time = value.length === 5 ? `${value}:00` : value;
+    return new Date(`1970-01-01T${time}.000Z`);
   }
 
   private async assertEvent(eventId: string) {
@@ -269,5 +427,13 @@ export class EventsService {
     });
     if (!event) throw new NotFoundException("Event not found");
     return event;
+  }
+
+  private async assertPlace(eventId: string, placeId: string) {
+    const place = await this.prisma.eventPlace.findFirst({
+      where: { id: placeId, eventId },
+    });
+    if (!place) throw new NotFoundException("Event place not found");
+    return place;
   }
 }

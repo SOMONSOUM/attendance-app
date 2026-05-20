@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -22,6 +22,9 @@ import {
   CalendarDays,
   ChartPie,
   Clock,
+  Download,
+  MapPin,
+  QrCode,
   RotateCcw,
   UserCheck,
   Users,
@@ -54,6 +57,7 @@ import {
 import {
   cancelAttendance,
   eventKeys,
+  getEventQr,
   joinRegisteredAttendee,
   listEventRoster,
   listEvents,
@@ -90,8 +94,10 @@ const splitConfig = {
 
 export default function EventDetailPage() {
   const params = useParams<{ locale: string; eventId: string }>();
+  const searchParams = useSearchParams();
   const locale = params.locale ?? "en";
   const eventId = params.eventId;
+  const selectedPlaceId = searchParams.get("placeId") ?? ALL;
   const queryClient = useQueryClient();
   const [department, setDepartment] = useState(ALL);
   const [position, setPosition] = useState(ALL);
@@ -110,6 +116,11 @@ export default function EventDetailPage() {
     queryFn: () => listEventRoster(eventId),
     enabled: Boolean(eventId),
   });
+  const qrQuery = useQuery({
+    queryKey: ["events", eventId, "qr"],
+    queryFn: () => getEventQr(eventId),
+    enabled: Boolean(eventId),
+  });
   const joinMutation = useMutation({
     mutationFn: (registrationId: string) =>
       joinRegisteredAttendee(eventId, registrationId),
@@ -122,11 +133,22 @@ export default function EventDetailPage() {
 
   const event = eventsQuery.data?.find((item) => item.id === eventId);
   const roster = rosterQuery.data ?? [];
-  const joinedRows = roster.filter((row) => row.joined);
-  const notYetRows = roster.filter((row) => !row.joined);
+  const scopedRows = useMemo(
+    () =>
+      selectedPlaceId === ALL
+        ? roster
+        : roster.filter((row) => row.placeId === selectedPlaceId),
+    [roster, selectedPlaceId],
+  );
+  const selectedPlace =
+    selectedPlaceId === ALL
+      ? null
+      : event?.places?.find((place) => place.id === selectedPlaceId);
+  const joinedRows = scopedRows.filter((row) => row.joined);
+  const notYetRows = scopedRows.filter((row) => !row.joined);
   const filteredRows = useMemo(
     () =>
-      roster.filter(
+      scopedRows.filter(
         (row) =>
           matchesFilter(row.department, department) &&
           matchesFilter(row.position, position) &&
@@ -134,7 +156,7 @@ export default function EventDetailPage() {
           matchesFilter(row.shiftName, shift) &&
           matchesJoinStatus(row, joinStatus),
       ),
-    [roster, department, position, gender, shift, joinStatus],
+    [scopedRows, department, position, gender, shift, joinStatus],
   );
   const totalPages = Math.max(Math.ceil(filteredRows.length / pageSize), 1);
   const currentPage = Math.min(page, totalPages);
@@ -145,23 +167,23 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [department, position, gender, shift, joinStatus, pageSize]);
+  }, [department, position, gender, shift, joinStatus, pageSize, selectedPlaceId]);
 
   const departmentOptions = useMemo(
-    () => uniqueValues(roster.map((row) => row.department)),
-    [roster],
+    () => uniqueValues(scopedRows.map((row) => row.department)),
+    [scopedRows],
   );
   const positionOptions = useMemo(
-    () => uniqueValues(roster.map((row) => row.position)),
-    [roster],
+    () => uniqueValues(scopedRows.map((row) => row.position)),
+    [scopedRows],
   );
   const genderOptions = useMemo(
-    () => uniqueValues(roster.map((row) => row.gender)),
-    [roster],
+    () => uniqueValues(scopedRows.map((row) => row.gender)),
+    [scopedRows],
   );
   const shiftOptions = useMemo(
-    () => uniqueValues(roster.map((row) => row.shiftName)),
-    [roster],
+    () => event?.shifts?.map((eventShift) => eventShift.name).sort() ?? [],
+    [event?.shifts],
   );
   const departmentGroups = useMemo(
     () => groupCounts(filteredRows, "department"),
@@ -190,7 +212,7 @@ export default function EventDetailPage() {
       fill: "var(--color-notYet)",
     },
   ];
-  const joinRate = percentage(joinedRows.length, roster.length);
+  const joinRate = percentage(joinedRows.length, scopedRows.length);
 
   return (
     <AdminShell
@@ -223,15 +245,15 @@ export default function EventDetailPage() {
         <div className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="All users"
-              value={String(roster.length)}
+              label={selectedPlace ? "Place users" : "All users"}
+              value={String(scopedRows.length)}
               sub={`${notYetRows.length} not yet joined`}
               icon={Users}
             />
             <MetricCard
               label="Joined"
               value={String(joinedRows.length)}
-              sub={`${joinRate}% event coverage`}
+              sub={`${joinRate}% coverage`}
               icon={UserCheck}
             />
             <MetricCard
@@ -247,6 +269,100 @@ export default function EventDetailPage() {
               icon={Clock}
             />
           </div>
+
+          {event.separateQrByPlace ? (
+            <Card>
+              <SectionToolbar
+                title={
+                  selectedPlace
+                    ? `${selectedPlace.name} overview`
+                    : "Places and QR codes"
+                }
+              >
+                {selectedPlace ? (
+                  <Button asChild variant="outline" className="h-8">
+                    <Link href={`/${locale}/events/${event.id}`}>All places</Link>
+                  </Button>
+                ) : null}
+              </SectionToolbar>
+              <CardContent className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+                {event.places?.length ? (
+                  event.places.map((place) => {
+                    const placeRows = roster.filter(
+                      (row) => row.placeId === place.id,
+                    );
+                    const joinedCount = placeRows.filter((row) => row.joined).length;
+                    const qr = qrQuery.data?.qrCodes?.find(
+                      (item) => item.placeId === place.id,
+                    );
+
+                    return (
+                      <div
+                        className="grid gap-3 rounded-md border border-border bg-background p-4"
+                        key={place.id ?? place.name}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{place.name}</p>
+                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-fg">
+                              <MapPin size={12} />
+                              {place.locationName || "Location not set"}
+                            </p>
+                          </div>
+                          <span className="grid size-8 place-items-center rounded-md border border-border text-muted-fg">
+                            <QrCode size={16} />
+                          </span>
+                        </div>
+                        {place.description ? (
+                          <p className="line-clamp-2 text-sm text-muted-fg">
+                            {place.description}
+                          </p>
+                        ) : null}
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <Stat label="Users" value={placeRows.length} />
+                          <Stat label="Joined" value={joinedCount} />
+                          <Stat
+                            label="Rate"
+                            value={`${percentage(joinedCount, placeRows.length)}%`}
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button asChild className="h-8">
+                            <Link
+                              href={`/${locale}/events/${event.id}?placeId=${place.id}`}
+                            >
+                              View
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-8"
+                            disabled={!qr?.qrImage}
+                            onClick={() =>
+                              qr?.qrImage
+                                ? downloadDataUrl(
+                                    qr.qrImage,
+                                    `${event.name}-${place.name}.png`,
+                                  )
+                                : undefined
+                            }
+                          >
+                            <Download size={14} />
+                            QR
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <EmptyState
+                    title="No places configured"
+                    text="Add places to this event to generate room-specific QR codes."
+                  />
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card>
             <CardContent className="grid gap-3 p-4 xl:grid-cols-6">
@@ -305,7 +421,7 @@ export default function EventDetailPage() {
           </Card>
 
           <div className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr]">
-            <Card>
+            <Card className="min-w-0">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Join activity</CardTitle>
                 <Button variant="outline" className="h-8">
@@ -343,7 +459,7 @@ export default function EventDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="min-w-0">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Joined split</CardTitle>
                 <StatusPill tone={eventTone(event)}>{eventStatus(event)}</StatusPill>
@@ -386,7 +502,11 @@ export default function EventDetailPage() {
           </div>
 
           <TableShell>
-            <SectionToolbar title="All users in this event">
+            <SectionToolbar
+              title={
+                selectedPlace ? `${selectedPlace.name} users` : "All users in this event"
+              }
+            >
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-fg">
                   {filteredRows.length} users
@@ -411,6 +531,7 @@ export default function EventDetailPage() {
                       <TableHead>Department</TableHead>
                       <TableHead>Position</TableHead>
                       <TableHead>Gender</TableHead>
+                      {event.separateQrByPlace ? <TableHead>Place</TableHead> : null}
                       <TableHead>Shift</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Joined time</TableHead>
@@ -439,6 +560,11 @@ export default function EventDetailPage() {
                         <TableCell className="text-muted-fg">
                           {row.gender ?? "-"}
                         </TableCell>
+                        {event.separateQrByPlace ? (
+                          <TableCell className="text-muted-fg">
+                            {row.placeName ?? "-"}
+                          </TableCell>
+                        ) : null}
                         <TableCell className="text-muted-fg">
                           {row.shiftName ?? "-"}
                         </TableCell>
@@ -533,7 +659,7 @@ function MetricCard({
   icon: typeof Users;
 }) {
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardContent className="p-4">
         <div className="mb-5 flex items-center justify-between">
           <p className="text-sm font-medium">{label}</p>
@@ -545,6 +671,15 @@ function MetricCard({
         <p className="mt-1 text-xs text-muted-fg">{sub}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-md bg-muted p-2">
+      <p className="text-xs text-muted-fg">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </div>
   );
 }
 
@@ -724,4 +859,11 @@ function eventTone(event: { startsAt: string; endsAt: string }) {
   if (status === "Live") return "green";
   if (status === "Ready") return "purple";
   return "amber";
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename.replace(/[^\w.-]+/g, "-").toLowerCase();
+  link.click();
 }

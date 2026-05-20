@@ -3,9 +3,11 @@ import { Type } from "class-transformer";
 import { EventMode, ThemeAppearance } from "@prisma/client";
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
+  Matches,
   IsOptional,
   IsString,
   Max,
@@ -59,13 +61,34 @@ export class EventShiftDto {
   @IsString()
   name!: string;
 
-  @ApiProperty({ example: "2026-06-01T01:30:00.000Z" })
-  @IsDateString()
-  startsAt!: string;
+  @ApiProperty({ example: "07:00" })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
+  startTime!: string;
 
-  @ApiProperty({ example: "2026-06-01T05:00:00.000Z" })
-  @IsDateString()
-  endsAt!: string;
+  @ApiProperty({ example: "12:00" })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
+  endTime!: string;
+}
+
+export class EventPlaceDto {
+  @ApiPropertyOptional({ example: "clxplace001" })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiProperty({ example: "Main hall" })
+  @IsString()
+  name!: string;
+
+  @ApiPropertyOptional({ example: "Ground floor keynote hall." })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ example: "Hall A" })
+  @IsOptional()
+  @IsString()
+  locationName?: string;
 }
 
 export class CreateEventDto {
@@ -86,6 +109,11 @@ export class CreateEventDto {
   })
   @IsEnum(EventMode)
   mode!: EventMode;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  separateQrByPlace?: boolean;
 
   @ApiPropertyOptional({ example: "Not required" })
   @IsOptional()
@@ -127,4 +155,11 @@ export class CreateEventDto {
   @ValidateNested({ each: true })
   @Type(() => EventShiftDto)
   shifts?: EventShiftDto[];
+
+  @ApiPropertyOptional({ type: [EventPlaceDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventPlaceDto)
+  places?: EventPlaceDto[];
 }

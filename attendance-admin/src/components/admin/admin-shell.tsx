@@ -3,9 +3,10 @@
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { useEffect, useState, useTransition } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
+import ReactCountryFlag from "react-country-flag";
 import {
   BadgeCheck,
   Bell,
@@ -17,16 +18,22 @@ import {
   Home,
   LogOut,
   Menu,
+  Monitor,
+  Moon,
   Palette,
   QrCode,
   Search,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
+  Sun,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  type AppearanceMode,
+  useAppearance,
+} from "@/components/providers/appearance-provider";
 import { logoutAdmin } from "@/lib/auth/actions";
 import { authKeys, getCurrentUser } from "@/lib/admin-data";
 import { cn } from "@/lib/utils";
@@ -91,8 +98,8 @@ export function AdminShell({
         className={cn(
           "grid min-h-screen",
           hydrated && collapsed
-            ? "lg:grid-cols-[76px_1fr]"
-            : "lg:grid-cols-[246px_1fr]",
+            ? "lg:grid-cols-[80px_minmax(0,1fr)]"
+            : "lg:grid-cols-[260px_minmax(0,1fr)]",
         )}
       >
         <ResponsiveSidebar
@@ -103,19 +110,17 @@ export function AdminShell({
         />
 
         <section className="min-w-0">
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-border bg-card px-4 md:px-6">
+          <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 md:gap-4 md:px-6">
             <MobileMenuButton active={active} currentUser={currentUser} />
-            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-border bg-background px-3 py-2">
+            <div className="hidden min-w-0 flex-1 items-center gap-3 rounded-lg border border-border bg-background px-3 py-2 sm:flex">
               <Search size={17} className="shrink-0 text-muted-fg" />
               <input
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-fg"
                 placeholder={t("searchPlaceholder")}
               />
             </div>
-            <Button variant="outline" className="hidden sm:inline-flex">
-              <Sparkles size={16} />
-              {t("runAi")}
-            </Button>
+            <AppearanceToggle />
+            <LanguageSwitcher />
             <Button
               variant="outline"
               className="size-10 px-0"
@@ -151,6 +156,72 @@ export function AdminShell({
   );
 }
 
+function AppearanceToggle() {
+  const t = useTranslations("settings");
+  const { theme, setTheme } = useAppearance();
+  const options: Array<{
+    value: AppearanceMode;
+    icon: ComponentType<{ size?: number; className?: string }>;
+    label: string;
+  }> = [
+    { value: "light", icon: Sun, label: t("light") },
+    { value: "dark", icon: Moon, label: t("dark") },
+    { value: "system", icon: Monitor, label: t("systemMode") },
+  ];
+
+  return (
+    <div className="hidden gap-1 rounded-md border border-border bg-background p-1 sm:flex">
+      {options.map((option) => {
+        const Icon = option.icon;
+        const active = theme === option.value;
+
+        return (
+          <Button
+            key={option.value}
+            type="button"
+            variant={active ? "secondary" : "ghost"}
+            className="size-8 px-0"
+            aria-label={option.label}
+            aria-pressed={active}
+            onClick={() => setTheme(option.value)}
+          >
+            <Icon size={15} />
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LanguageSwitcher() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useParams<{ locale: string }>();
+  const locale = params.locale ?? "km";
+  const nextLocale = locale === "km" ? "en" : "km";
+  const countryCode = locale === "km" ? "KH" : "US";
+
+  function switchLocale() {
+    const nextPath = pathname.replace(/^\/(en|km)(?=\/|$)/, `/${nextLocale}`);
+    router.replace(nextPath);
+  }
+
+  return (
+    <Button
+      variant="outline"
+      className="size-10 px-0"
+      aria-label="Switch language"
+      onClick={switchLocale}
+    >
+      <ReactCountryFlag
+        countryCode={countryCode}
+        svg
+        style={{ height: "1rem", width: "1.25rem" }}
+      />
+    </Button>
+  );
+}
+
 function ResponsiveSidebar({
   active,
   collapsed,
@@ -163,7 +234,7 @@ function ResponsiveSidebar({
   onToggle: () => void;
 }) {
   return (
-    <aside className="hidden border-r border-border bg-card lg:block">
+    <aside className="sticky top-0 hidden h-dvh overflow-hidden border-r border-border bg-card lg:block">
       <SidebarContent
         active={active}
         collapsed={collapsed}
@@ -199,7 +270,7 @@ function MobileMenuButton({
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <aside className="relative h-full w-[min(86vw,300px)] border-r border-border bg-card shadow-soft">
+          <aside className="relative h-dvh w-[min(86vw,300px)] overflow-hidden border-r border-border bg-card shadow-soft">
             <SidebarContent
               active={active}
               currentUser={currentUser}
@@ -242,8 +313,8 @@ function SidebarContent({
   }
 
   return (
-    <div className="relative flex h-screen flex-col">
-      <div className="flex h-16 items-center justify-between border-b border-border px-4">
+    <div className="relative flex h-dvh min-h-0 flex-col">
+      <div className="flex min-h-16 items-center justify-between border-b border-border px-4">
         <Link
           href={`/${locale}`}
           className="flex min-w-0 items-center gap-3"
@@ -274,7 +345,7 @@ function SidebarContent({
         ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <p className={cn("mb-2 px-2 text-[11px] font-semibold uppercase text-muted-fg", collapsed && "sr-only")}>
           {t("menu")}
         </p>
@@ -308,7 +379,7 @@ function SidebarContent({
         </nav>
       </div>
 
-      <div className="border-t border-border p-4">
+      <div className={cn("shrink-0 border-t border-border p-3", collapsed && "grid place-items-center")}>
         <div
           className={cn(
             "rounded-md bg-muted p-3",

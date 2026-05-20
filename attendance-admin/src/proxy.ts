@@ -12,7 +12,7 @@ const locales = ["en", "km"] as const;
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const handleI18n = createMiddleware({
   locales: ["en", "km"],
-  defaultLocale: "en",
+  defaultLocale: "km",
 });
 
 export default async function proxy(request: NextRequest) {

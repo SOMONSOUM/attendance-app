@@ -20,6 +20,18 @@ type Event = {
   locationName?: string;
   startsAt: string;
   endsAt: string;
+  shifts: {
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  scanPlace?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    locationName?: string | null;
+  } | null;
   theme?: EventTheme | null;
 };
 

@@ -68,6 +68,7 @@ async function forwardRequest(
   const headers = new Headers(request.headers);
   headers.delete("host");
   headers.delete("cookie");
+  headers.delete("content-length");
   if (accessToken) headers.set("authorization", `Bearer ${accessToken}`);
 
   return fetch(`${API_URL}/api/${pathname}${request.nextUrl.search}`, {

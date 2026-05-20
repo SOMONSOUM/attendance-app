@@ -3,6 +3,7 @@ import { Type } from "class-transformer";
 import { EventMode } from "@prisma/client";
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -12,7 +13,7 @@ import {
   Min,
   ValidateNested,
 } from "class-validator";
-import { EventShiftDto, EventThemeDto } from "./create-event.dto";
+import { EventPlaceDto, EventShiftDto, EventThemeDto } from "./create-event.dto";
 
 export class UpdateEventDto {
   @ApiPropertyOptional({ example: "Khmer Tech Summit 2026" })
@@ -29,6 +30,11 @@ export class UpdateEventDto {
   @IsOptional()
   @IsEnum(EventMode)
   mode?: EventMode;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  separateQrByPlace?: boolean;
 
   @ApiPropertyOptional({ example: "Phnom Penh Convention Center" })
   @IsOptional()
@@ -72,4 +78,11 @@ export class UpdateEventDto {
   @ValidateNested({ each: true })
   @Type(() => EventShiftDto)
   shifts?: EventShiftDto[];
+
+  @ApiPropertyOptional({ type: [EventPlaceDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventPlaceDto)
+  places?: EventPlaceDto[];
 }

@@ -2,9 +2,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import type { ReactNode } from "react";
-import { AppearanceProvider } from "@/components/providers/appearance-provider";
+import { HtmlLangProvider } from "@/components/providers/html-lang-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
-import "./globals.css";
 
 export default async function LocaleLayout({
   children,
@@ -16,34 +15,11 @@ export default async function LocaleLayout({
   const { locale } = await params;
   const messages = await getMessages();
   return (
-    <html lang={locale} suppressHydrationWarning>
-      <head>
-        <script
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{
-            __html: `
-(() => {
-  try {
-    const storedTheme = localStorage.getItem("admin-appearance") || "system";
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    const theme = storedTheme === "system" ? systemTheme : storedTheme;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.style.colorScheme = theme;
-  } catch {}
-})();
-            `.trim(),
-          }}
-        />
-      </head>
-      <body>
-        <AppearanceProvider>
-          <NextIntlClientProvider messages={messages}>
-            <NuqsAdapter>
-              <QueryProvider>{children}</QueryProvider>
-            </NuqsAdapter>
-          </NextIntlClientProvider>
-        </AppearanceProvider>
-      </body>
-    </html>
+    <NextIntlClientProvider messages={messages}>
+      <HtmlLangProvider locale={locale} />
+      <NuqsAdapter>
+        <QueryProvider>{children}</QueryProvider>
+      </NuqsAdapter>
+    </NextIntlClientProvider>
   );
 }
