@@ -10,6 +10,7 @@ import ReactCountryFlag from "react-country-flag";
 import {
   BadgeCheck,
   Bell,
+  Building2,
   CalendarDays,
   ChevronLeft,
   ClipboardCheck,
@@ -22,7 +23,6 @@ import {
   Moon,
   Palette,
   QrCode,
-  Search,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -37,6 +37,14 @@ import {
 import { logoutAdmin } from "@/lib/auth/actions";
 import { authKeys, getCurrentUser } from "@/lib/admin-data";
 import { cn } from "@/lib/utils";
+
+type ShellUser = {
+  fullNameEn: string;
+  email: string | null;
+  permissions: string[];
+  tenantName?: string | null;
+  tenantSlug?: string | null;
+};
 
 type NavItem = {
   key: string;
@@ -110,24 +118,22 @@ export function AdminShell({
         />
 
         <section className="min-w-0">
-          <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 md:gap-4 md:px-6">
-            <MobileMenuButton active={active} currentUser={currentUser} />
-            <div className="hidden min-w-0 flex-1 items-center gap-3 rounded-lg border border-border bg-background px-3 py-2 sm:flex">
-              <Search size={17} className="shrink-0 text-muted-fg" />
-              <input
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-fg"
-                placeholder={t("searchPlaceholder")}
-              />
+          <header className="sticky top-0 z-20 border-b border-border bg-card px-3 py-2 md:px-6">
+            <div className="flex min-h-12 items-center gap-2 md:gap-3">
+              <MobileMenuButton active={active} currentUser={currentUser} />
+              <TenantBadge currentUser={currentUser} />
+              <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+                <AppearanceToggle />
+                <LanguageSwitcher />
+                <Button
+                  variant="outline"
+                  className="size-10 px-0"
+                  aria-label="Notifications"
+                >
+                  <Bell size={16} />
+                </Button>
+              </div>
             </div>
-            <AppearanceToggle />
-            <LanguageSwitcher />
-            <Button
-              variant="outline"
-              className="size-10 px-0"
-              aria-label="Notifications"
-            >
-              <Bell size={16} />
-            </Button>
           </header>
 
           <div className="px-4 py-6 md:px-6">
@@ -153,6 +159,23 @@ export function AdminShell({
         </section>
       </div>
     </main>
+  );
+}
+
+function TenantBadge({ currentUser }: { currentUser?: ShellUser }) {
+  const tenantName =
+    currentUser?.tenantName ?? currentUser?.tenantSlug ?? "Tenant";
+
+  return (
+    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-background px-2.5 sm:max-w-64 md:flex-none md:basis-56">
+      <Building2 size={16} className="shrink-0 text-primary" />
+      <div className="min-w-0 leading-tight">
+        <p className="hidden text-[11px] font-medium text-muted-fg sm:block">
+          Tenant
+        </p>
+        <p className="truncate text-sm font-semibold">{tenantName}</p>
+      </div>
+    </div>
   );
 }
 
@@ -230,7 +253,7 @@ function ResponsiveSidebar({
 }: {
   active: string;
   collapsed: boolean;
-  currentUser?: { fullNameEn: string; email: string | null; permissions: string[] };
+  currentUser?: ShellUser;
   onToggle: () => void;
 }) {
   return (
@@ -250,7 +273,7 @@ function MobileMenuButton({
   currentUser,
 }: {
   active: string;
-  currentUser?: { fullNameEn: string; email: string | null; permissions: string[] };
+  currentUser?: ShellUser;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -292,7 +315,7 @@ function SidebarContent({
 }: {
   active: string;
   collapsed?: boolean;
-  currentUser?: { fullNameEn: string; email: string | null; permissions: string[] };
+  currentUser?: ShellUser;
   onToggle?: () => void;
   onNavigate?: () => void;
 }) {

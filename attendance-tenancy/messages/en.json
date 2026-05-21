@@ -1,0 +1,21 @@
+{
+  "tenancy": {
+    "overview": "Overview",
+    "tenants": "Tenants",
+    "create": "Create tenant",
+    "owners": "Owners",
+    "settings": "Settings",
+    "title": "Tenancy management",
+    "subtitle": "Manage organizations, owners, tenant access, and platform setup.",
+    "operator": "System operator sign in",
+    "operatorHelp": "Only platform staff with tenant-management permission can enter this console. Tenant owners use the attendance admin app for their organization.",
+    "logout": "Logout",
+    "language": "Language",
+    "theme": "Theme",
+    "english": "English",
+    "khmer": "Khmer",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  }
+}

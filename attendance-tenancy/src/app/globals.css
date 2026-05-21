@@ -1,0 +1,89 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Koh+Santepheap:wght@400;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --background: #fbfafc;
+  --foreground: #17131f;
+  --card: #ffffff;
+  --card-foreground: #17131f;
+  --primary: #5b3fd5;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f0fb;
+  --secondary-foreground: #2d2544;
+  --muted: #f5f3f8;
+  --border: #e7e3ee;
+  --input: #ded8eb;
+  --ring: #5b3fd5;
+}
+
+.dark {
+  --background: #111018;
+  --foreground: #f7f4ff;
+  --card: #191724;
+  --card-foreground: #f7f4ff;
+  --primary: #9b8cff;
+  --primary-foreground: #161222;
+  --secondary: #262138;
+  --secondary-foreground: #f7f4ff;
+  --muted: #211e2d;
+  --border: #343047;
+  --input: #403a55;
+  --ring: #9b8cff;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, "Koh Santepheap", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.bg-background {
+  background-color: var(--background);
+}
+.bg-card {
+  background-color: var(--card);
+}
+.bg-primary {
+  background-color: var(--primary);
+}
+.bg-secondary {
+  background-color: var(--secondary);
+}
+.bg-muted {
+  background-color: var(--muted);
+}
+.text-foreground {
+  color: var(--foreground);
+}
+.text-card-foreground {
+  color: var(--card-foreground);
+}
+.text-primary {
+  color: var(--primary);
+}
+.text-primary-foreground {
+  color: var(--primary-foreground);
+}
+.text-secondary-foreground {
+  color: var(--secondary-foreground);
+}
+.text-muted-fg {
+  color: color-mix(in srgb, var(--foreground) 62%, transparent);
+}
+.border-border {
+  border-color: var(--border);
+}
+.border-primary {
+  border-color: var(--primary);
+}
+.border-input {
+  border-color: var(--input);
+}
+.ring-ring {
+  --tw-ring-color: var(--ring);
+}

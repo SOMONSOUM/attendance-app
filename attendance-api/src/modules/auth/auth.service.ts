@@ -58,6 +58,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
+        tenant: true,
         roles: {
           include: {
             role: {
@@ -77,6 +78,9 @@ export class AuthService {
     );
     const authUser: AuthUser = {
       id: user.id,
+      tenantId: user.tenantId,
+      tenantSlug: user.tenant?.slug,
+      tenantName: user.tenant?.name,
       email: user.email,
       fullNameEn: user.fullNameEn,
       permissions,
@@ -98,12 +102,13 @@ export class AuthService {
 
     const passwordHash = await hash(dto.password, 10);
     const viewerRole = await this.prisma.role.findUnique({
-      where: { name: "viewer" },
+      where: { tenantId_name: { tenantId: "default-tenant", name: "viewer" } },
     });
 
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
+        tenantId: viewerRole?.tenantId ?? "default-tenant",
         passwordHash,
         fullNameEn: dto.fullNameEn,
         gender: dto.gender,
@@ -118,6 +123,7 @@ export class AuthService {
           : undefined,
       },
       include: {
+        tenant: true,
         roles: {
           include: {
             role: {
@@ -130,6 +136,9 @@ export class AuthService {
 
     const authUser: AuthUser = {
       id: user.id,
+      tenantId: user.tenantId,
+      tenantSlug: user.tenant?.slug,
+      tenantName: user.tenant?.name,
       email: user.email,
       fullNameEn: user.fullNameEn,
       permissions: user.roles.flatMap((item) =>
@@ -168,6 +177,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
+        tenant: true,
         roles: {
           include: {
             role: {
@@ -181,6 +191,9 @@ export class AuthService {
 
     return {
       id: user.id,
+      tenantId: user.tenantId,
+      tenantSlug: user.tenant?.slug,
+      tenantName: user.tenant?.name,
       email: user.email,
       fullNameEn: user.fullNameEn,
       permissions: user.roles.flatMap((item) =>
@@ -194,6 +207,7 @@ export class AuthService {
   private async issueTokens(user: AuthUser) {
     const accessPayload: AccessTokenPayload = {
       sub: user.id,
+      tenantId: user.tenantId,
       email: user.email,
       permissions: user.permissions,
     };

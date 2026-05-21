@@ -54,6 +54,14 @@ type PlaceSeed = {
   registrations: RegistrationSeed[];
 };
 
+type TenantSeed = {
+  id: string;
+  name: string;
+  slug: string;
+  owner: UserSeed;
+  users: UserSeed[];
+};
+
 const adapter = new PrismaMariaDb({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
@@ -83,15 +91,17 @@ const permissions: PermissionSeed[] = [
   ["roles", "update"],
   ["roles", "delete"],
   ["theme", "update"],
+  ["tenants", "read"],
+  ["tenants", "update"],
 ];
 
 const roles: RoleSeed[] = [
   {
     name: "admin",
     description: "Full application access for managing events and users.",
-    permissions: permissions.map(
-      ([resource, action]) => `${resource}:${action}`,
-    ),
+    permissions: permissions
+      .filter(([resource]) => resource !== "tenants")
+      .map(([resource, action]) => `${resource}:${action}`),
   },
   {
     name: "operator",
@@ -146,8 +156,66 @@ const users: UserSeed[] = [
   },
 ];
 
+const extraTenants: TenantSeed[] = [
+  {
+    id: "seed-tenant-ministry",
+    name: "Ministry of Public Works",
+    slug: "ministry-public-works",
+    owner: {
+      id: "seed-user-ministry-owner",
+      email: "owner@mpw.gov.kh",
+      fullNameEn: "Ministry Owner",
+      fullNameKm: null,
+      gender: Gender.OTHER,
+      position: "Department Director",
+      department: "Administration",
+      role: "admin",
+    },
+    users: [
+      {
+        id: "seed-user-ministry-officer",
+        email: "officer@mpw.gov.kh",
+        fullNameEn: "Ministry Officer",
+        fullNameKm: null,
+        gender: Gender.FEMALE,
+        position: "Event Officer",
+        department: "Operations",
+        role: "operator",
+      },
+    ],
+  },
+  {
+    id: "seed-tenant-university",
+    name: "Cambodia Digital University",
+    slug: "cambodia-digital-university",
+    owner: {
+      id: "seed-user-university-owner",
+      email: "owner@cdu.edu.kh",
+      fullNameEn: "University Owner",
+      fullNameKm: null,
+      gender: Gender.MALE,
+      position: "Campus Administrator",
+      department: "Student Affairs",
+      role: "admin",
+    },
+    users: [
+      {
+        id: "seed-user-university-viewer",
+        email: "viewer@cdu.edu.kh",
+        fullNameEn: "University Viewer",
+        fullNameKm: null,
+        gender: Gender.FEMALE,
+        position: "HR Assistant",
+        department: "Human Resources",
+        role: "viewer",
+      },
+    ],
+  },
+];
+
 const sampleEvent = {
   id: "seed-event-tech-summit-2026",
+  tenantId: "default-tenant",
   name: "Khmer Tech Summit 2026",
   description:
     "Demo event with QR check-in, registrations, attendance, and theme data.",
@@ -164,6 +232,7 @@ const sampleEvent = {
 
 const placeEvent = {
   id: "seed-event-product-expo-2026",
+  tenantId: "default-tenant",
   name: "Product Expo 2026",
   description:
     "Demo event with separate QR codes for each hall and room.",
@@ -180,6 +249,7 @@ const placeEvent = {
 
 const openEvent = {
   id: "seed-event-community-open-day-2026",
+  tenantId: "default-tenant",
   name: "Community Open Day 2026",
   description:
     "Demo open-registration event where attendees can scan and register at the door.",
@@ -386,6 +456,47 @@ async function resetDatabase() {
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
   await prisma.permission.deleteMany();
+  await prisma.tenant.deleteMany();
+}
+
+async function seedTenant() {
+  return prisma.tenant.upsert({
+    where: { slug: "default" },
+    update: { name: "Default Tenant" },
+    create: {
+      id: "default-tenant",
+      name: "Default Tenant",
+      slug: "default",
+    },
+  });
+}
+
+async function seedExtraTenants(
+  permissionByKey: Map<string, { id: string }>,
+  passwordHash: string,
+) {
+  for (const tenantSeed of extraTenants) {
+    const tenant = await prisma.tenant.upsert({
+      where: { slug: tenantSeed.slug },
+      update: { name: tenantSeed.name },
+      create: {
+        id: tenantSeed.id,
+        name: tenantSeed.name,
+        slug: tenantSeed.slug,
+      },
+    });
+    const roleByName = await seedRoles(tenant.id, permissionByKey);
+    await seedUsers(
+      tenant.id,
+      roleByName,
+      passwordHash,
+      [tenantSeed.owner, ...tenantSeed.users],
+    );
+    await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { ownerUserId: tenantSeed.owner.id },
+    });
+  }
 }
 
 async function seedPermissions() {
@@ -403,20 +514,30 @@ async function seedPermissions() {
   return created;
 }
 
-async function seedRoles(permissionByKey: Map<string, { id: string }>) {
+async function seedRoles(
+  tenantId: string,
+  permissionByKey: Map<string, { id: string }>,
+  includePlatformPermissions = false,
+) {
   const created = new Map<string, { id: string; name: string }>();
 
   for (const roleSeed of roles) {
     const role = await prisma.role.upsert({
-      where: { name: roleSeed.name },
+      where: { tenantId_name: { tenantId, name: roleSeed.name } },
       update: { description: roleSeed.description },
       create: {
+        tenantId,
         name: roleSeed.name,
         description: roleSeed.description,
       },
     });
 
-    for (const permissionKey of roleSeed.permissions) {
+    const rolePermissions =
+      includePlatformPermissions && roleSeed.name === "admin"
+        ? [...roleSeed.permissions, "tenants:read", "tenants:update"]
+        : roleSeed.permissions;
+
+    for (const permissionKey of rolePermissions) {
       const permission = permissionByKey.get(permissionKey);
       if (!permission) continue;
 
@@ -442,14 +563,17 @@ async function seedRoles(permissionByKey: Map<string, { id: string }>) {
 }
 
 async function seedUsers(
+  tenantId: string,
   roleByName: Map<string, { id: string; name: string }>,
   passwordHash: string,
+  userSeeds = users,
 ) {
-  for (const userSeed of users) {
+  for (const userSeed of userSeeds) {
     const user = await prisma.user.upsert({
       where: { email: userSeed.email },
       update: {
         passwordHash,
+        tenantId,
         fullNameEn: userSeed.fullNameEn,
         fullNameKm: userSeed.fullNameKm,
         gender: userSeed.gender,
@@ -459,6 +583,7 @@ async function seedUsers(
       create: {
         id: userSeed.id,
         email: userSeed.email,
+        tenantId,
         passwordHash,
         fullNameEn: userSeed.fullNameEn,
         fullNameKm: userSeed.fullNameKm,
@@ -517,6 +642,7 @@ async function seedRegistrationImports() {
       where: { id: importSeed.id },
       update: {
         fileName: importSeed.fileName,
+        tenantId: "default-tenant",
         originalName: importSeed.originalName,
         rowCount: importSeed.registrations.length,
         status: "IMPORTED",
@@ -524,6 +650,7 @@ async function seedRegistrationImports() {
       },
       create: {
         id: importSeed.id,
+        tenantId: "default-tenant",
         fileName: importSeed.fileName,
         originalName: importSeed.originalName,
         rowCount: importSeed.registrations.length,
@@ -877,9 +1004,15 @@ async function main() {
   await resetDatabase();
 
   const passwordHash = await hash(demoPassword, 10);
+  const tenant = await seedTenant();
   const permissionByKey = await seedPermissions();
-  const roleByName = await seedRoles(permissionByKey);
-  await seedUsers(roleByName, passwordHash);
+  const roleByName = await seedRoles(tenant.id, permissionByKey, true);
+  await seedUsers(tenant.id, roleByName, passwordHash);
+  await prisma.tenant.update({
+    where: { id: tenant.id },
+    data: { ownerUserId: "seed-user-admin" },
+  });
+  await seedExtraTenants(permissionByKey, passwordHash);
   await seedRegistrationImports();
   await seedEvent();
   await seedPlaceEvent();
@@ -887,7 +1020,10 @@ async function main() {
 
   console.log("Seed complete.");
   console.table(
-    users.map((user) => ({
+    [
+      ...users,
+      ...extraTenants.flatMap((tenant) => [tenant.owner, ...tenant.users]),
+    ].map((user) => ({
       email: user.email,
       password: demoPassword,
       role: user.role,

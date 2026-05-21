@@ -1,5 +1,6 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -12,6 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import {
   AdminShell,
   EmptyState,
@@ -48,6 +50,8 @@ import {
   updateEvent,
   uploadRegistrationImport,
 } from "@/lib/admin-data";
+import { useAdminUiStore } from "@/lib/ui-store";
+import { eventSchema } from "@/lib/validation";
 
 const initialForm: EventForm = {
   name: "",
@@ -55,8 +59,8 @@ const initialForm: EventForm = {
   mode: "PRE_REGISTERED",
   separateQrByPlace: false,
   places: [],
-  startsAt: "2026-06-01T08:30",
-  endsAt: "2026-06-01T17:30",
+  startsAt: "2026-06-01",
+  endsAt: "2026-06-01",
   shifts: [],
   theme: {
     primaryColor: "#5b3fd5",
@@ -80,8 +84,23 @@ export default function EventsPage() {
   const params = useParams<{ locale: string }>();
   const locale = params.locale ?? "en";
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<EventRecord | null>(null);
-  const [form, setForm] = useState<EventForm>(initialForm);
+  const editing = useAdminUiStore((state) => state.editingEvent);
+  const setEditing = useAdminUiStore((state) => state.setEditingEvent);
+  const step = useAdminUiStore((state) => state.eventStep);
+  const setStep = useAdminUiStore((state) => state.setEventStep);
+  const qrEvent = useAdminUiStore((state) => state.qrEvent);
+  const setQrEvent = useAdminUiStore((state) => state.setQrEvent);
+  const {
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<EventForm>({
+    resolver: zodResolver(eventSchema),
+    defaultValues: initialForm,
+  });
+  const form = watch();
+  const setForm = (nextForm: EventForm) => reset(nextForm);
   const [registrationFile, setRegistrationFile] = useState<File | null>(null);
   const [placeRegistrationFiles, setPlaceRegistrationFiles] = useState<
     Record<number, File | null>
@@ -90,8 +109,6 @@ export default function EventsPage() {
   const [placeRegistrationImportIds, setPlaceRegistrationImportIds] = useState<
     Record<number, string>
   >({});
-  const [step, setStep] = useState(0);
-  const [qrEvent, setQrEvent] = useState<EventRecord | null>(null);
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
     queryFn: listEvents,
@@ -188,8 +205,8 @@ export default function EventsPage() {
         description: place.description ?? "",
         locationName: place.locationName ?? "",
       })) ?? [],
-      startsAt: toDatetimeLocal(event.startsAt),
-      endsAt: toDatetimeLocal(event.endsAt),
+      startsAt: toDateInput(event.startsAt),
+      endsAt: toDateInput(event.endsAt),
       shifts: event.shifts?.map((shift) => ({
         name: shift.name,
         startTime: toTimeInput(shift.startTime),
@@ -383,10 +400,7 @@ export default function EventsPage() {
           <CardContent className="p-0">
             <form
               className="flex max-h-[calc(100dvh-9rem)] flex-col"
-              onSubmit={(event) => {
-                event.preventDefault();
-                saveMutation.mutate();
-              }}
+              onSubmit={handleSubmit(() => saveMutation.mutate())}
             >
               <div className="border-b border-border p-4">
                 <WizardSteps step={step} onStepChange={setStep} />
@@ -397,6 +411,7 @@ export default function EventsPage() {
               <Field
                 label="Event name"
                 value={form.name}
+                error={errors.name?.message}
                 onChange={(value) => setForm({ ...form, name: value })}
               />
               <Field
@@ -408,6 +423,21 @@ export default function EventsPage() {
               ) : null}
               {step === 1 ? (
                 <>
+              <div className="grid gap-2">
+                <Label>Registration mode</Label>
+                <Select
+                  value={form.mode}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      mode: event.target.value as EventForm["mode"],
+                    })
+                  }
+                >
+                  <option value="PRE_REGISTERED">Pre-registered</option>
+                  <option value="OPEN_REGISTRATION">Open registration</option>
+                </Select>
+              </div>
               <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                 <div>
                   <h3 className="text-sm font-semibold">QR code setup</h3>
@@ -575,34 +605,21 @@ export default function EventsPage() {
                   </div>
                 ) : null}
               </div>
-              <div className="grid gap-2">
-                <Label>Registration mode</Label>
-                <Select
-                  value={form.mode}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      mode: event.target.value as EventForm["mode"],
-                    })
-                  }
-                >
-                  <option value="PRE_REGISTERED">Pre-registered</option>
-                  <option value="OPEN_REGISTRATION">Open registration</option>
-                </Select>
-              </div>
                 </>
               ) : null}
               {step === 2 ? (
                 <>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <DateTimeField
+                <DateField
                   label="Starts"
                   value={form.startsAt}
+                  error={errors.startsAt?.message}
                   onChange={(value) => setForm({ ...form, startsAt: value })}
                 />
-                <DateTimeField
+                <DateField
                   label="Ends"
                   value={form.endsAt}
+                  error={errors.endsAt?.message}
                   onChange={(value) => setForm({ ...form, endsAt: value })}
                 />
               </div>
@@ -862,7 +879,7 @@ export default function EventsPage() {
                   type="button"
                   variant="outline"
                   disabled={step === 0 || saveMutation.isPending}
-                  onClick={() => setStep((value) => Math.max(value - 1, 0))}
+                  onClick={() => setStep(Math.max(step - 1, 0))}
                 >
                   Back
                 </Button>
@@ -870,9 +887,13 @@ export default function EventsPage() {
                   disabled={
                     saveMutation.isPending || (editing ? !canUpdate : !canCreate)
                   }
-                  type={step === 2 ? "submit" : "button"}
+                  type="button"
                   onClick={() => {
-                    if (step < 2) setStep((value) => value + 1);
+                    if (step < 2) {
+                      setStep(step + 1);
+                      return;
+                    }
+                    void handleSubmit(() => saveMutation.mutate())();
                   }}
                 >
                   <CalendarPlus size={16} />
@@ -941,12 +962,12 @@ function WizardSteps({
   onStepChange: (step: number) => void;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-3 gap-2">
       {wizardSteps.map((item, index) => (
         <button
           key={item.label}
           type="button"
-          className={`flex items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+          className={`flex min-w-0 items-center gap-2 rounded-md border p-2 text-left transition-colors ${
             step === index
               ? "border-primary bg-secondary text-secondary-foreground"
               : "border-border bg-background hover:bg-muted"
@@ -962,7 +983,7 @@ function WizardSteps({
           >
             {index + 1}
           </span>
-          <span className="min-w-0">
+          <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold">{item.label}</span>
             <span className="block truncate text-xs text-muted-fg">
               {item.description}
@@ -978,12 +999,14 @@ function Field({
   label,
   value,
   onChange,
+  error,
   type = "text",
   required,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
   type?: string;
   required?: boolean;
 }) {
@@ -996,40 +1019,35 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         required={required ?? label !== "Description"}
       />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
 
-function DateTimeField({
+function DateField({
   label,
   value,
   onChange,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
 }) {
-  const [date, time] = value.split("T");
+  const [date] = value.split("T");
 
   return (
     <div className="grid gap-2">
       <Label>{label}</Label>
-      <div className="grid grid-cols-[1.15fr_0.85fr] overflow-hidden rounded-md border border-input bg-background shadow-sm transition-colors focus-within:ring-2 focus-within:ring-ring">
-        <Input
-          className="h-11 rounded-none border-0 bg-transparent"
-          type="date"
-          value={date}
-          onChange={(event) => onChange(`${event.target.value}T${time ?? "00:00"}`)}
-          required
-        />
-        <Input
-          className="h-11 rounded-none border-0 border-l border-input bg-transparent"
-          type="time"
-          value={time ?? "00:00"}
-          onChange={(event) => onChange(`${date}T${event.target.value}`)}
-          required
-        />
-      </div>
+      <Input
+        className="h-11"
+        type="date"
+        value={date}
+        onChange={(event) => onChange(event.target.value)}
+        required
+      />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
@@ -1089,8 +1107,8 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function toDatetimeLocal(value: string) {
-  return new Date(value).toISOString().slice(0, 16);
+function toDateInput(value: string) {
+  return new Date(value).toISOString().slice(0, 10);
 }
 
 function toTimeInput(value: string) {

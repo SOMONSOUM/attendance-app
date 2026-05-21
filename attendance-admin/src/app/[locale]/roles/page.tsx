@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Edit3, ShieldCheck, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import {
   AdminShell,
   EmptyState,
@@ -32,12 +33,28 @@ import {
   type RoleRecord,
   updateRole,
 } from "@/lib/admin-data";
+import { useAdminUiStore } from "@/lib/ui-store";
+import { roleSchema, type RoleValues } from "@/lib/validation";
+
+const initialRoleForm: RoleValues = {
+  name: "",
+  description: "",
+  permissions: "events:read,attendance:read",
+};
+
 export default function RolesPage() {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<RoleRecord | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [permissions, setPermissions] = useState("events:read,attendance:read");
+  const editing = useAdminUiStore((state) => state.editingRole);
+  const setEditing = useAdminUiStore((state) => state.setEditingRole);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<RoleValues>({
+    resolver: zodResolver(roleSchema),
+    defaultValues: initialRoleForm,
+  });
   const rolesQuery = useQuery({ queryKey: roleKeys.all, queryFn: listRoles });
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
@@ -48,8 +65,10 @@ export default function RolesPage() {
   const canUpdateRole = hasPermission(currentUser, "roles:update");
   const canDeleteRole = hasPermission(currentUser, "roles:delete");
   const saveRoleMutation = useMutation({
-    mutationFn: () =>
-      editing ? updateRole(editing.id, rolePayload()) : createRole(rolePayload()),
+    mutationFn: (values: RoleValues) => {
+      const payload = rolePayload(values);
+      return editing ? updateRole(editing.id, payload) : createRole(payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: roleKeys.all });
       resetForm();
@@ -68,11 +87,11 @@ export default function RolesPage() {
     ),
   ).sort();
 
-  function rolePayload() {
+  function rolePayload(values: RoleValues) {
     return {
-      name,
-      description,
-      permissions: permissions
+      name: values.name,
+      description: values.description,
+      permissions: values.permissions
         .split(",")
         .map((permission) => permission.trim())
         .filter(Boolean),
@@ -81,22 +100,20 @@ export default function RolesPage() {
 
   function resetForm() {
     setEditing(null);
-    setName("");
-    setDescription("");
-    setPermissions("events:read,attendance:read");
+    reset(initialRoleForm);
   }
 
   function startEdit(role: RoleRecord) {
     setEditing(role);
-    setName(role.name);
-    setDescription(role.description ?? "");
-    setPermissions(
-      role.permissions
+    reset({
+      name: role.name,
+      description: role.description ?? "",
+      permissions: role.permissions
         .map(
           ({ permission }) => `${permission.resource}:${permission.action}`,
         )
         .join(", "),
-    );
+    });
   }
 
   return (
@@ -199,36 +216,40 @@ export default function RolesPage() {
           <CardContent>
             <form
               className="grid gap-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                saveRoleMutation.mutate();
-              }}
+              onSubmit={handleSubmit((values) =>
+                saveRoleMutation.mutate(values),
+              )}
             >
               <div className="grid gap-2">
                 <Label>Role name</Label>
                 <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  {...register("name")}
                   placeholder="scanner"
-                  required
                 />
+                {errors.name ? (
+                  <p className="text-xs text-destructive">
+                    {errors.name.message}
+                  </p>
+                ) : null}
               </div>
               <div className="grid gap-2">
                 <Label>Description</Label>
                 <Input
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
+                  {...register("description")}
                   placeholder="Can scan attendees"
                 />
               </div>
               <div className="grid gap-2">
                 <Label>Permissions</Label>
                 <Input
-                  value={permissions}
-                  onChange={(event) => setPermissions(event.target.value)}
+                  {...register("permissions")}
                   placeholder="events:read,attendance:read"
-                  required
                 />
+                {errors.permissions ? (
+                  <p className="text-xs text-destructive">
+                    {errors.permissions.message}
+                  </p>
+                ) : null}
               </div>
               <Button
                 disabled={

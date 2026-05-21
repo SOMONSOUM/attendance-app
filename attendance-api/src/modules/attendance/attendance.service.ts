@@ -79,16 +79,16 @@ export class AttendanceService {
     }
   }
 
-  list(eventId: string) {
+  list(tenantId: string | null, eventId: string) {
     return this.prisma.attendance.findMany({
-      where: { eventId },
+      where: { eventId, event: { tenantId } },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  async roster(eventId: string) {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
+  async roster(tenantId: string | null, eventId: string) {
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, tenantId },
       include: {
         registrations: { orderBy: { fullNameEn: "asc" } },
         attendances: { orderBy: { createdAt: "desc" } },
@@ -164,9 +164,13 @@ export class AttendanceService {
     return [...registrationRows, ...walkInRows];
   }
 
-  async joinRegistration(eventId: string, registrationId: string) {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
+  async joinRegistration(
+    tenantId: string | null,
+    eventId: string,
+    registrationId: string,
+  ) {
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, tenantId },
       include: { shifts: true },
     });
 
@@ -208,7 +212,11 @@ export class AttendanceService {
     });
   }
 
-  async cancel(attendanceId: string) {
+  async cancel(tenantId: string | null, attendanceId: string) {
+    const attendance = await this.prisma.attendance.findFirst({
+      where: { id: attendanceId, event: { tenantId } },
+    });
+    if (!attendance) throw new NotFoundException("Attendance not found");
     await this.prisma.attendance.delete({ where: { id: attendanceId } });
     return { cancelled: true };
   }

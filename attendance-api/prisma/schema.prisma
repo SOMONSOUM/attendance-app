@@ -28,8 +28,33 @@ enum ThemeAppearance {
   system
 }
 
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Tenant {
+  id                  String               @id @default(cuid())
+  name                String
+  slug                String               @unique
+  status              TenantStatus         @default(ACTIVE)
+  ownerUserId         String?              @unique @map("owner_user_id")
+  ownerUser           User?                @relation("TenantOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  users               User[]
+  roles               Role[]
+  events              Event[]
+  registrationImports RegistrationImport[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
 model User {
   id            String         @id @default(cuid())
+  tenantId      String?        @map("tenant_id")
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownedTenant   Tenant?        @relation("TenantOwner")
   email         String?        @unique
   passwordHash  String?        @map("password_hash")
   fullNameEn    String         @map("full_name_en")
@@ -44,6 +69,7 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -65,13 +91,17 @@ model RefreshToken {
 
 model Role {
   id          String           @id @default(cuid())
-  name        String           @unique
+  tenantId    String?          @map("tenant_id")
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
   description String?          @db.Text
   users       UserRole[]
   permissions RolePermission[]
   createdAt   DateTime         @default(now()) @map("created_at")
   updatedAt   DateTime         @updatedAt @map("updated_at")
 
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@map("roles")
 }
 
@@ -109,6 +139,8 @@ model RolePermission {
 
 model Event {
   id            String              @id @default(cuid())
+  tenantId      String?             @map("tenant_id")
+  tenant        Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name          String
   description   String?             @db.Text
   mode          EventMode
@@ -129,6 +161,7 @@ model Event {
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("events")
 }
 
@@ -203,6 +236,8 @@ model EventRegistration {
 
 model RegistrationImport {
   id           String                  @id @default(cuid())
+  tenantId     String?                 @map("tenant_id")
+  tenant       Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   fileName     String                  @map("file_name")
   originalName String                  @map("original_name")
   rowCount     Int                     @default(0) @map("row_count")
@@ -213,6 +248,7 @@ model RegistrationImport {
   createdAt    DateTime                @default(now()) @map("created_at")
   updatedAt    DateTime                @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@index([uploadedById])
   @@map("registration_imports")
 }

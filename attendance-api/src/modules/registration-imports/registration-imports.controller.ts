@@ -15,10 +15,11 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { RequirePermissions } from "../rbac/permissions.decorator";
+import type { AuthUser } from "../auth/types/auth-user";
 import { RegistrationImportsService } from "./registration-imports.service";
 
 type AuthRequest = {
-  user?: { id: string };
+  user: AuthUser;
 };
 
 @ApiTags("Registration imports")
@@ -30,8 +31,8 @@ export class RegistrationImportsController {
   @ApiOperation({ summary: "List reusable pre-registration Excel imports" })
   @RequirePermissions("registrations:read")
   @Get()
-  list() {
-    return this.imports.list();
+  list(@Req() request: AuthRequest) {
+    return this.imports.list(request.user.tenantId);
   }
 
   @ApiOperation({ summary: "Download the pre-registration Excel template" })
@@ -59,6 +60,6 @@ export class RegistrationImportsController {
     @UploadedFile() file: Express.Multer.File,
     @Req() request: AuthRequest,
   ) {
-    return this.imports.upload(file, request.user?.id);
+    return this.imports.upload(file, request.user.tenantId, request.user.id);
   }
 }

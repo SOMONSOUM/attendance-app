@@ -7,15 +7,19 @@ import { CreateRoleDto, CreateUserDto, UpdateRoleDto, UpdateUserDto } from "./dt
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
+  list(tenantId: string | null) {
+    const scopedTenantId = this.scopeTenant(tenantId);
     return this.prisma.user.findMany({
+      where: { tenantId: scopedTenantId },
       orderBy: { createdAt: "desc" },
       include: { roles: { include: { role: true } } },
     });
   }
 
-  roles() {
+  roles(tenantId: string | null) {
+    const scopedTenantId = this.scopeTenant(tenantId);
     return this.prisma.role.findMany({
+      where: { tenantId: scopedTenantId },
       orderBy: { name: "asc" },
       include: {
         permissions: {
@@ -27,9 +31,10 @@ export class UsersService {
     });
   }
 
-  async createRole(dto: CreateRoleDto) {
+  async createRole(tenantId: string | null, dto: CreateRoleDto) {
+    const scopedTenantId = this.scopeTenant(tenantId);
     const existing = await this.prisma.role.findUnique({
-      where: { name: dto.name },
+      where: { tenantId_name: { tenantId: scopedTenantId, name: dto.name } },
       select: { id: true },
     });
     if (existing) throw new ConflictException("Role already exists");
@@ -40,6 +45,7 @@ export class UsersService {
     return this.prisma.role.create({
       data: {
         name: dto.name,
+        tenantId: scopedTenantId,
         description: dto.description,
         permissions: {
           create: permissions.map((permission) => ({
@@ -54,12 +60,13 @@ export class UsersService {
     });
   }
 
-  async updateRole(roleId: string, dto: UpdateRoleDto) {
-    await this.assertRole(roleId);
+  async updateRole(tenantId: string | null, roleId: string, dto: UpdateRoleDto) {
+    const scopedTenantId = this.scopeTenant(tenantId);
+    await this.assertRole(scopedTenantId, roleId);
 
     if (dto.name) {
       const existing = await this.prisma.role.findUnique({
-        where: { name: dto.name },
+        where: { tenantId_name: { tenantId: scopedTenantId, name: dto.name } },
         select: { id: true },
       });
       if (existing && existing.id !== roleId) {
@@ -102,12 +109,14 @@ export class UsersService {
     });
   }
 
-  async removeRole(roleId: string) {
+  async removeRole(tenantId: string | null, roleId: string) {
+    const scopedTenantId = this.scopeTenant(tenantId);
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
       include: { _count: { select: { users: true } } },
     });
-    if (!role) throw new NotFoundException("Role not found");
+    if (!role || role.tenantId !== scopedTenantId)
+      throw new NotFoundException("Role not found");
     if (role._count.users > 0) {
       throw new ConflictException("Cannot delete a role assigned to users");
     }
@@ -116,17 +125,19 @@ export class UsersService {
     return { deleted: true };
   }
 
-  async create(dto: CreateUserDto) {
+  async create(tenantId: string | null, dto: CreateUserDto) {
+    const scopedTenantId = this.scopeTenant(tenantId);
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
       select: { id: true },
     });
     if (existing) throw new ConflictException("Email is already registered");
 
-    const role = await this.findRole(dto.roleName ?? "viewer");
+    const role = await this.findRole(scopedTenantId, dto.roleName ?? "viewer");
     return this.prisma.user.create({
       data: {
         email: dto.email,
+        tenantId: scopedTenantId,
         passwordHash: await hash(dto.password, 10),
         fullNameEn: dto.fullNameEn,
         gender: dto.gender,
@@ -138,8 +149,9 @@ export class UsersService {
     });
   }
 
-  async update(userId: string, dto: UpdateUserDto) {
-    await this.assertUser(userId);
+  async update(tenantId: string | null, userId: string, dto: UpdateUserDto) {
+    const scopedTenantId = this.scopeTenant(tenantId);
+    await this.assertUser(scopedTenantId, userId);
     if (dto.email) {
       const existing = await this.prisma.user.findUnique({
         where: { email: dto.email },
@@ -150,7 +162,9 @@ export class UsersService {
       }
     }
 
-    const role = dto.roleName ? await this.findRole(dto.roleName) : null;
+    const role = dto.roleName
+      ? await this.findRole(scopedTenantId, dto.roleName)
+      : null;
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -165,15 +179,16 @@ export class UsersService {
     });
 
     if (role) {
-      return this.assignRole(userId, role.name);
+      return this.assignRole(scopedTenantId, userId, role.name);
     }
 
     return user;
   }
 
-  async assignRole(userId: string, roleName: string) {
-    await this.assertUser(userId);
-    const role = await this.findRole(roleName);
+  async assignRole(tenantId: string | null, userId: string, roleName: string) {
+    const scopedTenantId = this.scopeTenant(tenantId);
+    await this.assertUser(scopedTenantId, userId);
+    const role = await this.findRole(scopedTenantId, roleName);
     if (!role) throw new NotFoundException("Role not found");
     await this.prisma.userRole.deleteMany({ where: { userId } });
     await this.prisma.userRole.create({
@@ -185,26 +200,38 @@ export class UsersService {
     });
   }
 
-  async remove(userId: string) {
-    await this.assertUser(userId);
+  async remove(tenantId: string | null, userId: string) {
+    const scopedTenantId = this.scopeTenant(tenantId);
+    await this.assertUser(scopedTenantId, userId);
     await this.prisma.user.delete({ where: { id: userId } });
     return { deleted: true };
   }
 
-  private async assertUser(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  private async assertUser(tenantId: string | null, userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
+    });
     if (!user) throw new NotFoundException("User not found");
     return user;
   }
 
-  private async assertRole(roleId: string) {
-    const role = await this.prisma.role.findUnique({ where: { id: roleId } });
+  private async assertRole(tenantId: string | null, roleId: string) {
+    const role = await this.prisma.role.findFirst({
+      where: { id: roleId, tenantId },
+    });
     if (!role) throw new NotFoundException("Role not found");
     return role;
   }
 
-  private findRole(name: string) {
-    return this.prisma.role.findUnique({ where: { name } });
+  private findRole(tenantId: string | null, name: string) {
+    const scopedTenantId = this.scopeTenant(tenantId);
+    return this.prisma.role.findUnique({
+      where: { tenantId_name: { tenantId: scopedTenantId, name } },
+    });
+  }
+
+  private scopeTenant(tenantId: string | null) {
+    return tenantId ?? "default-tenant";
   }
 
   private upsertPermission(key: string) {

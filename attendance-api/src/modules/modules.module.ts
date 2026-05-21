@@ -5,6 +5,7 @@ import { EventsModule } from "./events/events.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RegistrationImportsModule } from "./registration-imports/registration-imports.module";
+import { TenantsModule } from "./tenants/tenants.module";
 import { ThemeModule } from "./theme/theme.module";
 import { UsersModule } from "./users/users.module";
 
@@ -16,6 +17,7 @@ import { UsersModule } from "./users/users.module";
     UsersModule,
     EventsModule,
     RegistrationImportsModule,
+    TenantsModule,
     AttendanceModule,
     ThemeModule,
   ],

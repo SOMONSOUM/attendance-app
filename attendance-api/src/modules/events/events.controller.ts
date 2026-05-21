@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
@@ -31,9 +32,12 @@ import {
   registrationExample,
 } from "../../common/swagger/api-examples";
 import { Public } from "../auth/decorators/public.decorator";
+import type { AuthUser } from "../auth/types/auth-user";
 import { RequirePermissions } from "../rbac/permissions.decorator";
 import { CreateEventDto, UpdateEventDto } from "./dto";
 import { EventsService } from "./events.service";
+
+type AuthRequest = { user: AuthUser };
 
 @ApiTags("Events")
 @ApiBearerAuth()
@@ -52,8 +56,8 @@ export class EventsController {
   })
   @RequirePermissions("events:create")
   @Post()
-  create(@Body() dto: CreateEventDto) {
-    return this.events.create(dto);
+  create(@Req() request: AuthRequest, @Body() dto: CreateEventDto) {
+    return this.events.create(request.user.tenantId, dto);
   }
 
   @ApiOperation({
@@ -76,24 +80,28 @@ export class EventsController {
   })
   @RequirePermissions("events:read")
   @Get()
-  list() {
-    return this.events.list();
+  list(@Req() request: AuthRequest) {
+    return this.events.list(request.user.tenantId);
   }
 
   @ApiOperation({ summary: "Get event QR code as an image data URL" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @RequirePermissions("events:read")
   @Get(":eventId/qr")
-  getQr(@Param("eventId") eventId: string) {
-    return this.events.getQr(eventId);
+  getQr(@Req() request: AuthRequest, @Param("eventId") eventId: string) {
+    return this.events.getQr(request.user.tenantId, eventId);
   }
 
   @ApiOperation({ summary: "Update event details" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @RequirePermissions("events:update")
   @Patch(":eventId")
-  update(@Param("eventId") eventId: string, @Body() dto: UpdateEventDto) {
-    return this.events.update(eventId, dto);
+  update(
+    @Req() request: AuthRequest,
+    @Param("eventId") eventId: string,
+    @Body() dto: UpdateEventDto,
+  ) {
+    return this.events.update(request.user.tenantId, eventId, dto);
   }
 
   @ApiOperation({
@@ -102,8 +110,8 @@ export class EventsController {
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @RequirePermissions("events:delete")
   @Delete(":eventId")
-  remove(@Param("eventId") eventId: string) {
-    return this.events.remove(eventId);
+  remove(@Req() request: AuthRequest, @Param("eventId") eventId: string) {
+    return this.events.remove(request.user.tenantId, eventId);
   }
 
   @Public()
@@ -145,9 +153,15 @@ export class EventsController {
   upload(
     @Param("eventId") eventId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Req() request: AuthRequest,
     @Body("placeId") placeId?: string,
   ) {
-    return this.events.uploadRegistrations(eventId, file, placeId);
+    return this.events.uploadRegistrations(
+      request.user.tenantId,
+      eventId,
+      file,
+      placeId,
+    );
   }
 
   @ApiOperation({ summary: "Copy registrations from another event" })
@@ -158,8 +172,13 @@ export class EventsController {
   copyRegistrations(
     @Param("eventId") eventId: string,
     @Param("sourceEventId") sourceEventId: string,
+    @Req() request: AuthRequest,
   ) {
-    return this.events.copyRegistrations(eventId, sourceEventId);
+    return this.events.copyRegistrations(
+      request.user.tenantId,
+      eventId,
+      sourceEventId,
+    );
   }
 
   @ApiOperation({ summary: "Copy registrations from a reusable import" })
@@ -170,9 +189,15 @@ export class EventsController {
   copyRegistrationsFromImport(
     @Param("eventId") eventId: string,
     @Param("importId") importId: string,
+    @Req() request: AuthRequest,
     @Body("placeId") placeId?: string,
   ) {
-    return this.events.copyRegistrationsFromImport(eventId, importId, placeId);
+    return this.events.copyRegistrationsFromImport(
+      request.user.tenantId,
+      eventId,
+      importId,
+      placeId,
+    );
   }
 
   @ApiOperation({ summary: "Search registrations for attendee check-in" })

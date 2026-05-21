@@ -33,7 +33,7 @@ const genderMap: Record<string, Gender> = {
 export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateEventDto) {
+  async create(tenantId: string | null, dto: CreateEventDto) {
     const { places, shifts, theme, ...eventDto } = dto;
     const separateQrByPlace = Boolean(dto.separateQrByPlace);
     const code = this.toQrCode();
@@ -41,6 +41,7 @@ export class EventsService {
       const createdEvent = await tx.event.create({
         data: {
           ...eventDto,
+          tenantId,
           separateQrByPlace,
           locationName: dto.locationName?.trim() || "Not required",
           latitude: dto.latitude ?? 0,
@@ -98,8 +99,9 @@ export class EventsService {
     return { ...event, qrImage: firstCode ? await this.toQrImage(firstCode) : null };
   }
 
-  async list() {
+  async list(tenantId: string | null) {
     const events = await this.prisma.event.findMany({
+      where: { tenantId },
       orderBy: { createdAt: "desc" },
       include: {
         qrCodes: true,
@@ -117,8 +119,8 @@ export class EventsService {
     return events.map((event) => this.withSummary(event));
   }
 
-  async update(eventId: string, dto: UpdateEventDto) {
-    await this.assertEvent(eventId);
+  async update(tenantId: string | null, eventId: string, dto: UpdateEventDto) {
+    await this.assertEvent(tenantId, eventId);
     const { places, shifts, theme, ...eventDto } = dto;
 
     return this.prisma.$transaction(async (tx) => {
@@ -235,8 +237,8 @@ export class EventsService {
     });
   }
 
-  async getQr(eventId: string) {
-    await this.assertEvent(eventId);
+  async getQr(tenantId: string | null, eventId: string) {
+    await this.assertEvent(tenantId, eventId);
     const qrs = await this.prisma.eventQrCode.findMany({
       where: { eventId, active: true },
       orderBy: { createdAt: "desc" },
@@ -258,8 +260,8 @@ export class EventsService {
     };
   }
 
-  async remove(eventId: string) {
-    await this.assertEvent(eventId);
+  async remove(tenantId: string | null, eventId: string) {
+    await this.assertEvent(tenantId, eventId);
     await this.prisma.event.delete({ where: { id: eventId } });
     return { deleted: true };
   }
@@ -278,11 +280,12 @@ export class EventsService {
   }
 
   async uploadRegistrations(
+    tenantId: string | null,
     eventId: string,
     file: Express.Multer.File,
     placeId?: string,
   ) {
-    await this.assertEvent(eventId);
+    await this.assertEvent(tenantId, eventId);
     if (placeId) await this.assertPlace(eventId, placeId);
 
     const workbook = XLSX.read(file.buffer);
@@ -332,8 +335,13 @@ export class EventsService {
     });
   }
 
-  async copyRegistrations(eventId: string, sourceEventId: string) {
-    await this.assertEvent(eventId);
+  async copyRegistrations(
+    tenantId: string | null,
+    eventId: string,
+    sourceEventId: string,
+  ) {
+    await this.assertEvent(tenantId, eventId);
+    await this.assertEvent(tenantId, sourceEventId);
     const sourceRegistrations = await this.prisma.eventRegistration.findMany({
       where: { eventId: sourceEventId },
     });
@@ -356,14 +364,15 @@ export class EventsService {
   }
 
   async copyRegistrationsFromImport(
+    tenantId: string | null,
     eventId: string,
     importId: string,
     placeId?: string,
   ) {
-    await this.assertEvent(eventId);
+    await this.assertEvent(tenantId, eventId);
     if (placeId) await this.assertPlace(eventId, placeId);
     const rows = await this.prisma.registrationImportRow.findMany({
-      where: { importId },
+      where: { importId, import: { tenantId } },
     });
 
     if (!rows.length) return { count: 0 };
@@ -421,9 +430,9 @@ export class EventsService {
     return new Date(`1970-01-01T${time}.000Z`);
   }
 
-  private async assertEvent(eventId: string) {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
+  private async assertEvent(tenantId: string | null, eventId: string) {
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, tenantId },
     });
     if (!event) throw new NotFoundException("Event not found");
     return event;

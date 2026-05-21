@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateThemeDto } from "./dto";
 
@@ -6,7 +6,13 @@ import { UpdateThemeDto } from "./dto";
 export class ThemeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  update(eventId: string, dto: UpdateThemeDto) {
+  async update(tenantId: string | null, eventId: string, dto: UpdateThemeDto) {
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, tenantId },
+      select: { id: true },
+    });
+    if (!event) throw new NotFoundException("Event not found");
+
     return this.prisma.eventTheme.upsert({
       where: { eventId },
       create: { eventId, ...dto },

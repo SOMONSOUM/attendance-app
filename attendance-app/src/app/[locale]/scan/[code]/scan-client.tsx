@@ -1,10 +1,12 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
+import { useForm } from "react-hook-form";
 import {
   CircleAlert,
   Check,
@@ -32,15 +34,14 @@ import {
 } from "@/components/ui/select";
 import { type AppearanceMode } from "@/components/appearance-provider";
 import { ApiRequestError, api } from "@/lib/api";
-
-type Registration = {
-  id: string;
-  fullNameEn: string;
-  fullNameKm?: string;
-  gender?: "MALE" | "FEMALE" | "OTHER";
-  position?: string;
-  department?: string;
-};
+import {
+  type ScanRegistration as Registration,
+  useScanStore,
+} from "@/lib/scan-store";
+import {
+  openRegistrationSchema,
+  type OpenRegistrationValues,
+} from "@/lib/validation";
 
 type Event = {
   id: string;
@@ -82,20 +83,38 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   const params = useParams<{ locale: string }>();
   const { theme, setTheme } = useTheme();
   const [query, setQuery] = useQueryState("q", { defaultValue: "" });
-  const [results, setResults] = useState<Registration[]>([]);
-  const [selected, setSelected] = useState<Registration | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [form, setForm] = useState({
-    fullNameEn: "",
-    fullNameKm: "",
-    gender: "MALE",
-    position: "",
-    department: "",
+  const {
+    results,
+    selected,
+    searching,
+    hasSearched,
+    busy,
+    alreadyJoinedOpen,
+    setResults,
+    setSelected,
+    setSearching,
+    setHasSearched,
+    setBusy,
+    setAlreadyJoinedOpen,
+  } = useScanStore();
+  const {
+    register,
+    trigger,
+    getValues,
+    watch,
+    formState: { errors },
+  } = useForm<OpenRegistrationValues>({
+    resolver: zodResolver(openRegistrationSchema),
+    defaultValues: {
+      fullNameEn: "",
+      fullNameKm: "",
+      gender: "MALE",
+      position: "",
+      department: "",
+    },
   });
+  const form = watch();
   const [status, setStatus] = useState<string>(t("readyStatus"));
-  const [busy, setBusy] = useState(false);
-  const [alreadyJoinedOpen, setAlreadyJoinedOpen] = useState(false);
   const [warning, setWarning] = useState<WarningKey | null>(null);
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [mounted, setMounted] = useState(false);
@@ -185,10 +204,14 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       return;
     }
 
+    if (event.mode === "OPEN_REGISTRATION" && !(await trigger())) {
+      return;
+    }
+
     setBusy(true);
     setStatus(t("checkingLocation"));
     const payload = {
-      ...(selected ?? form),
+      ...(selected ?? getValues()),
       registrationId: selected?.id,
     };
 
@@ -370,41 +393,29 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
               </div>
               <Input
                 placeholder={t("fullNameEn")}
-                value={form.fullNameEn}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, fullNameEn: e.target.value })
-                }
+                {...register("fullNameEn")}
               />
+              {errors.fullNameEn ? (
+                <p className="text-xs text-destructive">
+                  {errors.fullNameEn.message}
+                </p>
+              ) : null}
               <Input
                 placeholder={t("fullNameKm")}
-                value={form.fullNameKm}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, fullNameKm: e.target.value })
-                }
+                {...register("fullNameKm")}
               />
-              <NativeSelect
-                value={form.gender}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                  setForm({ ...form, gender: e.target.value })
-                }
-              >
+              <NativeSelect {...register("gender")}>
                 <option value="MALE">{t("male")}</option>
                 <option value="FEMALE">{t("female")}</option>
                 <option value="OTHER">{t("other")}</option>
               </NativeSelect>
               <Input
                 placeholder={t("position")}
-                value={form.position}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, position: e.target.value })
-                }
+                {...register("position")}
               />
               <Input
                 placeholder={t("department")}
-                value={form.department}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, department: e.target.value })
-                }
+                {...register("department")}
               />
             </div>
           ) : selected ? (

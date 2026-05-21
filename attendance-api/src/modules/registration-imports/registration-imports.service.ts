@@ -23,8 +23,9 @@ const genderMap: Record<string, Gender> = {
 export class RegistrationImportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list() {
+  async list(tenantId: string | null) {
     return this.prisma.registrationImport.findMany({
+      where: { tenantId },
       orderBy: { createdAt: "desc" },
       include: {
         uploadedBy: {
@@ -34,11 +35,16 @@ export class RegistrationImportsService {
     });
   }
 
-  async upload(file: Express.Multer.File, uploadedById?: string) {
+  async upload(
+    file: Express.Multer.File,
+    tenantId: string | null,
+    uploadedById?: string,
+  ) {
     const rows = this.parseRows(file.buffer);
     const created = await this.prisma.registrationImport.create({
       data: {
         fileName: file.originalname,
+        tenantId,
         originalName: file.originalname,
         rowCount: rows.length,
         status: "IMPORTED",

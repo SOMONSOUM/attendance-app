@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Req } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -15,9 +15,12 @@ import {
   attendanceExample,
 } from "../../common/swagger/api-examples";
 import { Public } from "../auth/decorators/public.decorator";
+import type { AuthUser } from "../auth/types/auth-user";
 import { RequirePermissions } from "../rbac/permissions.decorator";
 import { AttendanceService } from "./attendance.service";
 import { JoinEventDto } from "./dto";
+
+type AuthRequest = { user: AuthUser };
 
 @ApiTags("Attendance")
 @ApiBearerAuth()
@@ -55,16 +58,16 @@ export class AttendanceController {
   })
   @RequirePermissions("attendance:read")
   @Get("events/:eventId")
-  list(@Param("eventId") eventId: string) {
-    return this.attendance.list(eventId);
+  list(@Req() request: AuthRequest, @Param("eventId") eventId: string) {
+    return this.attendance.list(request.user.tenantId, eventId);
   }
 
   @ApiOperation({ summary: "List all event attendees with joined status" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @RequirePermissions("attendance:read")
   @Get("events/:eventId/roster")
-  roster(@Param("eventId") eventId: string) {
-    return this.attendance.roster(eventId);
+  roster(@Req() request: AuthRequest, @Param("eventId") eventId: string) {
+    return this.attendance.roster(request.user.tenantId, eventId);
   }
 
   @ApiOperation({ summary: "Mark a registered attendee as joined" })
@@ -73,17 +76,22 @@ export class AttendanceController {
   @RequirePermissions("attendance:create")
   @Post("events/:eventId/registrations/:registrationId/join")
   joinRegistration(
+    @Req() request: AuthRequest,
     @Param("eventId") eventId: string,
     @Param("registrationId") registrationId: string,
   ) {
-    return this.attendance.joinRegistration(eventId, registrationId);
+    return this.attendance.joinRegistration(
+      request.user.tenantId,
+      eventId,
+      registrationId,
+    );
   }
 
   @ApiOperation({ summary: "Cancel an attendee check-in" })
   @ApiParam({ name: "attendanceId", example: "clxattendance001" })
   @RequirePermissions("attendance:create")
   @Delete(":attendanceId")
-  cancel(@Param("attendanceId") attendanceId: string) {
-    return this.attendance.cancel(attendanceId);
+  cancel(@Req() request: AuthRequest, @Param("attendanceId") attendanceId: string) {
+    return this.attendance.cancel(request.user.tenantId, attendanceId);
   }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Put } from "@nestjs/common";
+import { Body, Controller, Param, Put, Req } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -10,6 +10,9 @@ import { themeExample } from "../../common/swagger/api-examples";
 import { UpdateThemeDto } from "./dto";
 import { ThemeService } from "./theme.service";
 import { RequirePermissions } from "../rbac/permissions.decorator";
+import type { AuthUser } from "../auth/types/auth-user";
+
+type AuthRequest = { user: AuthUser };
 
 @ApiTags("Theme")
 @ApiBearerAuth()
@@ -25,7 +28,11 @@ export class ThemeController {
   })
   @RequirePermissions("theme:update")
   @Put()
-  update(@Param("eventId") eventId: string, @Body() dto: UpdateThemeDto) {
-    return this.theme.update(eventId, dto);
+  update(
+    @Req() request: AuthRequest,
+    @Param("eventId") eventId: string,
+    @Body() dto: UpdateThemeDto,
+  ) {
+    return this.theme.update(request.user.tenantId, eventId, dto);
   }
 }

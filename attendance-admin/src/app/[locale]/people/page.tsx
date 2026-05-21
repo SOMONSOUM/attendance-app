@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Edit3, Trash2, UserPlus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import {
   AdminShell,
   EmptyState,
@@ -37,8 +38,10 @@ import {
   updateUser,
   userKeys,
 } from "@/lib/admin-data";
+import { useAdminUiStore } from "@/lib/ui-store";
+import { userSchema, type UserValues } from "@/lib/validation";
 
-const initialForm: UserForm = {
+const initialForm: UserValues = {
   email: "",
   password: "",
   fullNameEn: "",
@@ -50,8 +53,19 @@ const initialForm: UserForm = {
 
 export default function PeoplePage() {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<UserRecord | null>(null);
-  const [form, setForm] = useState<UserForm>(initialForm);
+  const editing = useAdminUiStore((state) => state.editingUser);
+  const setEditing = useAdminUiStore((state) => state.setEditingUser);
+  const {
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<UserValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: initialForm,
+  });
+  const form = watch();
   const usersQuery = useQuery({ queryKey: userKeys.all, queryFn: listUsers });
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
@@ -77,16 +91,20 @@ export default function PeoplePage() {
   ];
 
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (values: UserValues) => {
       if (editing) {
-        const { password, roleName, ...rest } = form;
+        const { password, roleName, ...rest } = values;
         const payload = canAssignRole ? { ...rest, roleName } : rest;
         return updateUser(
           editing.id,
           password ? { ...payload, password } : payload,
         );
       }
-      return createUser({ ...form, password: form.password ?? "password123" });
+      const password = values.password || "password123";
+      return createUser({
+        ...values,
+        password,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
@@ -111,12 +129,12 @@ export default function PeoplePage() {
 
   function resetForm() {
     setEditing(null);
-    setForm(initialForm);
+    reset(initialForm);
   }
 
   function startEdit(user: UserRecord) {
     setEditing(user);
-    setForm({
+    reset({
       email: user.email,
       password: "",
       fullNameEn: user.fullNameEn,
@@ -242,38 +260,40 @@ export default function PeoplePage() {
           <CardContent>
             <form
               className="grid gap-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                saveMutation.mutate();
-              }}
+              onSubmit={handleSubmit((values) =>
+                saveMutation.mutate(values),
+              )}
             >
               <Field
                 label="Full name"
                 value={form.fullNameEn}
-                onChange={(value) => setForm({ ...form, fullNameEn: value })}
+                error={errors.fullNameEn?.message}
+                onChange={(value) => setValue("fullNameEn", value)}
               />
               <Field
                 label="Email"
                 type="email"
                 value={form.email}
-                onChange={(value) => setForm({ ...form, email: value })}
+                error={errors.email?.message}
+                onChange={(value) => setValue("email", value)}
               />
               <Field
                 label={editing ? "New password" : "Password"}
                 type="password"
                 required={!editing}
                 value={form.password ?? ""}
-                onChange={(value) => setForm({ ...form, password: value })}
+                error={errors.password?.message}
+                onChange={(value) => setValue("password", value)}
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <SelectField
                   label="Gender"
                   value={form.gender ?? ""}
                   onChange={(value) =>
-                    setForm({
-                      ...form,
-                      gender: value ? (value as UserForm["gender"]) : undefined,
-                    })
+                    setValue(
+                      "gender",
+                      value ? (value as UserForm["gender"]) : undefined,
+                    )
                   }
                   options={["", "MALE", "FEMALE", "OTHER"]}
                 />
@@ -281,7 +301,7 @@ export default function PeoplePage() {
                   <SelectField
                     label="Role"
                     value={form.roleName ?? "viewer"}
-                    onChange={(value) => setForm({ ...form, roleName: value })}
+                    onChange={(value) => setValue("roleName", value)}
                     options={roleOptions}
                   />
                 ) : null}
@@ -290,13 +310,13 @@ export default function PeoplePage() {
                 label="Position"
                 required={false}
                 value={form.position ?? ""}
-                onChange={(value) => setForm({ ...form, position: value })}
+                onChange={(value) => setValue("position", value)}
               />
               <Field
                 label="Department"
                 required={false}
                 value={form.department ?? ""}
-                onChange={(value) => setForm({ ...form, department: value })}
+                onChange={(value) => setValue("department", value)}
               />
               <Button
                 disabled={
@@ -318,12 +338,14 @@ function Field({
   label,
   value,
   onChange,
+  error,
   type = "text",
   required = true,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
   type?: string;
   required?: boolean;
 }) {
@@ -336,6 +358,7 @@ function Field({
         required={required}
         onChange={(event) => onChange(event.target.value)}
       />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
