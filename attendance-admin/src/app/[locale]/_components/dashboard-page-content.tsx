@@ -23,14 +23,14 @@ import { eventKeys, listEvents, listUsers } from "@/lib/admin-data";
 export function DashboardPageContent() {
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
-    queryFn: listEvents,
+    queryFn: () => listEvents({ pageSize: 100 }),
   });
   const usersQuery = useQuery({
     queryKey: ["dashboard-users"],
-    queryFn: listUsers,
+    queryFn: () => listUsers({ pageSize: 100 }),
   });
-  const events = eventsQuery.data ?? [];
-  const users = usersQuery.data ?? [];
+  const events = eventsQuery.data?.items ?? [];
+  const users = usersQuery.data?.items ?? [];
   const totalUsers = events.reduce(
     (sum, event) => sum + (event.summary?.totalUsers ?? 0),
     0,

@@ -88,7 +88,7 @@ export default function RegistrationsPage() {
   const meetingUploadMutation = useMutation({
     mutationFn: uploadMeetingRegistrationImport,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["registration-imports", "meetings"] });
+      queryClient.invalidateQueries({ queryKey: importKeys.all });
       if (meetingFileInputRef.current) meetingFileInputRef.current.value = "";
     },
   });
@@ -244,7 +244,7 @@ export default function RegistrationsPage() {
               <span className="text-sm text-muted-fg">
                 {uploadMutation.isPending || meetingUploadMutation.isPending
                   ? "Uploading..."
-                  : `${filteredImports.length} files`}
+                  : `${allImports.length} files`}
               </span>
             </div>
           </SectionToolbar>

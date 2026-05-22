@@ -5,7 +5,7 @@ export default defineConfig({
   schema: "prisma/schema",
   migrations: {
     path: "prisma/migrations",
-    seed: "node --no-warnings --experimental-strip-types prisma/seed.ts",
+    seed: "jiti prisma/seed.ts",
   },
   datasource: {
     url:

@@ -109,7 +109,7 @@ export default function EventDetailPage() {
 
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
-    queryFn: listEvents,
+    queryFn: () => listEvents({ pageSize: 100 }),
   });
   const rosterQuery = useQuery({
     queryKey: ["event-roster", eventId],
@@ -131,7 +131,7 @@ export default function EventDetailPage() {
     onSuccess: () => refreshEventData(queryClient, eventId),
   });
 
-  const event = eventsQuery.data?.find((item) => item.id === eventId);
+  const event = eventsQuery.data?.items.find((item) => item.id === eventId);
   const roster = rosterQuery.data ?? [];
   const scopedRows = useMemo(
     () =>

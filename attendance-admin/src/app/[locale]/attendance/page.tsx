@@ -58,18 +58,18 @@ export default function AttendancePage() {
   const [page, setPage] = useState(1);
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
-    queryFn: listEvents,
+    queryFn: () => listEvents({ pageSize: 100 }),
   });
   const meetingsQuery = useQuery({
     queryKey: meetingKeys.all,
-    queryFn: listMeetings,
+    queryFn: () => listMeetings({ pageSize: 100 }),
   });
-  const events = eventsQuery.data ?? [];
-  const meetings = meetingsQuery.data ?? [];
+  const events = eventsQuery.data?.items ?? [];
+  const meetings = meetingsQuery.data?.items ?? [];
   const attendanceQueries = useQueries({
     queries: events.map((event) => ({
       queryKey: ["attendance", event.id],
-      queryFn: () => listAttendance(event.id),
+      queryFn: () => listAttendance(event.id, { pageSize: 100 }),
       enabled: Boolean(event.id),
     })),
   });
@@ -77,7 +77,7 @@ export default function AttendancePage() {
   const eventLogs = useMemo(
     () =>
       events.flatMap((event, index) =>
-        ((attendanceQueries[index]?.data ?? []) as AttendanceRecord[]).map((row) => ({
+        (attendanceQueries[index]?.data?.items ?? []).map((row) => ({
           id: row.id,
           sourceKey: sourceOptionKey("EVENT", event.id),
           sourceType: "EVENT" as const,
@@ -216,7 +216,7 @@ export default function AttendancePage() {
           <div className="p-5 text-sm text-muted-fg">Loading attendance...</div>
         ) : filteredLogs.length ? (
           <>
-          <Table className="min-w-[980px]">
+          <Table className="min-w-245">
             <TableHeader>
               <TableRow className="border-t-0">
                 <TableHead>Attendee</TableHead>

@@ -49,7 +49,7 @@ export default function MeetingDetailPage() {
 
   const meetingsQuery = useQuery({
     queryKey: meetingKeys.all,
-    queryFn: listMeetings,
+    queryFn: () => listMeetings({ pageSize: 100 }),
   });
   const qrQuery = useQuery({
     queryKey: ["meetings", meetingId, "qr"],
@@ -64,7 +64,7 @@ export default function MeetingDetailPage() {
     },
   });
 
-  const meeting = meetingsQuery.data?.find((item) => item.id === meetingId);
+  const meeting = meetingsQuery.data?.items.find((item) => item.id === meetingId);
   const participants = meeting?.participants ?? [];
   const selectedPlace = selectedPlaceId
     ? meeting?.places?.find((place) => place.id === selectedPlaceId) ?? null
