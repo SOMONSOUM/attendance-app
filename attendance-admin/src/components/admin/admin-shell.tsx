@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   Database,
   FileSpreadsheet,
+  Handshake,
   Home,
   LogOut,
   Menu,
@@ -58,6 +59,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { key: "dashboard", label: "Dashboard", href: "/en", icon: Home },
   { key: "events", label: "Events", href: "/en/events", icon: CalendarDays, permission: "events:read" },
+  { key: "meetings", label: "Meetings", href: "/en/meetings", icon: Handshake, permission: "meetings:read" },
   { key: "registrations", label: "Registrations", href: "/en/registrations", icon: FileSpreadsheet, permission: "registrations:read" },
   { key: "attendance", label: "Attendance", href: "/en/attendance", icon: ClipboardCheck, permission: "attendance:read" },
   { key: "people", label: "People", href: "/en/people", icon: Users, permission: "users:read" },

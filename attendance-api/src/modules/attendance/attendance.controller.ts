@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Query, Req } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -19,6 +19,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { RequirePermissions } from "../rbac/permissions.decorator";
 import { AttendanceService } from "./attendance.service";
 import { JoinEventDto } from "./dto";
+import type { PaginationQuery } from "../../common/pagination";
 
 type AuthRequest = { user: AuthUser };
 
@@ -58,8 +59,12 @@ export class AttendanceController {
   })
   @RequirePermissions("attendance:read")
   @Get("events/:eventId")
-  list(@Req() request: AuthRequest, @Param("eventId") eventId: string) {
-    return this.attendance.list(request.user.tenantId, eventId);
+  list(
+    @Req() request: AuthRequest,
+    @Param("eventId") eventId: string,
+    @Query() query: PaginationQuery,
+  ) {
+    return this.attendance.list(request.user.tenantId, eventId, query);
   }
 
   @ApiOperation({ summary: "List all event attendees with joined status" })

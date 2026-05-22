@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   CalendarPlus,
-  Download,
   Edit3,
   FileSpreadsheet,
   QrCode,
@@ -21,6 +20,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,6 @@ import {
   deleteEvent,
   eventKeys,
   getCurrentUser,
-  getEventQr,
   hasPermission,
   type EventForm,
   type EventRecord,
@@ -78,6 +77,7 @@ const wizardSteps = [
   { label: "QR setup", description: "QR mode and attendees" },
   { label: "Details", description: "Date, shifts, theme" },
 ];
+const PAGE_SIZE = 10;
 
 export default function EventsPage() {
   const router = useRouter();
@@ -88,8 +88,7 @@ export default function EventsPage() {
   const setEditing = useAdminUiStore((state) => state.setEditingEvent);
   const step = useAdminUiStore((state) => state.eventStep);
   const setStep = useAdminUiStore((state) => state.setEventStep);
-  const qrEvent = useAdminUiStore((state) => state.qrEvent);
-  const setQrEvent = useAdminUiStore((state) => state.setQrEvent);
+  const [deleteTarget, setDeleteTarget] = useState<EventRecord | null>(null);
   const {
     handleSubmit,
     reset,
@@ -102,6 +101,7 @@ export default function EventsPage() {
   const form = watch();
   const setForm = (nextForm: EventForm) => reset(nextForm);
   const [registrationFile, setRegistrationFile] = useState<File | null>(null);
+  const [page, setPage] = useState(1);
   const [placeRegistrationFiles, setPlaceRegistrationFiles] = useState<
     Record<number, File | null>
   >({});
@@ -110,8 +110,8 @@ export default function EventsPage() {
     Record<number, string>
   >({});
   const eventsQuery = useQuery({
-    queryKey: eventKeys.all,
-    queryFn: listEvents,
+    queryKey: [...eventKeys.all, page],
+    queryFn: () => listEvents({ page, pageSize: PAGE_SIZE }),
   });
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
@@ -119,12 +119,7 @@ export default function EventsPage() {
   });
   const importsQuery = useQuery({
     queryKey: ["registration-imports"],
-    queryFn: listRegistrationImports,
-  });
-  const qrQuery = useQuery({
-    queryKey: ["events", qrEvent?.id, "qr"],
-    queryFn: () => getEventQr(qrEvent!.id),
-    enabled: Boolean(qrEvent),
+    queryFn: () => listRegistrationImports({ pageSize: 100, target: "EVENT" }),
   });
   const currentUser = currentUserQuery.data;
   const canCreate = hasPermission(currentUser, "events:create");
@@ -172,11 +167,14 @@ export default function EventsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteEvent,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: eventKeys.all }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      setDeleteTarget(null);
+    },
   });
 
-  const events = eventsQuery.data ?? [];
-  const registrationImports = importsQuery.data ?? [];
+  const events = eventsQuery.data?.items ?? [];
+  const registrationImports = importsQuery.data?.items ?? [];
   const activeCount = useMemo(
     () => events.filter((event) => new Date(event.endsAt) >= new Date()).length,
     [events],
@@ -279,6 +277,7 @@ export default function EventsPage() {
           {eventsQuery.isLoading ? (
             <div className="p-5 text-sm text-muted-fg">Loading events...</div>
           ) : events.length ? (
+            <>
             <Table className="min-w-180">
               <TableHeader>
                 <TableRow className="border-t-0">
@@ -326,24 +325,6 @@ export default function EventsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          className="h-8 px-3"
-                          onClick={(clickEvent) => {
-                            clickEvent.stopPropagation();
-                            if (event.separateQrByPlace) {
-                              router.push(`/${locale}/events/${event.id}`);
-                              return;
-                            }
-                            setQrEvent(event);
-                          }}
-                        >
-                          {event.separateQrByPlace ? (
-                            "View"
-                          ) : (
-                            <QrCode size={14} />
-                          )}
-                        </Button>
                         {canUpdate ? (
                           <Button
                             variant="outline"
@@ -362,7 +343,7 @@ export default function EventsPage() {
                             className="h-8 px-3"
                             onClick={(clickEvent) => {
                               clickEvent.stopPropagation();
-                              deleteMutation.mutate(event.id);
+                              setDeleteTarget(event);
                             }}
                           >
                             <Trash2 size={14} />
@@ -374,6 +355,13 @@ export default function EventsPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationFooter
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalItems={eventsQuery.data?.meta.totalItems ?? 0}
+              onPageChange={setPage}
+            />
+            </>
           ) : (
             <EmptyState
               title="No events yet"
@@ -909,46 +897,31 @@ export default function EventsPage() {
         </Card>
       </div>
       <Dialog
-        open={Boolean(qrEvent)}
-        title={qrEvent?.name ?? "QR code"}
-        description="Scan QR code"
-        onOpenChange={(open) => !open && setQrEvent(null)}
+        open={Boolean(deleteTarget)}
+        title="Delete event"
+        description={
+          deleteTarget
+            ? `This will delete ${deleteTarget.name} and related attendance data.`
+            : undefined
+        }
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        {qrQuery.data && qrEvent ? (
-          <div className="grid gap-4">
-            {(qrQuery.data.qrCodes?.length
-              ? qrQuery.data.qrCodes
-              : [{ code: qrQuery.data.code, qrImage: qrQuery.data.qrImage }]
-            ).map((qr) => (
-              <div className="grid gap-3 rounded-md border border-border p-3" key={qr.code}>
-                <p className="text-sm font-medium">
-                  {"placeName" in qr && qr.placeName ? qr.placeName : qrEvent.name}
-                </p>
-                <img
-                  src={qr.qrImage}
-                  alt={`${qrEvent.name} QR code`}
-                  className="mx-auto size-56 rounded-md border border-border bg-white p-3"
-                />
-                <p className="break-all rounded-md bg-muted p-2 text-xs text-muted-fg">
-                  {qr.code}
-                </p>
-                <Button
-                  onClick={() =>
-                    downloadDataUrl(
-                      qr.qrImage,
-                      `${qrEvent.name}-${"placeName" in qr && qr.placeName ? qr.placeName : "qr"}.png`,
-                    )
-                  }
-                >
-                  <Download size={16} />
-                  Download QR
-                </Button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-fg">Loading QR code...</p>
-        )}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setDeleteTarget(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={!deleteTarget || deleteMutation.isPending}
+            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+          >
+            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </div>
       </Dialog>
     </AdminShell>
   );
@@ -1136,11 +1109,4 @@ function eventTone(event: EventRecord) {
   if (status === "Live") return "green";
   if (status === "Ready") return "purple";
   return "amber";
-}
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = filename.replace(/[^\w.-]+/g, "-").toLowerCase();
-  link.click();
 }

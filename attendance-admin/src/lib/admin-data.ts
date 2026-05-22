@@ -66,6 +66,68 @@ export type EventForm = {
   theme: EventTheme;
 };
 
+export type MeetingChairperson = {
+  id?: string;
+  honorificTitleEn: string;
+  honorificTitleKm: string;
+  firstNameEn: string;
+  firstNameKm: string;
+  lastNameEn: string;
+  lastNameKm: string;
+  position?: string | null;
+  organization?: string | null;
+};
+
+export type MeetingPlace = {
+  id?: string;
+  name: string;
+  description?: string | null;
+  locationName?: string | null;
+  qrCodes?: { id: string; code: string; active: boolean }[];
+};
+
+export type MeetingParticipant = {
+  id?: string;
+  fullNameEn: string;
+  fullNameKm?: string | null;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
+  position?: string | null;
+  department?: string | null;
+  email?: string | null;
+  status?: "INVITED" | "JOINED" | "CANCELLED";
+  joinedAt?: string | null;
+  placeId?: string | null;
+};
+
+export type MeetingRecord = {
+  id: string;
+  name: string;
+  description?: string | null;
+  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  separateQrByPlace?: boolean;
+  locationName: string;
+  startsAt: string;
+  endsAt: string;
+  chairpersons: MeetingChairperson[];
+  places?: MeetingPlace[];
+  qrCodes?: { id: string; code: string; active: boolean }[];
+  participants: MeetingParticipant[];
+  _count?: { chairpersons: number; participants: number };
+};
+
+export type MeetingForm = {
+  name: string;
+  description?: string;
+  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  separateQrByPlace?: boolean;
+  locationName?: string;
+  startsAt: string;
+  endsAt: string;
+  chairpersons: MeetingChairperson[];
+  places?: MeetingPlace[];
+  participants?: MeetingParticipant[];
+};
+
 export type UserRecord = {
   id: string;
   email: string;
@@ -150,6 +212,7 @@ export type RegistrationImportRecord = {
   fileName: string;
   originalName: string;
   rowCount: number;
+  target: "EVENT" | "MEETING";
   status: "IMPORTED" | "VALIDATING" | string;
   uploadedBy?: {
     id: string;
@@ -165,8 +228,27 @@ export type RegistrationTemplate = {
   contentBase64: string;
 };
 
+export type PaginationParams = {
+  page?: number;
+  pageSize?: number;
+};
+
+export type Paginated<T> = {
+  items: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+};
+
 export const eventKeys = {
   all: ["events"] as const,
+};
+
+export const meetingKeys = {
+  all: ["meetings"] as const,
 };
 
 export const userKeys = {
@@ -181,8 +263,8 @@ export const roleKeys = {
   all: ["roles"] as const,
 };
 
-export function listEvents() {
-  return api<EventRecord[]>("/events");
+export function listEvents(params?: PaginationParams) {
+  return api<Paginated<EventRecord>>(`/events${paginationQuery(params)}`);
 }
 
 export function getCurrentUser() {
@@ -205,6 +287,65 @@ export function updateEvent(id: string, data: Partial<EventForm>) {
 
 export function deleteEvent(id: string) {
   return api<{ deleted: true }>(`/events/${id}`, { method: "DELETE" });
+}
+
+export function listMeetings(params?: PaginationParams) {
+  return api<Paginated<MeetingRecord>>(`/meetings${paginationQuery(params)}`);
+}
+
+export function createMeeting(data: MeetingForm) {
+  return api<MeetingRecord>("/meetings", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateMeeting(id: string, data: Partial<MeetingForm>) {
+  return api<MeetingRecord>(`/meetings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteMeeting(id: string) {
+  return api<{ deleted: true }>(`/meetings/${id}`, { method: "DELETE" });
+}
+
+export function getMeetingQr(id: string) {
+  return api<{
+    code: string;
+    qrImage: string;
+    qrCodes?: Array<{
+      id: string;
+      code: string;
+      placeId?: string | null;
+      placeName?: string | null;
+      qrImage: string;
+    }>;
+  }>(`/meetings/${id}/qr`);
+}
+
+export function uploadMeetingParticipants(
+  meetingId: string,
+  file: File,
+  placeId?: string,
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (placeId) formData.append("placeId", placeId);
+
+  return api<{ count: number }>(`/meetings/${meetingId}/participants/upload`, {
+    method: "POST",
+    body: formData,
+    headers: {},
+  });
+}
+
+export function joinMeetingParticipant(meetingId: string, participantId: string) {
+  return api<MeetingParticipant>(
+    `/meetings/${meetingId}/participants/${participantId}/join`,
+    { method: "POST" },
+  );
 }
 
 export function getEventQr(id: string) {
@@ -233,8 +374,18 @@ export function uploadRegistrations(eventId: string, file: File, placeId?: strin
   });
 }
 
-export function listRegistrationImports() {
-  return api<RegistrationImportRecord[]>("/registration-imports");
+export function listRegistrationImports(
+  params?: PaginationParams & { target?: "EVENT" | "MEETING" },
+) {
+  return api<Paginated<RegistrationImportRecord>>(
+    `/registration-imports${paginationQuery(params)}`,
+  );
+}
+
+export function listMeetingRegistrationImports(params?: PaginationParams) {
+  return api<Paginated<RegistrationImportRecord>>(
+    `/registration-imports${paginationQuery({ ...params, target: "MEETING" })}`,
+  );
 }
 
 export function uploadRegistrationImport(file: File) {
@@ -248,8 +399,29 @@ export function uploadRegistrationImport(file: File) {
   });
 }
 
+export function uploadMeetingRegistrationImport(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return api<RegistrationImportRecord>("/registration-imports/meetings/upload", {
+    method: "POST",
+    body: formData,
+    headers: {},
+  });
+}
+
 export function getRegistrationTemplate() {
   return api<RegistrationTemplate>("/registration-imports/template");
+}
+
+export function downloadRegistrationImport(importId: string) {
+  return api<RegistrationTemplate>(`/registration-imports/${importId}/download`);
+}
+
+export function deleteRegistrationImport(importId: string) {
+  return api<{ deleted: true }>(`/registration-imports/${importId}`, {
+    method: "DELETE",
+  });
 }
 
 export function copyRegistrationImport(
@@ -273,12 +445,26 @@ export function copyRegistrations(eventId: string, sourceEventId: string) {
   );
 }
 
-export function listUsers() {
-  return api<UserRecord[]>("/users");
+export function copyMeetingRegistrationImport(
+  meetingId: string,
+  importId: string,
+  placeId?: string,
+) {
+  return api<{ count: number }>(
+    `/meetings/${meetingId}/participants/import/${importId}`,
+    {
+      method: "POST",
+      body: JSON.stringify(placeId ? { placeId } : {}),
+    },
+  );
 }
 
-export function listRoles() {
-  return api<RoleRecord[]>("/users/roles");
+export function listUsers(params?: PaginationParams) {
+  return api<Paginated<UserRecord>>(`/users${paginationQuery(params)}`);
+}
+
+export function listRoles(params?: PaginationParams) {
+  return api<Paginated<RoleRecord>>(`/users/roles${paginationQuery(params)}`);
 }
 
 export function createRole(data: RoleForm) {
@@ -324,8 +510,10 @@ export function assignUserRole(id: string, roleName: string) {
   });
 }
 
-export function listAttendance(eventId: string) {
-  return api<AttendanceRecord[]>(`/attendance/events/${eventId}`);
+export function listAttendance(eventId: string, params?: PaginationParams) {
+  return api<Paginated<AttendanceRecord>>(
+    `/attendance/events/${eventId}${paginationQuery(params)}`,
+  );
 }
 
 export function listEventRoster(eventId: string) {
@@ -353,4 +541,15 @@ export function hasPermission(
   permission: string,
 ) {
   return Boolean(user?.permissions.includes(permission));
+}
+
+function paginationQuery(
+  params?: PaginationParams & { target?: "EVENT" | "MEETING" },
+) {
+  const search = new URLSearchParams();
+  if (params?.page) search.set("page", String(params.page));
+  if (params?.pageSize) search.set("pageSize", String(params.pageSize));
+  if (params?.target) search.set("target", params.target);
+  const query = search.toString();
+  return query ? `?${query}` : "";
 }

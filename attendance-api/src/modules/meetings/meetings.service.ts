@@ -1,0 +1,377 @@
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { EventMode, Gender } from "@prisma/client";
+import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
+import * as XLSX from "xlsx";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreateMeetingDto, UpdateMeetingDto } from "./dto";
+import {
+  paginated,
+  parsePagination,
+  type PaginationQuery,
+} from "../../common/pagination";
+
+type UploadRow = {
+  "Fullname English"?: string;
+  "Fullname Khmer"?: string;
+  Gender?: string;
+  Position?: string;
+  Department?: string;
+  Email?: string;
+};
+
+const genderMap: Record<string, Gender> = {
+  male: "MALE",
+  m: "MALE",
+  female: "FEMALE",
+  f: "FEMALE",
+  other: "OTHER",
+};
+
+@Injectable()
+export class MeetingsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(tenantId: string | null, userId: string, dto: CreateMeetingDto) {
+    this.assertChairpersons(dto.chairpersons);
+    const separateQrByPlace = Boolean(dto.separateQrByPlace);
+    const code = this.toQrCode();
+
+    return this.prisma.$transaction(async (tx) => {
+      const meeting = await tx.meeting.create({
+        data: {
+          tenantId,
+          createdById: userId,
+          name: dto.name,
+          description: dto.description,
+          mode: dto.mode,
+          separateQrByPlace,
+          locationName: dto.locationName?.trim() || "Not required",
+          startsAt: new Date(dto.startsAt),
+          endsAt: new Date(dto.endsAt),
+          chairpersons: {
+            create: dto.chairpersons.map((chairperson) => ({ ...chairperson })),
+          },
+          qrCodes: separateQrByPlace ? undefined : { create: { code } },
+          places: separateQrByPlace
+            ? {
+                create:
+                  dto.places?.map((place) => ({
+                    name: place.name,
+                    description: place.description,
+                    locationName: place.locationName?.trim() || place.name,
+                  })) ?? [],
+              }
+            : undefined,
+          participants: {
+            create:
+              dto.mode === EventMode.PRE_REGISTERED
+                ? dto.participants?.map((participant) => ({ ...participant })) ?? []
+                : [],
+          },
+        },
+      });
+
+      if (separateQrByPlace) {
+        const places = await tx.meetingPlace.findMany({
+          where: { meetingId: meeting.id },
+        });
+        await tx.meetingQrCode.createMany({
+          data: places.map((place) => ({
+            meetingId: meeting.id,
+            placeId: place.id,
+            code: this.toQrCode(),
+          })),
+        });
+      }
+
+      return tx.meeting.findUniqueOrThrow({
+        where: { id: meeting.id },
+        include: this.include,
+      });
+    });
+  }
+
+  async list(tenantId: string | null, query: PaginationQuery = {}) {
+    const { page, pageSize, skip, take } = parsePagination(query);
+    const where = { tenantId };
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.meeting.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+        include: this.include,
+      }),
+      this.prisma.meeting.count({ where }),
+    ]);
+
+    return paginated(items, totalItems, page, pageSize);
+  }
+
+  async update(tenantId: string | null, meetingId: string, dto: UpdateMeetingDto) {
+    const existing = await this.assertMeeting(tenantId, meetingId);
+    if (dto.chairpersons) this.assertChairpersons(dto.chairpersons);
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.chairpersons) {
+        await tx.meetingChairperson.deleteMany({ where: { meetingId } });
+      }
+      if (dto.participants) {
+        await tx.meetingParticipant.deleteMany({ where: { meetingId } });
+      }
+      if (dto.places) {
+        await tx.meetingPlace.deleteMany({ where: { meetingId } });
+        await tx.meetingQrCode.deleteMany({ where: { meetingId } });
+      }
+
+      const separateQrByPlace =
+        dto.separateQrByPlace ?? existing.separateQrByPlace;
+      const meeting = await tx.meeting.update({
+        where: { id: meetingId },
+        data: {
+          name: dto.name,
+          description: dto.description,
+          mode: dto.mode,
+          separateQrByPlace: dto.separateQrByPlace,
+          locationName: dto.locationName?.trim() || undefined,
+          startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
+          endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
+          chairpersons: dto.chairpersons
+            ? {
+                create: dto.chairpersons.map((chairperson) => ({
+                  ...chairperson,
+                })),
+              }
+            : undefined,
+          places: dto.places
+            ? {
+                create: separateQrByPlace
+                  ? dto.places.map((place) => ({
+                      name: place.name,
+                      description: place.description,
+                      locationName: place.locationName?.trim() || place.name,
+                    }))
+                  : [],
+              }
+            : undefined,
+          participants: dto.participants
+            ? {
+                create: dto.participants.map((participant) => ({
+                  ...participant,
+                })),
+              }
+            : undefined,
+        },
+      });
+
+      if (dto.places && separateQrByPlace) {
+        const places = await tx.meetingPlace.findMany({ where: { meetingId } });
+        await tx.meetingQrCode.createMany({
+          data: places.map((place) => ({
+            meetingId,
+            placeId: place.id,
+            code: this.toQrCode(),
+          })),
+        });
+      } else if (!separateQrByPlace) {
+        const existingQr = await tx.meetingQrCode.findFirst({
+          where: { meetingId, placeId: null, active: true },
+        });
+        if (!existingQr) {
+          await tx.meetingQrCode.create({
+            data: { meetingId, code: this.toQrCode() },
+          });
+        }
+      }
+
+      return tx.meeting.findUniqueOrThrow({
+        where: { id: meeting.id },
+        include: this.include,
+      });
+    });
+  }
+
+  async remove(tenantId: string | null, meetingId: string) {
+    await this.assertMeeting(tenantId, meetingId);
+    await this.prisma.meeting.delete({ where: { id: meetingId } });
+    return { deleted: true };
+  }
+
+  async getQr(tenantId: string | null, meetingId: string) {
+    await this.assertMeeting(tenantId, meetingId);
+    const qrs = await this.prisma.meetingQrCode.findMany({
+      where: { meetingId, active: true },
+      orderBy: { createdAt: "desc" },
+      include: { place: true },
+    });
+    if (!qrs.length) throw new NotFoundException("Meeting QR code not found");
+    return {
+      code: qrs[0].code,
+      qrImage: await this.toQrImage(qrs[0].code),
+      qrCodes: await Promise.all(
+        qrs.map(async (qr) => ({
+          id: qr.id,
+          code: qr.code,
+          placeId: qr.placeId,
+          placeName: qr.place?.name ?? null,
+          qrImage: await this.toQrImage(qr.code),
+        })),
+      ),
+    };
+  }
+
+  async uploadParticipants(
+    tenantId: string | null,
+    meetingId: string,
+    file: Express.Multer.File,
+    placeId?: string,
+  ) {
+    await this.assertMeeting(tenantId, meetingId);
+    if (placeId) await this.assertPlace(meetingId, placeId);
+
+    const workbook = XLSX.read(file.buffer);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<UploadRow>(sheet);
+    const data = rows
+      .filter((row) => row["Fullname English"] || row["Fullname Khmer"])
+      .map((row) => ({
+        meetingId,
+        placeId,
+        fullNameEn:
+          row["Fullname English"]?.trim() ??
+          row["Fullname Khmer"]?.trim() ??
+          "Unknown",
+        fullNameKm: row["Fullname Khmer"]?.trim(),
+        gender: row.Gender ? genderMap[row.Gender.toLowerCase()] : undefined,
+        position: row.Position?.trim(),
+        department: row.Department?.trim(),
+        email: row.Email?.trim(),
+        source: "UPLOAD",
+      }));
+
+    if (!data.length) return { count: 0 };
+    await this.prisma.meetingParticipant.createMany({ data });
+    return { count: data.length };
+  }
+
+  async copyParticipantsFromImport(
+    tenantId: string | null,
+    meetingId: string,
+    importId: string,
+    placeId?: string,
+  ) {
+    await this.assertMeeting(tenantId, meetingId);
+    if (placeId) await this.assertPlace(meetingId, placeId);
+    const rows = await this.prisma.registrationImportRow.findMany({
+      where: { importId, import: { tenantId, target: "MEETING" } },
+    });
+
+    if (!rows.length) return { count: 0 };
+
+    await this.prisma.meetingParticipant.createMany({
+      data: rows.map((row) => ({
+        meetingId,
+        placeId,
+        fullNameEn: row.fullNameEn,
+        fullNameKm: row.fullNameKm,
+        gender: row.gender,
+        position: row.position,
+        department: row.department,
+        source: `IMPORT:${importId}`,
+      })),
+    });
+
+    return { count: rows.length };
+  }
+
+  async joinParticipant(
+    tenantId: string | null,
+    meetingId: string,
+    participantId: string,
+  ) {
+    await this.assertMeeting(tenantId, meetingId);
+    return this.prisma.meetingParticipant.update({
+      where: { id: participantId },
+      data: { status: "JOINED", joinedAt: new Date() },
+    });
+  }
+
+  async getPublicByCode(code: string) {
+    const qr = await this.prisma.meetingQrCode.findUnique({
+      where: { code },
+      include: {
+        place: true,
+        meeting: {
+          include: {
+            chairpersons: true,
+            places: true,
+            participants: true,
+          },
+        },
+      },
+    });
+    if (!qr?.active) throw new NotFoundException("Meeting QR code not found");
+    return { ...qr.meeting, scanPlace: qr.place };
+  }
+
+  async joinByCode(code: string, dto: { fullNameEn: string; fullNameKm?: string }) {
+    const meeting = await this.getPublicByCode(code);
+    if (meeting.mode !== EventMode.OPEN_REGISTRATION) {
+      throw new BadRequestException("This meeting does not allow open registration.");
+    }
+    return this.prisma.meetingParticipant.create({
+      data: {
+        meetingId: meeting.id,
+        placeId: meeting.scanPlace?.id,
+        fullNameEn: dto.fullNameEn,
+        fullNameKm: dto.fullNameKm,
+        status: "JOINED",
+        joinedAt: new Date(),
+        source: "OPEN_REGISTRATION",
+      },
+    });
+  }
+
+  private assertChairpersons(chairpersons?: unknown[]) {
+    if (!chairpersons?.length) {
+      throw new BadRequestException("At least one meeting chairperson is required.");
+    }
+  }
+
+  private async assertMeeting(tenantId: string | null, meetingId: string) {
+    const meeting = await this.prisma.meeting.findFirst({
+      where: { id: meetingId, tenantId },
+    });
+    if (!meeting) throw new NotFoundException("Meeting not found");
+    return meeting;
+  }
+
+  private async assertPlace(meetingId: string, placeId: string) {
+    const place = await this.prisma.meetingPlace.findFirst({
+      where: { id: placeId, meetingId },
+    });
+    if (!place) throw new NotFoundException("Meeting place not found");
+    return place;
+  }
+
+  private toQrImage(code: string) {
+    return QRCode.toDataURL(
+      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/meeting-scan/${code}`,
+    );
+  }
+
+  private toQrCode() {
+    return randomBytes(18).toString("base64url");
+  }
+
+  private get include() {
+    return {
+      chairpersons: { orderBy: { createdAt: "asc" as const } },
+      places: { include: { qrCodes: true }, orderBy: { createdAt: "asc" as const } },
+      qrCodes: true,
+      participants: { orderBy: { fullNameEn: "asc" as const } },
+      _count: { select: { chairpersons: true, participants: true } },
+    };
+  }
+}

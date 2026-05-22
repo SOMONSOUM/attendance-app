@@ -2,33 +2,54 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import { hash } from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateRoleDto, CreateUserDto, UpdateRoleDto, UpdateUserDto } from "./dto";
+import {
+  paginated,
+  parsePagination,
+  type PaginationQuery,
+} from "../../common/pagination";
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(tenantId: string | null) {
+  async list(tenantId: string | null, query: PaginationQuery = {}) {
     const scopedTenantId = this.scopeTenant(tenantId);
-    return this.prisma.user.findMany({
-      where: { tenantId: scopedTenantId },
-      orderBy: { createdAt: "desc" },
-      include: { roles: { include: { role: true } } },
-    });
+    const { page, pageSize, skip, take } = parsePagination(query);
+    const where = { tenantId: scopedTenantId };
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+        include: { roles: { include: { role: true } } },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return paginated(items, totalItems, page, pageSize);
   }
 
-  roles(tenantId: string | null) {
+  async roles(tenantId: string | null, query: PaginationQuery = {}) {
     const scopedTenantId = this.scopeTenant(tenantId);
-    return this.prisma.role.findMany({
-      where: { tenantId: scopedTenantId },
-      orderBy: { name: "asc" },
-      include: {
-        permissions: {
-          include: { permission: true },
-          orderBy: { permission: { resource: "asc" } },
+    const { page, pageSize, skip, take } = parsePagination(query);
+    const where = { tenantId: scopedTenantId };
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.role.findMany({
+        where,
+        orderBy: { name: "asc" },
+        skip,
+        take,
+        include: {
+          permissions: {
+            include: { permission: true },
+            orderBy: { permission: { resource: "asc" } },
+          },
+          _count: { select: { users: true } },
         },
-        _count: { select: { users: true } },
-      },
-    });
+      }),
+      this.prisma.role.count({ where }),
+    ]);
+    return paginated(items, totalItems, page, pageSize);
   }
 
   async createRole(tenantId: string | null, dto: CreateRoleDto) {

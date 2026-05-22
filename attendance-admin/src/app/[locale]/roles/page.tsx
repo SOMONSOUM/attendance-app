@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Edit3, ShieldCheck, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Edit3, Plus, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import {
@@ -11,6 +12,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,9 +43,11 @@ const initialRoleForm: RoleValues = {
   description: "",
   permissions: "events:read,attendance:read",
 };
+const PAGE_SIZE = 10;
 
 export default function RolesPage() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const editing = useAdminUiStore((state) => state.editingRole);
   const setEditing = useAdminUiStore((state) => state.setEditingRole);
   const {
@@ -55,7 +59,10 @@ export default function RolesPage() {
     resolver: zodResolver(roleSchema),
     defaultValues: initialRoleForm,
   });
-  const rolesQuery = useQuery({ queryKey: roleKeys.all, queryFn: listRoles });
+  const rolesQuery = useQuery({
+    queryKey: [...roleKeys.all, page],
+    queryFn: () => listRoles({ page, pageSize: PAGE_SIZE }),
+  });
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: getCurrentUser,
@@ -78,14 +85,7 @@ export default function RolesPage() {
     mutationFn: deleteRole,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: roleKeys.all }),
   });
-  const roles = rolesQuery.data ?? [];
-  const resources = Array.from(
-    new Set(
-      roles.flatMap((role) =>
-        role.permissions.map(({ permission }) => permission.resource),
-      ),
-    ),
-  ).sort();
+  const roles = rolesQuery.data?.items ?? [];
 
   function rolePayload(values: RoleValues) {
     return {
@@ -121,13 +121,22 @@ export default function RolesPage() {
       active="Roles & RBAC"
       title="Roles & permissions"
       description="Roles, members, and permission actions loaded from the database."
+      action={
+        canCreateRole ? (
+          <Button onClick={resetForm}>
+            <Plus size={16} />
+            New role
+          </Button>
+        ) : null
+      }
     >
-      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
         <TableShell>
           <SectionToolbar title="RBAC matrix" />
           {rolesQuery.isLoading ? (
             <div className="p-5 text-sm text-muted-fg">Loading roles...</div>
           ) : roles.length ? (
+            <>
             <Table className="min-w-190">
               <TableHeader>
                 <TableRow className="border-t-0">
@@ -183,6 +192,13 @@ export default function RolesPage() {
                 ))}
               </TableBody>
             </Table>
+            <PaginationFooter
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalItems={rolesQuery.data?.meta.totalItems ?? 0}
+              onPageChange={setPage}
+            />
+            </>
           ) : (
             <EmptyState
               title="No roles"
@@ -191,82 +207,68 @@ export default function RolesPage() {
           )}
         </TableShell>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Protected resources</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {resources.map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-3 rounded-md border border-border bg-background p-3"
+        <Card className="overflow-hidden xl:sticky xl:top-20">
+            <CardHeader className="border-b border-border bg-muted/30 p-4">
+              <CardTitle>{editing ? "Update role" : "Create role"}</CardTitle>
+              <p className="mt-1 text-sm text-muted-fg">
+                Define the role name and comma-separated permissions.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <form
+                className="flex max-h-[calc(100dvh-9rem)] flex-col"
+                onSubmit={handleSubmit((values) =>
+                  saveRoleMutation.mutate(values),
+                )}
               >
-                <ShieldCheck size={16} className="text-primary" />
-                <span className="font-medium">{item}</span>
-                <span className="ml-auto text-xs text-muted-fg">protected</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{editing ? "Update role" : "Create role"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              className="grid gap-4"
-              onSubmit={handleSubmit((values) =>
-                saveRoleMutation.mutate(values),
-              )}
-            >
-              <div className="grid gap-2">
-                <Label>Role name</Label>
-                <Input
-                  {...register("name")}
-                  placeholder="scanner"
-                />
-                {errors.name ? (
-                  <p className="text-xs text-destructive">
-                    {errors.name.message}
-                  </p>
-                ) : null}
-              </div>
-              <div className="grid gap-2">
-                <Label>Description</Label>
-                <Input
-                  {...register("description")}
-                  placeholder="Can scan attendees"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Permissions</Label>
-                <Input
-                  {...register("permissions")}
-                  placeholder="events:read,attendance:read"
-                />
-                {errors.permissions ? (
-                  <p className="text-xs text-destructive">
-                    {errors.permissions.message}
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                disabled={
-                  saveRoleMutation.isPending ||
-                  (editing ? !canUpdateRole : !canCreateRole)
-                }
-              >
-                {editing ? "Update role" : "Create role"}
-              </Button>
-              {editing ? (
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              ) : null}
-            </form>
-          </CardContent>
-        </Card>
+                <div className="grid gap-4 overflow-y-auto p-4">
+                  <div className="grid gap-2">
+                    <Label>Role name</Label>
+                    <Input {...register("name")} placeholder="scanner" />
+                    {errors.name ? (
+                      <p className="text-xs text-destructive">
+                        {errors.name.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Description</Label>
+                    <Input
+                      {...register("description")}
+                      placeholder="Can scan attendees"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Permissions</Label>
+                    <Input
+                      {...register("permissions")}
+                      placeholder="events:read,attendance:read"
+                    />
+                    {errors.permissions ? (
+                      <p className="text-xs text-destructive">
+                        {errors.permissions.message}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex gap-2 border-t border-border bg-card p-4">
+                  <Button
+                    disabled={
+                      saveRoleMutation.isPending ||
+                      (editing ? !canUpdateRole : !canCreateRole)
+                    }
+                  >
+                    {editing ? "Update role" : "Create role"}
+                  </Button>
+                  {editing ? (
+                    <Button type="button" variant="outline" onClick={resetForm}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
+              </form>
+            </CardContent>
+          </Card>
       </div>
     </AdminShell>
   );

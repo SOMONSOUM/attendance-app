@@ -5,7 +5,9 @@ import {
   AttendanceStatus,
   EventMode,
   Gender,
+  MeetingParticipantStatus,
   PrismaClient,
+  RegistrationTarget,
   ThemeAppearance,
 } from "@prisma/client";
 import { hash } from "bcryptjs";
@@ -78,6 +80,10 @@ const permissions: PermissionSeed[] = [
   ["events", "read"],
   ["events", "update"],
   ["events", "delete"],
+  ["meetings", "create"],
+  ["meetings", "read"],
+  ["meetings", "update"],
+  ["meetings", "delete"],
   ["registrations", "create"],
   ["registrations", "read"],
   ["attendance", "create"],
@@ -107,6 +113,9 @@ const roles: RoleSeed[] = [
     name: "operator",
     description: "Can manage event check-in and view attendance records.",
     permissions: [
+      "meetings:create",
+      "meetings:read",
+      "meetings:update",
       "events:read",
       "registrations:create",
       "registrations:read",
@@ -119,7 +128,12 @@ const roles: RoleSeed[] = [
   {
     name: "viewer",
     description: "Read-only access for events and attendance.",
-    permissions: ["events:read", "registrations:read", "attendance:read"],
+    permissions: [
+      "events:read",
+      "meetings:read",
+      "registrations:read",
+      "attendance:read",
+    ],
   },
 ];
 
@@ -440,9 +454,142 @@ const placeSeeds: PlaceSeed[] = [
   },
 ];
 
+const boardMeeting = {
+  id: "seed-meeting-board-briefing-2026",
+  tenantId: "default-tenant",
+  name: "Board Briefing 2026",
+  description:
+    "Demo pre-registration meeting with chairpersons and invited participants.",
+  mode: EventMode.PRE_REGISTERED,
+  separateQrByPlace: false,
+  locationName: "Executive Meeting Room",
+  startsAt: new Date("2026-06-04T02:00:00.000Z"),
+  endsAt: new Date("2026-06-04T04:30:00.000Z"),
+  createdById: "seed-user-admin",
+};
+
+const boardMeetingChairpersons = [
+  {
+    id: "seed-chairperson-board-sokha",
+    honorificTitleEn: "Dr.",
+    honorificTitleKm: "បណ្ឌិត",
+    firstNameEn: "Sokha",
+    firstNameKm: "សុខា",
+    lastNameEn: "Mao",
+    lastNameKm: "ម៉ៅ",
+    position: "Chairperson",
+    organization: "Default Tenant",
+  },
+];
+
+const boardMeetingParticipants: RegistrationSeed[] = [
+  {
+    id: "seed-meeting-participant-board-sopheak",
+    fullNameEn: "Sopheak Vann",
+    fullNameKm: null,
+    gender: Gender.MALE,
+    position: "Finance Manager",
+    department: "Finance",
+  },
+  {
+    id: "seed-meeting-participant-board-davy",
+    fullNameEn: "Davy Chhem",
+    fullNameKm: null,
+    gender: Gender.FEMALE,
+    position: "Legal Advisor",
+    department: "Legal",
+  },
+];
+
+const placeMeeting = {
+  id: "seed-meeting-committee-workshops-2026",
+  tenantId: "default-tenant",
+  name: "Committee Workshops 2026",
+  description:
+    "Demo meeting with separate QR codes for each workshop room.",
+  mode: EventMode.PRE_REGISTERED,
+  separateQrByPlace: true,
+  locationName: "Administration Building",
+  startsAt: new Date("2026-06-05T02:00:00.000Z"),
+  endsAt: new Date("2026-06-05T07:00:00.000Z"),
+  createdById: "seed-user-admin",
+};
+
+const placeMeetingChairpersons = [
+  {
+    id: "seed-chairperson-committee-sreyneang",
+    honorificTitleEn: "H.E.",
+    honorificTitleKm: "ឯកឧត្តម",
+    firstNameEn: "Sreyneang",
+    firstNameKm: "ស្រីនាង",
+    lastNameEn: "Keo",
+    lastNameKm: "កែវ",
+    position: "Committee Chairperson",
+    organization: "Default Tenant",
+  },
+];
+
+const meetingPlaceSeeds = [
+  {
+    id: "seed-meeting-place-policy-room",
+    name: "Policy Room",
+    description: "Policy review and planning discussion.",
+    locationName: "Room 301",
+    code: "DEMO-MEETING-POLICY-ROOM",
+    participants: [
+      {
+        id: "seed-meeting-participant-policy-rina",
+        fullNameEn: "Rina Hul",
+        fullNameKm: null,
+        gender: Gender.FEMALE,
+        position: "Policy Analyst",
+        department: "Planning",
+      },
+      {
+        id: "seed-meeting-participant-policy-vireak",
+        fullNameEn: "Vireak Touch",
+        fullNameKm: null,
+        gender: Gender.MALE,
+        position: "Project Lead",
+        department: "Programs",
+      },
+    ],
+  },
+  {
+    id: "seed-meeting-place-budget-room",
+    name: "Budget Room",
+    description: "Budget planning and procurement discussion.",
+    locationName: "Room 302",
+    code: "DEMO-MEETING-BUDGET-ROOM",
+    participants: [
+      {
+        id: "seed-meeting-participant-budget-malis",
+        fullNameEn: "Malis Sim",
+        fullNameKm: null,
+        gender: Gender.FEMALE,
+        position: "Procurement Officer",
+        department: "Procurement",
+      },
+      {
+        id: "seed-meeting-participant-budget-bora",
+        fullNameEn: "Bora Seng",
+        fullNameKm: null,
+        gender: Gender.MALE,
+        position: "Accountant",
+        department: "Finance",
+      },
+    ],
+  },
+];
+
 async function resetDatabase() {
   await prisma.attendance.deleteMany();
   await prisma.eventRegistration.deleteMany();
+  await prisma.meetingParticipant.deleteMany();
+  await prisma.meetingQrCode.deleteMany();
+  await prisma.meetingChairperson.deleteMany();
+  await prisma.meetingPlace.deleteMany();
+  await prisma.meeting.deleteMany();
   await prisma.registrationImportRow.deleteMany();
   await prisma.registrationImport.deleteMany();
   await prisma.eventQrCode.deleteMany();
@@ -618,6 +765,7 @@ async function seedRegistrationImports() {
       id: "seed-import-tech-summit",
       fileName: "tech-summit-guests.xlsx",
       originalName: "tech-summit-guests.xlsx",
+      target: RegistrationTarget.EVENT,
       uploadedById: "seed-user-admin",
       registrations,
     },
@@ -625,6 +773,7 @@ async function seedRegistrationImports() {
       id: "seed-import-product-expo-main-hall",
       fileName: "product-expo-main-hall.xlsx",
       originalName: "product-expo-main-hall.xlsx",
+      target: RegistrationTarget.EVENT,
       uploadedById: "seed-user-operator",
       registrations: placeSeeds[0].registrations,
     },
@@ -632,8 +781,25 @@ async function seedRegistrationImports() {
       id: "seed-import-product-expo-workshop.xlsx",
       fileName: "product-expo-workshop.xlsx",
       originalName: "product-expo-workshop.xlsx",
+      target: RegistrationTarget.EVENT,
       uploadedById: "seed-user-operator",
       registrations: placeSeeds[1].registrations,
+    },
+    {
+      id: "seed-import-board-briefing",
+      fileName: "board-briefing-participants.xlsx",
+      originalName: "board-briefing-participants.xlsx",
+      target: RegistrationTarget.MEETING,
+      uploadedById: "seed-user-admin",
+      registrations: boardMeetingParticipants,
+    },
+    {
+      id: "seed-import-committee-policy-room",
+      fileName: "committee-policy-room-participants.xlsx",
+      originalName: "committee-policy-room-participants.xlsx",
+      target: RegistrationTarget.MEETING,
+      uploadedById: "seed-user-operator",
+      registrations: meetingPlaceSeeds[0].participants,
     },
   ];
 
@@ -644,6 +810,7 @@ async function seedRegistrationImports() {
         fileName: importSeed.fileName,
         tenantId: "default-tenant",
         originalName: importSeed.originalName,
+        target: importSeed.target,
         rowCount: importSeed.registrations.length,
         status: "IMPORTED",
         uploadedById: importSeed.uploadedById,
@@ -653,6 +820,7 @@ async function seedRegistrationImports() {
         tenantId: "default-tenant",
         fileName: importSeed.fileName,
         originalName: importSeed.originalName,
+        target: importSeed.target,
         rowCount: importSeed.registrations.length,
         status: "IMPORTED",
         uploadedById: importSeed.uploadedById,
@@ -914,6 +1082,159 @@ async function seedPlaceEvent() {
   }
 }
 
+async function seedMeetings() {
+  const { id: boardMeetingId, ...boardMeetingData } = boardMeeting;
+  const board = await prisma.meeting.upsert({
+    where: { id: boardMeetingId },
+    update: boardMeetingData,
+    create: boardMeeting,
+  });
+
+  for (const chairpersonSeed of boardMeetingChairpersons) {
+    await prisma.meetingChairperson.upsert({
+      where: { id: chairpersonSeed.id },
+      update: {
+        meetingId: board.id,
+        honorificTitleEn: chairpersonSeed.honorificTitleEn,
+        honorificTitleKm: chairpersonSeed.honorificTitleKm,
+        firstNameEn: chairpersonSeed.firstNameEn,
+        firstNameKm: chairpersonSeed.firstNameKm,
+        lastNameEn: chairpersonSeed.lastNameEn,
+        lastNameKm: chairpersonSeed.lastNameKm,
+        position: chairpersonSeed.position,
+        organization: chairpersonSeed.organization,
+      },
+      create: {
+        ...chairpersonSeed,
+        meetingId: board.id,
+      },
+    });
+  }
+
+  await prisma.meetingQrCode.upsert({
+    where: { code: "DEMO-BOARD-BRIEFING-2026" },
+    update: {
+      meetingId: board.id,
+      placeId: null,
+      active: true,
+      expiresAt: null,
+    },
+    create: {
+      code: "DEMO-BOARD-BRIEFING-2026",
+      meetingId: board.id,
+      active: true,
+    },
+  });
+
+  for (const participantSeed of boardMeetingParticipants) {
+    const { id: participantId, ...participantData } = participantSeed;
+
+    await prisma.meetingParticipant.upsert({
+      where: { id: participantId },
+      update: {
+        meetingId: board.id,
+        placeId: null,
+        ...participantData,
+        status: MeetingParticipantStatus.INVITED,
+        source: "SEED",
+      },
+      create: {
+        id: participantId,
+        meetingId: board.id,
+        ...participantData,
+        status: MeetingParticipantStatus.INVITED,
+        source: "SEED",
+      },
+    });
+  }
+
+  const { id: placeMeetingId, ...placeMeetingData } = placeMeeting;
+  const committee = await prisma.meeting.upsert({
+    where: { id: placeMeetingId },
+    update: placeMeetingData,
+    create: placeMeeting,
+  });
+
+  for (const chairpersonSeed of placeMeetingChairpersons) {
+    await prisma.meetingChairperson.upsert({
+      where: { id: chairpersonSeed.id },
+      update: {
+        meetingId: committee.id,
+        honorificTitleEn: chairpersonSeed.honorificTitleEn,
+        honorificTitleKm: chairpersonSeed.honorificTitleKm,
+        firstNameEn: chairpersonSeed.firstNameEn,
+        firstNameKm: chairpersonSeed.firstNameKm,
+        lastNameEn: chairpersonSeed.lastNameEn,
+        lastNameKm: chairpersonSeed.lastNameKm,
+        position: chairpersonSeed.position,
+        organization: chairpersonSeed.organization,
+      },
+      create: {
+        ...chairpersonSeed,
+        meetingId: committee.id,
+      },
+    });
+  }
+
+  for (const placeSeed of meetingPlaceSeeds) {
+    const place = await prisma.meetingPlace.upsert({
+      where: { id: placeSeed.id },
+      update: {
+        meetingId: committee.id,
+        name: placeSeed.name,
+        description: placeSeed.description,
+        locationName: placeSeed.locationName,
+      },
+      create: {
+        id: placeSeed.id,
+        meetingId: committee.id,
+        name: placeSeed.name,
+        description: placeSeed.description,
+        locationName: placeSeed.locationName,
+      },
+    });
+
+    await prisma.meetingQrCode.upsert({
+      where: { code: placeSeed.code },
+      update: {
+        meetingId: committee.id,
+        placeId: place.id,
+        active: true,
+        expiresAt: null,
+      },
+      create: {
+        code: placeSeed.code,
+        meetingId: committee.id,
+        placeId: place.id,
+        active: true,
+      },
+    });
+
+    for (const participantSeed of placeSeed.participants) {
+      const { id: participantId, ...participantData } = participantSeed;
+
+      await prisma.meetingParticipant.upsert({
+        where: { id: participantId },
+        update: {
+          meetingId: committee.id,
+          placeId: place.id,
+          ...participantData,
+          status: MeetingParticipantStatus.INVITED,
+          source: "SEED",
+        },
+        create: {
+          id: participantId,
+          meetingId: committee.id,
+          placeId: place.id,
+          ...participantData,
+          status: MeetingParticipantStatus.INVITED,
+          source: "SEED",
+        },
+      });
+    }
+  }
+}
+
 async function seedOpenEvent() {
   const { id: eventId, ...eventData } = openEvent;
   const event = await prisma.event.upsert({
@@ -1016,6 +1337,7 @@ async function main() {
   await seedRegistrationImports();
   await seedEvent();
   await seedPlaceEvent();
+  await seedMeetings();
   await seedOpenEvent();
 
   console.log("Seed complete.");
@@ -1032,6 +1354,10 @@ async function main() {
   console.log("Demo QR code: DEMO-TECH-SUMMIT-2026");
   console.log("Demo place QR codes: DEMO-EXPO-MAIN-HALL, DEMO-EXPO-WORKSHOP");
   console.log("Demo open-registration QR code: DEMO-COMMUNITY-OPEN-DAY-2026");
+  console.log("Demo meeting QR code: DEMO-BOARD-BRIEFING-2026");
+  console.log(
+    "Demo meeting place QR codes: DEMO-MEETING-POLICY-ROOM, DEMO-MEETING-BUDGET-ROOM",
+  );
 }
 
 main()

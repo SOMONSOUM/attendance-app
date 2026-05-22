@@ -7,6 +7,11 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { JoinEventDto } from "./dto";
+import {
+  paginated,
+  parsePagination,
+  type PaginationQuery,
+} from "../../common/pagination";
 
 @Injectable()
 export class AttendanceService {
@@ -79,11 +84,23 @@ export class AttendanceService {
     }
   }
 
-  list(tenantId: string | null, eventId: string) {
-    return this.prisma.attendance.findMany({
-      where: { eventId, event: { tenantId } },
-      orderBy: { createdAt: "desc" },
-    });
+  async list(
+    tenantId: string | null,
+    eventId: string,
+    query: PaginationQuery = {},
+  ) {
+    const { page, pageSize, skip, take } = parsePagination(query);
+    const where = { eventId, event: { tenantId } };
+    const [items, totalItems] = await this.prisma.$transaction([
+      this.prisma.attendance.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      this.prisma.attendance.count({ where }),
+    ]);
+    return paginated(items, totalItems, page, pageSize);
   }
 
   async roster(tenantId: string | null, eventId: string) {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -10,6 +10,7 @@ import { RequirePermissions } from "../rbac/permissions.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { CreateRoleDto, CreateUserDto, UpdateRoleDto, UpdateUserDto } from "./dto";
 import { UsersService } from "./users.service";
+import type { PaginationQuery } from "../../common/pagination";
 
 type AuthRequest = { user: AuthUser };
 
@@ -41,15 +42,15 @@ export class UsersController {
   })
   @RequirePermissions("users:read")
   @Get()
-  list(@Req() request: AuthRequest) {
-    return this.users.list(request.user.tenantId);
+  list(@Req() request: AuthRequest, @Query() query: PaginationQuery) {
+    return this.users.list(request.user.tenantId, query);
   }
 
   @ApiOperation({ summary: "List roles and permissions" })
   @RequirePermissions("roles:read")
   @Get("roles")
-  roles(@Req() request: AuthRequest) {
-    return this.users.roles(request.user.tenantId);
+  roles(@Req() request: AuthRequest, @Query() query: PaginationQuery) {
+    return this.users.roles(request.user.tenantId, query);
   }
 
   @ApiOperation({ summary: "Create role with permissions" })

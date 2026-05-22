@@ -84,7 +84,66 @@ export const eventSchema = z
     path: ["endsAt"],
   });
 
+const meetingHostSchema = z.object({
+  id: z.string().optional(),
+  honorificTitleEn: z.string().trim().min(1, "English honorific is required."),
+  honorificTitleKm: z.string().trim().min(1, "Khmer honorific is required."),
+  firstNameEn: z.string().trim().min(1, "English first name is required."),
+  firstNameKm: z.string().trim().min(1, "Khmer first name is required."),
+  lastNameEn: z.string().trim().min(1, "English last name is required."),
+  lastNameKm: z.string().trim().min(1, "Khmer last name is required."),
+  position: z.string().nullable().optional(),
+  organization: z.string().nullable().optional(),
+});
+
+const meetingParticipantSchema = z.object({
+  id: z.string().optional(),
+  fullNameEn: z.string().trim().min(1, "English full name is required."),
+  fullNameKm: z.string().nullable().optional(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
+  position: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email address.")
+    .or(z.literal(""))
+    .nullable()
+    .optional(),
+  status: z.enum(["INVITED", "JOINED", "CANCELLED"]).optional(),
+});
+
+export const meetingSchema = z
+  .object({
+    name: z.string().trim().min(1, "Meeting name is required."),
+    description: z.string().optional(),
+    mode: z.enum(["PRE_REGISTERED", "OPEN_REGISTRATION"]),
+    separateQrByPlace: z.boolean().optional(),
+    locationName: z.string().optional(),
+    startsAt: dateOnlySchema,
+    endsAt: dateOnlySchema,
+    chairpersons: z
+      .array(meetingHostSchema)
+      .min(1, "At least one meeting chairperson is required."),
+    places: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          name: z.string().trim().min(1, "Place name is required."),
+          description: z.string().nullable().optional(),
+          locationName: z.string().nullable().optional(),
+        }),
+      )
+      .optional(),
+    participants: z.array(meetingParticipantSchema).optional(),
+  })
+  .refine((value) => value.endsAt >= value.startsAt, {
+    message: "End date must be on or after the start date.",
+    path: ["endsAt"],
+  });
+
 export type LoginValues = z.infer<typeof loginSchema>;
 export type UserValues = z.infer<typeof userSchema>;
 export type RoleValues = z.infer<typeof roleSchema>;
 export type EventValues = z.infer<typeof eventSchema>;
+export type MeetingValues = z.infer<typeof meetingSchema>;

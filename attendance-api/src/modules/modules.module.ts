@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AttendanceModule } from "./attendance/attendance.module";
 import { AuthModule } from "./auth/auth.module";
 import { EventsModule } from "./events/events.module";
+import { MeetingsModule } from "./meetings/meetings.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RegistrationImportsModule } from "./registration-imports/registration-imports.module";
@@ -16,6 +17,7 @@ import { UsersModule } from "./users/users.module";
     AuthModule,
     UsersModule,
     EventsModule,
+    MeetingsModule,
     RegistrationImportsModule,
     TenantsModule,
     AttendanceModule,

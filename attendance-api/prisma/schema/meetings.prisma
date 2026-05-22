@@ -1,0 +1,97 @@
+model Meeting {
+  id           String               @id @default(cuid())
+  tenantId     String?              @map("tenant_id")
+  tenant       Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?              @db.Text
+  mode         EventMode
+  separateQrByPlace Boolean         @default(false) @map("separate_qr_by_place")
+  locationName String               @map("location_name") @db.Text
+  startsAt     DateTime             @map("starts_at")
+  endsAt       DateTime             @map("ends_at")
+  chairpersons MeetingChairperson[]
+  places       MeetingPlace[]
+  qrCodes      MeetingQrCode[]
+  participants MeetingParticipant[]
+  createdById  String?              @map("created_by_id")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("meetings")
+}
+
+model MeetingChairperson {
+  id                String      @id @default(cuid())
+  meetingId         String      @map("meeting_id")
+  meeting           Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  honorificTitleEn  String      @map("honorific_title_en")
+  honorificTitleKm  String      @map("honorific_title_km")
+  firstNameEn       String      @map("first_name_en")
+  firstNameKm       String      @map("first_name_km")
+  lastNameEn        String      @map("last_name_en")
+  lastNameKm        String      @map("last_name_km")
+  position          String?
+  organization      String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@index([meetingId])
+  @@map("meeting_chairpersons")
+}
+
+model MeetingPlace {
+  id           String               @id @default(cuid())
+  meetingId    String               @map("meeting_id")
+  meeting      Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?              @db.Text
+  locationName String?              @map("location_name") @db.Text
+  qrCodes      MeetingQrCode[]
+  participants MeetingParticipant[]
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  @@index([meetingId])
+  @@map("meeting_places")
+}
+
+model MeetingQrCode {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  meetingId String        @map("meeting_id")
+  meeting   Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  placeId   String?       @map("place_id")
+  place     MeetingPlace? @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  active    Boolean       @default(true)
+  expiresAt DateTime?     @map("expires_at")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@index([placeId])
+  @@map("meeting_qr_codes")
+}
+
+model MeetingParticipant {
+  id           String                   @id @default(cuid())
+  meetingId    String                   @map("meeting_id")
+  meeting      Meeting                  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  placeId      String?                  @map("place_id")
+  place        MeetingPlace?            @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  fullNameEn   String                   @map("full_name_en")
+  fullNameKm   String?                  @map("full_name_km")
+  gender       Gender?
+  position     String?
+  department   String?
+  email        String?
+  status       MeetingParticipantStatus @default(INVITED)
+  source       String                   @default("MANUAL")
+  joinedAt     DateTime?                @map("joined_at")
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+
+  @@index([meetingId, fullNameEn])
+  @@index([meetingId, fullNameKm])
+  @@index([placeId])
+  @@map("meeting_participants")
+}

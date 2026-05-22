@@ -36,6 +36,7 @@ import type { AuthUser } from "../auth/types/auth-user";
 import { RequirePermissions } from "../rbac/permissions.decorator";
 import { CreateEventDto, UpdateEventDto } from "./dto";
 import { EventsService } from "./events.service";
+import type { PaginationQuery } from "../../common/pagination";
 
 type AuthRequest = { user: AuthUser };
 
@@ -80,8 +81,8 @@ export class EventsController {
   })
   @RequirePermissions("events:read")
   @Get()
-  list(@Req() request: AuthRequest) {
-    return this.events.list(request.user.tenantId);
+  list(@Req() request: AuthRequest, @Query() query: PaginationQuery) {
+    return this.events.list(request.user.tenantId, query);
   }
 
   @ApiOperation({ summary: "Get event QR code as an image data URL" })

@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { Edit3, Trash2, UserPlus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -11,6 +12,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,9 +52,11 @@ const initialForm: UserValues = {
   department: "",
   roleName: "viewer",
 };
+const PAGE_SIZE = 10;
 
 export default function PeoplePage() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const editing = useAdminUiStore((state) => state.editingUser);
   const setEditing = useAdminUiStore((state) => state.setEditingUser);
   const {
@@ -66,7 +70,10 @@ export default function PeoplePage() {
     defaultValues: initialForm,
   });
   const form = watch();
-  const usersQuery = useQuery({ queryKey: userKeys.all, queryFn: listUsers });
+  const usersQuery = useQuery({
+    queryKey: [...userKeys.all, page],
+    queryFn: () => listUsers({ page, pageSize: PAGE_SIZE }),
+  });
   const currentUserQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: getCurrentUser,
@@ -81,10 +88,10 @@ export default function PeoplePage() {
     hasPermission(currentUser, "roles:update");
   const rolesQuery = useQuery({
     queryKey: roleKeys.all,
-    queryFn: listRoles,
+    queryFn: () => listRoles({ pageSize: 100 }),
     enabled: canReadRoles,
   });
-  const roleOptions = rolesQuery.data?.map((role) => role.name) ?? [
+  const roleOptions = rolesQuery.data?.items.map((role) => role.name) ?? [
     "viewer",
     "operator",
     "admin",
@@ -125,7 +132,7 @@ export default function PeoplePage() {
     },
   });
 
-  const users = usersQuery.data ?? [];
+  const users = usersQuery.data?.items ?? [];
 
   function resetForm() {
     setEditing(null);
@@ -165,6 +172,7 @@ export default function PeoplePage() {
           {usersQuery.isLoading ? (
             <div className="p-5 text-sm text-muted-fg">Loading people...</div>
           ) : users.length ? (
+            <>
             <Table className="min-w-215">
               <TableHeader>
                 <TableRow className="border-t-0">
@@ -245,6 +253,13 @@ export default function PeoplePage() {
                 })}
               </TableBody>
             </Table>
+            <PaginationFooter
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalItems={usersQuery.data?.meta.totalItems ?? 0}
+              onPageChange={setPage}
+            />
+            </>
           ) : (
             <EmptyState
               title="No people yet"

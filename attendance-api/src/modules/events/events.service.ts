@@ -6,6 +6,11 @@ import QRCode from "qrcode";
 import * as XLSX from "xlsx";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateEventDto, UpdateEventDto } from "./dto";
+import {
+  paginated,
+  parsePagination,
+  type PaginationQuery,
+} from "../../common/pagination";
 
 type UploadRow = {
   "Fullname English"?: string;
@@ -99,24 +104,36 @@ export class EventsService {
     return { ...event, qrImage: firstCode ? await this.toQrImage(firstCode) : null };
   }
 
-  async list(tenantId: string | null) {
-    const events = await this.prisma.event.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        qrCodes: true,
-        places: { include: { qrCodes: true } },
-        shifts: true,
-        theme: true,
-        attendances: {
-          orderBy: { createdAt: "desc" },
-          take: 5,
+  async list(tenantId: string | null, query: PaginationQuery = {}) {
+    const { page, pageSize, skip, take } = parsePagination(query);
+    const where = { tenantId };
+    const [events, totalItems] = await this.prisma.$transaction([
+      this.prisma.event.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+        include: {
+          qrCodes: true,
+          places: { include: { qrCodes: true } },
+          shifts: true,
+          theme: true,
+          attendances: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
+          _count: { select: { attendances: true, registrations: true } },
         },
-        _count: { select: { attendances: true, registrations: true } },
-      },
-    });
+      }),
+      this.prisma.event.count({ where }),
+    ]);
 
-    return events.map((event) => this.withSummary(event));
+    return paginated(
+      events.map((event) => this.withSummary(event)),
+      totalItems,
+      page,
+      pageSize,
+    );
   }
 
   async update(tenantId: string | null, eventId: string, dto: UpdateEventDto) {

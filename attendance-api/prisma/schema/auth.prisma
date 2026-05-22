@@ -1,0 +1,104 @@
+model Tenant {
+  id                  String               @id @default(cuid())
+  name                String
+  slug                String               @unique
+  status              TenantStatus         @default(ACTIVE)
+  ownerUserId         String?              @unique @map("owner_user_id")
+  ownerUser           User?                @relation("TenantOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  users               User[]
+  roles               Role[]
+  events              Event[]
+  meetings            Meeting[]
+  registrationImports RegistrationImport[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  tenantId      String?        @map("tenant_id")
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownedTenant   Tenant?        @relation("TenantOwner")
+  email         String?        @unique
+  passwordHash  String?        @map("password_hash")
+  fullNameEn    String         @map("full_name_en")
+  fullNameKm    String?        @map("full_name_km")
+  gender        Gender?        @map("gender")
+  position      String?        @map("position")
+  department    String?        @map("department")
+  roles         UserRole[]
+  attendances   Attendance[]
+  registrationImports RegistrationImport[]
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  jti       String    @unique
+  tokenHash String    @map("token_hash")
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  tenantId    String?          @map("tenant_id")
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?          @db.Text
+  users       UserRole[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id        String           @id @default(cuid())
+  resource  String
+  action    String
+  roles     RolePermission[]
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}

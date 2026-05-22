@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EventMode {
+  PRE_REGISTERED
+  OPEN_REGISTRATION
+}
+
+enum AttendanceStatus {
+  JOINED
+  CANCELLED
+}
+
+enum ThemeAppearance {
+  light
+  dark
+  system
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MeetingParticipantStatus {
+  INVITED
+  JOINED
+  CANCELLED
+}
+
+enum RegistrationTarget {
+  EVENT
+  MEETING
+}

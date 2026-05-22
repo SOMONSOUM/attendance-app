@@ -1,0 +1,35 @@
+model RegistrationImport {
+  id           String                  @id @default(cuid())
+  tenantId     String?                 @map("tenant_id")
+  tenant       Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fileName     String                  @map("file_name")
+  originalName String                  @map("original_name")
+  rowCount     Int                     @default(0) @map("row_count")
+  target       RegistrationTarget      @default(EVENT)
+  status       String                  @default("IMPORTED")
+  uploadedById String?                 @map("uploaded_by_id")
+  uploadedBy   User?                   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  rows         RegistrationImportRow[]
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([uploadedById])
+  @@map("registration_imports")
+}
+
+model RegistrationImportRow {
+  id         String             @id @default(cuid())
+  importId   String             @map("import_id")
+  import     RegistrationImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  fullNameEn String             @map("full_name_en")
+  fullNameKm String?            @map("full_name_km")
+  gender     Gender?
+  position   String?
+  department String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  @@index([importId, fullNameEn])
+  @@map("registration_import_rows")
+}
