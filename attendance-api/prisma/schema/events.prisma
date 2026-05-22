@@ -6,6 +6,7 @@ model Event {
   description   String?             @db.Text
   mode          EventMode
   separateQrByPlace Boolean         @default(false) @map("separate_qr_by_place")
+  requireLocation Boolean           @default(false) @map("require_location")
   locationName  String              @map("location_name") @db.Text
   latitude      Decimal             @db.Decimal(10, 7)
   longitude     Decimal             @db.Decimal(10, 7)

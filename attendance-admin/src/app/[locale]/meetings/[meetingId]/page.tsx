@@ -6,9 +6,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
-  Download,
-  MapPin,
-  QrCode,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -21,7 +18,7 @@ import {
   TableShell,
 } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -35,9 +32,18 @@ import {
   joinMeetingParticipant,
   listMeetings,
   meetingKeys,
-  type MeetingChairperson,
   type MeetingParticipant,
 } from "@/lib/admin-data";
+import {
+  LocationRequirementBadge,
+  MeetingDetailsCard,
+  MetricCard,
+  PlacesEmptyState,
+  QrPlaceCard,
+  SingleQrCard,
+  buildCoordinates,
+  formatChairperson,
+} from "./_components/meeting-detail-components";
 
 export default function MeetingDetailPage() {
   const params = useParams<{ locale: string; meetingId: string }>();
@@ -69,6 +75,10 @@ export default function MeetingDetailPage() {
   const selectedPlace = selectedPlaceId
     ? meeting?.places?.find((place) => place.id === selectedPlaceId) ?? null
     : null;
+  const detailCoordinates = buildCoordinates(
+    selectedPlace?.latitude ?? meeting?.latitude,
+    selectedPlace?.longitude ?? meeting?.longitude,
+  );
   const scopedParticipants = selectedPlace
     ? participants.filter((participant) => participant.placeId === selectedPlace.id)
     : participants;
@@ -87,13 +97,23 @@ export default function MeetingDetailPage() {
 
         return {
           ...place,
+          coordinates: buildCoordinates(
+            place.latitude ?? meeting?.latitude,
+            place.longitude ?? meeting?.longitude,
+          ),
           total: rows.length,
           joined: joined.length,
           rate: percentage(joined.length, rows.length),
           qr: qrQuery.data?.qrCodes?.find((item) => item.placeId === place.id),
         };
       }),
-    [meeting?.places, participants, qrQuery.data?.qrCodes],
+    [
+      meeting?.places,
+      meeting?.latitude,
+      meeting?.longitude,
+      participants,
+      qrQuery.data?.qrCodes,
+    ],
   );
 
   return (
@@ -141,6 +161,7 @@ export default function MeetingDetailPage() {
             <StatusPill tone={meetingTone(meeting)}>
               {meetingStatus(meeting)}
             </StatusPill>
+            <LocationRequirementBadge required={meeting.requireLocation} />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -174,37 +195,14 @@ export default function MeetingDetailPage() {
           </div>
 
           <div className="grid gap-5 xl:grid-cols-[0.9fr_1.35fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Meeting details</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div>
-                  <p className="text-sm font-medium">Location</p>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-fg">
-                    <MapPin size={14} />
-                    {meeting.locationName}
-                  </p>
-                </div>
-                {meeting.description ? (
-                  <div>
-                    <p className="text-sm font-medium">Description</p>
-                    <p className="mt-1 text-sm text-muted-fg">
-                      {meeting.description}
-                    </p>
-                  </div>
-                ) : null}
-                <div className="grid gap-3">
-                  <p className="text-sm font-medium">Chairpersons</p>
-                  {meeting.chairpersons.map((chairperson) => (
-                    <ChairpersonCard
-                      key={chairperson.id ?? formatChairperson(chairperson)}
-                      chairperson={chairperson}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <MeetingDetailsCard
+              name={selectedPlace?.name ?? meeting.name}
+              description={meeting.description}
+              locationName={selectedPlace?.locationName || meeting.locationName}
+              requireLocation={meeting.requireLocation}
+              coordinates={detailCoordinates}
+              chairpersons={meeting.chairpersons}
+            />
 
             <Card>
               <SectionToolbar
@@ -241,14 +239,13 @@ export default function MeetingDetailPage() {
                         qrImage={place.qr?.qrImage}
                         fileName={`${meeting.name}-${place.name}.png`}
                         href={`/${locale}/meetings/${meeting.id}?placeId=${place.id}`}
+                        requireLocation={meeting.requireLocation}
+                        coordinates={place.coordinates}
                         showView={!selectedPlace}
                       />
                     ))
                   ) : (
-                    <EmptyState
-                      title="No places configured"
-                      text="Add places to this meeting to generate room-specific QR codes."
-                    />
+                    <PlacesEmptyState />
                   )
                 ) : (
                   <SingleQrCard
@@ -342,181 +339,6 @@ export default function MeetingDetailPage() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  icon: typeof Users;
-}) {
-  return (
-    <Card className="min-w-0">
-      <CardContent className="p-4">
-        <div className="mb-5 flex items-center justify-between">
-          <p className="text-sm font-medium">{label}</p>
-          <span className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-fg">
-            <Icon size={14} />
-          </span>
-        </div>
-        <p className="text-3xl font-semibold tracking-tight">{value}</p>
-        <p className="mt-1 truncate text-xs text-muted-fg">{sub}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChairpersonCard({
-  chairperson,
-}: {
-  chairperson: MeetingChairperson;
-}) {
-  return (
-    <div className="rounded-md border border-border bg-background p-3">
-      <p className="font-medium">{formatChairperson(chairperson)}</p>
-      <p className="mt-1 text-sm text-muted-fg">
-        {[chairperson.position, chairperson.organization].filter(Boolean).join(", ") ||
-          "No position"}
-      </p>
-      <p className="mt-1 text-sm text-muted-fg">
-        {[
-          chairperson.honorificTitleKm,
-          chairperson.firstNameKm,
-          chairperson.lastNameKm,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      </p>
-    </div>
-  );
-}
-
-function QrPlaceCard({
-  name,
-  locationName,
-  description,
-  total,
-  joined,
-  rate,
-  qrImage,
-  fileName,
-  href,
-  showView,
-}: {
-  name: string;
-  locationName?: string | null;
-  description?: string | null;
-  total: number;
-  joined: number;
-  rate: number;
-  qrImage?: string;
-  fileName: string;
-  href: string;
-  showView: boolean;
-}) {
-  return (
-    <div className="grid gap-3 rounded-md border border-border bg-background p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">{name}</p>
-          <p className="mt-1 flex items-center gap-1 text-xs text-muted-fg">
-            <MapPin size={12} />
-            {locationName || "Location not set"}
-          </p>
-        </div>
-        <span className="grid size-8 place-items-center rounded-md border border-border text-muted-fg">
-          <QrCode size={16} />
-        </span>
-      </div>
-      {description ? (
-        <p className="line-clamp-2 text-sm text-muted-fg">{description}</p>
-      ) : null}
-      <div className="grid grid-cols-3 gap-2 text-sm">
-        <Stat label="Users" value={total} />
-        <Stat label="Joined" value={joined} />
-        <Stat label="Rate" value={`${rate}%`} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {showView ? (
-          <Button asChild className="h-8">
-            <Link href={href}>View</Link>
-          </Button>
-        ) : null}
-        <Button
-          variant="outline"
-          className="h-8"
-          disabled={!qrImage}
-          onClick={() => (qrImage ? downloadDataUrl(qrImage, fileName) : undefined)}
-        >
-          <Download size={14} />
-          QR
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function SingleQrCard({
-  name,
-  code,
-  qrImage,
-}: {
-  name: string;
-  code?: string;
-  qrImage?: string;
-}) {
-  return (
-    <div className="grid gap-3 rounded-md border border-border bg-background p-4 md:col-span-2">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">Single meeting QR</p>
-          <p className="mt-1 text-xs text-muted-fg">{code ?? "Generating QR"}</p>
-        </div>
-        <span className="grid size-8 place-items-center rounded-md border border-border text-muted-fg">
-          <QrCode size={16} />
-        </span>
-      </div>
-      {qrImage ? (
-        <img
-          src={qrImage}
-          alt={`${name} QR code`}
-          className="size-48 rounded-md border border-border bg-white p-2"
-        />
-      ) : (
-        <div className="grid size-48 place-items-center rounded-md border border-dashed border-border text-sm text-muted-fg">
-          Loading QR
-        </div>
-      )}
-      <Button
-        variant="outline"
-        className="h-8 justify-self-start"
-        disabled={!qrImage}
-        onClick={() => (qrImage ? downloadDataUrl(qrImage, `${name}.png`) : undefined)}
-      >
-        <Download size={14} />
-        Download QR
-      </Button>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="rounded-md bg-muted p-2">
-      <p className="text-xs text-muted-fg">{label}</p>
-      <p className="mt-1 font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function formatChairperson(chairperson?: MeetingChairperson) {
-  if (!chairperson) return "No chairperson";
-  return `${chairperson.honorificTitleEn} ${chairperson.firstNameEn} ${chairperson.lastNameEn}`.trim();
-}
-
 function placeName(
   places: Array<{ id?: string; name: string }> | undefined,
   placeId?: string | null,
@@ -545,11 +367,4 @@ function meetingTone(meeting: { startsAt: string; endsAt: string }) {
   if (status === "Live") return "green";
   if (status === "Ready") return "blue";
   return "amber";
-}
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = filename.replace(/[^\w.-]+/g, "-").toLowerCase();
-  link.click();
 }

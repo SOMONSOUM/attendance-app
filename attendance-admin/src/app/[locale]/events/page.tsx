@@ -20,12 +20,14 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { LocationPicker } from "@/components/admin/location-picker";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog } from "@/components/ui/dialog";
+import { Form } from "@/components/ui/form";
 import { Select } from "@/components/ui/select";
 import {
   Table,
@@ -57,6 +59,11 @@ const initialForm: EventForm = {
   description: "",
   mode: "PRE_REGISTERED",
   separateQrByPlace: false,
+  requireLocation: false,
+  locationName: "",
+  latitude: 11.5564,
+  longitude: 104.9282,
+  radiusMeters: 100,
   places: [],
   startsAt: "2026-06-01",
   endsAt: "2026-06-01",
@@ -89,15 +96,16 @@ export default function EventsPage() {
   const step = useAdminUiStore((state) => state.eventStep);
   const setStep = useAdminUiStore((state) => state.setEventStep);
   const [deleteTarget, setDeleteTarget] = useState<EventRecord | null>(null);
+  const formMethods = useForm<EventForm>({
+    resolver: zodResolver(eventSchema),
+    defaultValues: initialForm,
+  });
   const {
     handleSubmit,
     reset,
     watch,
     formState: { errors },
-  } = useForm<EventForm>({
-    resolver: zodResolver(eventSchema),
-    defaultValues: initialForm,
-  });
+  } = formMethods;
   const form = watch();
   const setForm = (nextForm: EventForm) => reset(nextForm);
   const [registrationFile, setRegistrationFile] = useState<File | null>(null);
@@ -197,6 +205,11 @@ export default function EventsPage() {
       description: event.description ?? "",
       mode: event.mode,
       separateQrByPlace: Boolean(event.separateQrByPlace),
+      requireLocation: Boolean(event.requireLocation),
+      locationName: event.locationName ?? "",
+      latitude: toNumber(event.latitude, initialForm.latitude),
+      longitude: toNumber(event.longitude, initialForm.longitude),
+      radiusMeters: event.radiusMeters ?? initialForm.radiusMeters,
       places: event.places?.map((place) => ({
         id: place.id,
         name: place.name,
@@ -386,10 +399,11 @@ export default function EventsPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <form
-              className="flex max-h-[calc(100dvh-9rem)] flex-col"
-              onSubmit={handleSubmit(() => saveMutation.mutate())}
-            >
+            <Form {...formMethods}>
+              <form
+                className="flex max-h-[calc(100dvh-9rem)] flex-col"
+                onSubmit={handleSubmit(() => saveMutation.mutate())}
+              >
               <div className="border-b border-border p-4">
                 <WizardSteps step={step} onStepChange={setStep} />
               </div>
@@ -611,6 +625,17 @@ export default function EventsPage() {
                   onChange={(value) => setForm({ ...form, endsAt: value })}
                 />
               </div>
+              <LocationPicker
+                value={{
+                  requireLocation: form.requireLocation,
+                  locationName: form.locationName,
+                  latitude: form.latitude,
+                  longitude: form.longitude,
+                  radiusMeters: form.radiusMeters,
+                }}
+                onChange={(value) => setForm({ ...form, ...value })}
+                title="Event location check-in"
+              />
               <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -892,7 +917,8 @@ export default function EventsPage() {
                       : "Save and generate QR"}
                 </Button>
               </div>
-            </form>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>
@@ -1049,8 +1075,14 @@ function TimeField({
 }
 
 function normalizeForm(form: EventForm): EventForm {
+  const requireLocation = Boolean(form.requireLocation);
   return {
     ...form,
+    requireLocation,
+    locationName: requireLocation ? form.locationName?.trim() || "Event venue" : "",
+    latitude: requireLocation ? form.latitude ?? 0 : 0,
+    longitude: requireLocation ? form.longitude ?? 0 : 0,
+    radiusMeters: requireLocation ? clamp(form.radiusMeters ?? 100, 10, 5000) : 0,
     shifts: form.shifts?.map((shift) => ({
       name: shift.name,
       startTime: normalizeTime(shift.startTime),
@@ -1078,6 +1110,11 @@ function normalizeForm(form: EventForm): EventForm {
 function clamp(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return min;
   return Math.min(Math.max(value, min), max);
+}
+
+function toNumber(value: string | number | undefined, fallback?: number) {
+  const parsed = Number(value ?? fallback ?? 0);
+  return Number.isFinite(parsed) ? parsed : fallback ?? 0;
 }
 
 function toDateInput(value: string) {

@@ -25,6 +25,7 @@ export class AttendanceService {
     if (!qr?.active)
       throw new NotFoundException("QR code was not found or is inactive");
     const activeShift = this.assertScanWindow(qr.event);
+    const distanceMeters = this.assertLocation(qr.event, dto);
     const registration = dto.registrationId
       ? await this.prisma.eventRegistration.findFirst({
           where: {
@@ -69,7 +70,7 @@ export class AttendanceService {
           department: dto.department,
           latitude: dto.latitude ?? 0,
           longitude: dto.longitude ?? 0,
-          distanceMeters: 0,
+          distanceMeters,
         },
       });
     } catch (error) {
@@ -243,6 +244,64 @@ export class AttendanceService {
       error: "Already Joined",
       message: "This user already joined the event.",
     });
+  }
+
+  private assertLocation(
+    event: {
+      requireLocation: boolean;
+      latitude: unknown;
+      longitude: unknown;
+      radiusMeters: number;
+    },
+    dto: JoinEventDto,
+  ) {
+    if (!event.requireLocation) return 0;
+
+    if (dto.latitude === undefined || dto.longitude === undefined) {
+      throw new BadRequestException({
+        error: "Location Required",
+        message: "Current location is required for this check-in.",
+      });
+    }
+
+    const distanceMeters = this.distanceMeters(
+      Number(event.latitude),
+      Number(event.longitude),
+      dto.latitude,
+      dto.longitude,
+    );
+
+    if (distanceMeters > event.radiusMeters) {
+      throw new BadRequestException({
+        error: "Outside Check In Range",
+        message: `You are ${distanceMeters}m from the venue. Check-in is allowed within ${event.radiusMeters}m.`,
+      });
+    }
+
+    return distanceMeters;
+  }
+
+  private distanceMeters(
+    fromLat: number,
+    fromLng: number,
+    toLat: number,
+    toLng: number,
+  ) {
+    const earthRadiusMeters = 6_371_000;
+    const deltaLat = this.toRadians(toLat - fromLat);
+    const deltaLng = this.toRadians(toLng - fromLng);
+    const lat1 = this.toRadians(fromLat);
+    const lat2 = this.toRadians(toLat);
+    const a =
+      Math.sin(deltaLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+    return Math.round(
+      earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)),
+    );
+  }
+
+  private toRadians(value: number) {
+    return (value * Math.PI) / 180;
   }
 
   private assertScanWindow(event: {

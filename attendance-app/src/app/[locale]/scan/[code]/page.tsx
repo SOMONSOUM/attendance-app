@@ -18,6 +18,10 @@ type Event = {
   description?: string | null;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   locationName?: string;
+  requireLocation?: boolean;
+  latitude?: string | number;
+  longitude?: string | number;
+  radiusMeters?: number;
   startsAt: string;
   endsAt: string;
   shifts: {

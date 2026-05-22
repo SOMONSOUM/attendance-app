@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -36,6 +37,11 @@ export class UpdateEventDto {
   @IsBoolean()
   separateQrByPlace?: boolean;
 
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  requireLocation?: boolean;
+
   @ApiPropertyOptional({ example: "Phnom Penh Convention Center" })
   @IsOptional()
   @IsString()
@@ -43,10 +49,12 @@ export class UpdateEventDto {
 
   @ApiPropertyOptional({ example: 11.5564 })
   @IsOptional()
+  @IsNumber()
   latitude?: number;
 
   @ApiPropertyOptional({ example: 104.9282 })
   @IsOptional()
+  @IsNumber()
   longitude?: number;
 
   @ApiPropertyOptional({ example: 0, minimum: 0, maximum: 5000 })

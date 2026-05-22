@@ -6,6 +6,7 @@ export type EventRecord = {
   description?: string | null;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   locationName: string;
+  requireLocation?: boolean;
   latitude?: string | number;
   longitude?: string | number;
   radiusMeters?: number;
@@ -51,6 +52,8 @@ export type EventPlace = {
   name: string;
   description?: string | null;
   locationName?: string | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
   qrCodes?: { id: string; code: string; active: boolean }[];
 };
 
@@ -59,6 +62,11 @@ export type EventForm = {
   description?: string;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   separateQrByPlace?: boolean;
+  requireLocation?: boolean;
+  locationName?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusMeters?: number;
   places?: EventPlace[];
   startsAt: string;
   endsAt: string;
@@ -83,6 +91,8 @@ export type MeetingPlace = {
   name: string;
   description?: string | null;
   locationName?: string | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
   qrCodes?: { id: string; code: string; active: boolean }[];
 };
 
@@ -106,6 +116,10 @@ export type MeetingRecord = {
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   separateQrByPlace?: boolean;
   locationName: string;
+  requireLocation?: boolean;
+  latitude?: string | number;
+  longitude?: string | number;
+  radiusMeters?: number;
   startsAt: string;
   endsAt: string;
   chairpersons: MeetingChairperson[];
@@ -121,6 +135,10 @@ export type MeetingForm = {
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   separateQrByPlace?: boolean;
   locationName?: string;
+  requireLocation?: boolean;
+  latitude?: number;
+  longitude?: number;
+  radiusMeters?: number;
   startsAt: string;
   endsAt: string;
   chairpersons: MeetingChairperson[];

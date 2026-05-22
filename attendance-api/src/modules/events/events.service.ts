@@ -48,10 +48,11 @@ export class EventsService {
           ...eventDto,
           tenantId,
           separateQrByPlace,
+          requireLocation: Boolean(dto.requireLocation),
           locationName: dto.locationName?.trim() || "Not required",
-          latitude: dto.latitude ?? 0,
-          longitude: dto.longitude ?? 0,
-          radiusMeters: dto.radiusMeters ?? 0,
+          latitude: dto.requireLocation ? dto.latitude ?? 0 : 0,
+          longitude: dto.requireLocation ? dto.longitude ?? 0 : 0,
+          radiusMeters: dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
           qrCodes: separateQrByPlace ? undefined : { create: { code } },
@@ -149,6 +150,26 @@ export class EventsService {
         where: { id: eventId },
         data: {
           ...eventDto,
+          requireLocation: dto.requireLocation,
+          locationName: dto.locationName?.trim() || undefined,
+          latitude:
+            dto.requireLocation === false
+              ? 0
+              : dto.latitude !== undefined
+                ? dto.latitude
+                : undefined,
+          longitude:
+            dto.requireLocation === false
+              ? 0
+              : dto.longitude !== undefined
+                ? dto.longitude
+                : undefined,
+          radiusMeters:
+            dto.requireLocation === false
+              ? 0
+              : dto.radiusMeters !== undefined
+                ? dto.radiusMeters
+                : undefined,
           startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
           endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
           shifts: shifts

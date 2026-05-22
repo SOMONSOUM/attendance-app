@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreateMeetingDto, UpdateMeetingDto } from "./dto";
+import { CreateMeetingDto, JoinMeetingDto, UpdateMeetingDto } from "./dto";
 import {
   paginated,
   parsePagination,
@@ -46,7 +46,11 @@ export class MeetingsService {
           description: dto.description,
           mode: dto.mode,
           separateQrByPlace,
+          requireLocation: Boolean(dto.requireLocation),
           locationName: dto.locationName?.trim() || "Not required",
+          latitude: dto.requireLocation ? dto.latitude ?? 0 : 0,
+          longitude: dto.requireLocation ? dto.longitude ?? 0 : 0,
+          radiusMeters: dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
           chairpersons: {
@@ -134,7 +138,26 @@ export class MeetingsService {
           description: dto.description,
           mode: dto.mode,
           separateQrByPlace: dto.separateQrByPlace,
+          requireLocation: dto.requireLocation,
           locationName: dto.locationName?.trim() || undefined,
+          latitude:
+            dto.requireLocation === false
+              ? 0
+              : dto.latitude !== undefined
+                ? dto.latitude
+                : undefined,
+          longitude:
+            dto.requireLocation === false
+              ? 0
+              : dto.longitude !== undefined
+                ? dto.longitude
+                : undefined,
+          radiusMeters:
+            dto.requireLocation === false
+              ? 0
+              : dto.radiusMeters !== undefined
+                ? dto.radiusMeters
+                : undefined,
           startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
           endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
           chairpersons: dto.chairpersons
@@ -315,11 +338,43 @@ export class MeetingsService {
     return { ...qr.meeting, scanPlace: qr.place };
   }
 
-  async joinByCode(code: string, dto: { fullNameEn: string; fullNameKm?: string }) {
+  async joinByCode(code: string, dto: JoinMeetingDto) {
     const meeting = await this.getPublicByCode(code);
-    if (meeting.mode !== EventMode.OPEN_REGISTRATION) {
-      throw new BadRequestException("This meeting does not allow open registration.");
+    const distanceMeters = this.assertLocation(meeting, dto);
+
+    if (meeting.mode === EventMode.PRE_REGISTERED) {
+      if (!dto.participantId) {
+        throw new BadRequestException("Please choose a registered participant.");
+      }
+
+      const participant = await this.prisma.meetingParticipant.findFirst({
+        where: {
+          id: dto.participantId,
+          meetingId: meeting.id,
+          placeId: meeting.scanPlace?.id || undefined,
+        },
+      });
+
+      if (!participant) throw new NotFoundException("Participant not found");
+      if (participant.status === "JOINED") {
+        throw new BadRequestException({
+          error: "Already Joined",
+          message: "This participant already joined the meeting.",
+        });
+      }
+
+      return this.prisma.meetingParticipant.update({
+        where: { id: participant.id },
+        data: {
+          status: "JOINED",
+          joinedAt: new Date(),
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          distanceMeters,
+        },
+      });
     }
+
     return this.prisma.meetingParticipant.create({
       data: {
         meetingId: meeting.id,
@@ -328,9 +383,70 @@ export class MeetingsService {
         fullNameKm: dto.fullNameKm,
         status: "JOINED",
         joinedAt: new Date(),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        distanceMeters,
         source: "OPEN_REGISTRATION",
       },
     });
+  }
+
+  private assertLocation(
+    meeting: {
+      requireLocation: boolean;
+      latitude: unknown;
+      longitude: unknown;
+      radiusMeters: number;
+    },
+    dto: JoinMeetingDto,
+  ) {
+    if (!meeting.requireLocation) return 0;
+
+    if (dto.latitude === undefined || dto.longitude === undefined) {
+      throw new BadRequestException({
+        error: "Location Required",
+        message: "Current location is required for this check-in.",
+      });
+    }
+
+    const distanceMeters = this.distanceMeters(
+      Number(meeting.latitude),
+      Number(meeting.longitude),
+      dto.latitude,
+      dto.longitude,
+    );
+
+    if (distanceMeters > meeting.radiusMeters) {
+      throw new BadRequestException({
+        error: "Outside Check In Range",
+        message: `You are ${distanceMeters}m from the venue. Check-in is allowed within ${meeting.radiusMeters}m.`,
+      });
+    }
+
+    return distanceMeters;
+  }
+
+  private distanceMeters(
+    fromLat: number,
+    fromLng: number,
+    toLat: number,
+    toLng: number,
+  ) {
+    const earthRadiusMeters = 6_371_000;
+    const deltaLat = this.toRadians(toLat - fromLat);
+    const deltaLng = this.toRadians(toLng - fromLng);
+    const lat1 = this.toRadians(fromLat);
+    const lat2 = this.toRadians(toLat);
+    const a =
+      Math.sin(deltaLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+    return Math.round(
+      earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)),
+    );
+  }
+
+  private toRadians(value: number) {
+    return (value * Math.PI) / 180;
   }
 
   private assertChairpersons(chairpersons?: unknown[]) {

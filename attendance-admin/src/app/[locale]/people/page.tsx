@@ -15,6 +15,7 @@ import {
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -59,16 +60,17 @@ export default function PeoplePage() {
   const [page, setPage] = useState(1);
   const editing = useAdminUiStore((state) => state.editingUser);
   const setEditing = useAdminUiStore((state) => state.setEditingUser);
+  const formMethods = useForm<UserValues>({
+    resolver: zodResolver(userSchema),
+    defaultValues: initialForm,
+  });
   const {
     handleSubmit,
     reset,
     setValue,
     watch,
     formState: { errors },
-  } = useForm<UserValues>({
-    resolver: zodResolver(userSchema),
-    defaultValues: initialForm,
-  });
+  } = formMethods;
   const form = watch();
   const usersQuery = useQuery({
     queryKey: [...userKeys.all, page],
@@ -273,12 +275,13 @@ export default function PeoplePage() {
             <CardTitle>{editing ? "Update person" : "Create person"}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form
-              className="grid gap-4"
-              onSubmit={handleSubmit((values) =>
-                saveMutation.mutate(values),
-              )}
-            >
+            <Form {...formMethods}>
+              <form
+                className="grid gap-4"
+                onSubmit={handleSubmit((values) =>
+                  saveMutation.mutate(values),
+                )}
+              >
               <Field
                 label="Full name"
                 value={form.fullNameEn}
@@ -341,7 +344,8 @@ export default function PeoplePage() {
                 <UserPlus size={16} />
                 {editing ? "Update person" : "Create person"}
               </Button>
-            </form>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>

@@ -7,7 +7,7 @@
     "upload": "Upload pre-registration"
   },
   "adminShell": {
-    "brandSubtitle": "Event attendance",
+    "brandSubtitle": "Event Management",
     "searchPlaceholder": "Search events, guests, QR codes...",
     "runAi": "Run AI",
     "aiMode": "AI mode",

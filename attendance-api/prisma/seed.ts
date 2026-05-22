@@ -235,6 +235,7 @@ const sampleEvent = {
     "Demo event with QR check-in, registrations, attendance, and theme data.",
   mode: EventMode.PRE_REGISTERED,
   separateQrByPlace: false,
+  requireLocation: true,
   locationName: "Phnom Penh Convention Center",
   latitude: "11.5564000",
   longitude: "104.9282000",
@@ -248,10 +249,10 @@ const placeEvent = {
   id: "seed-event-product-expo-2026",
   tenantId: "default-tenant",
   name: "Product Expo 2026",
-  description:
-    "Demo event with separate QR codes for each hall and room.",
+  description: "Demo event with separate QR codes for each hall and room.",
   mode: EventMode.PRE_REGISTERED,
   separateQrByPlace: true,
+  requireLocation: true,
   locationName: "Phnom Penh Exhibition Center",
   latitude: "11.5622000",
   longitude: "104.9160000",
@@ -269,6 +270,7 @@ const openEvent = {
     "Demo open-registration event where attendees can scan and register at the door.",
   mode: EventMode.OPEN_REGISTRATION,
   separateQrByPlace: false,
+  requireLocation: false,
   locationName: "Community Innovation Hub",
   latitude: "11.5681000",
   longitude: "104.9223000",
@@ -462,7 +464,11 @@ const boardMeeting = {
     "Demo pre-registration meeting with chairpersons and invited participants.",
   mode: EventMode.PRE_REGISTERED,
   separateQrByPlace: false,
+  requireLocation: true,
   locationName: "Executive Meeting Room",
+  latitude: "11.5564000",
+  longitude: "104.9282000",
+  radiusMeters: 120,
   startsAt: new Date("2026-06-04T02:00:00.000Z"),
   endsAt: new Date("2026-06-04T04:30:00.000Z"),
   createdById: "seed-user-admin",
@@ -505,11 +511,14 @@ const placeMeeting = {
   id: "seed-meeting-committee-workshops-2026",
   tenantId: "default-tenant",
   name: "Committee Workshops 2026",
-  description:
-    "Demo meeting with separate QR codes for each workshop room.",
+  description: "Demo meeting with separate QR codes for each workshop room.",
   mode: EventMode.PRE_REGISTERED,
   separateQrByPlace: true,
+  requireLocation: false,
   locationName: "Administration Building",
+  latitude: "0.0000000",
+  longitude: "0.0000000",
+  radiusMeters: 0,
   startsAt: new Date("2026-06-05T02:00:00.000Z"),
   endsAt: new Date("2026-06-05T07:00:00.000Z"),
   createdById: "seed-user-admin",
@@ -582,6 +591,52 @@ const meetingPlaceSeeds = [
   },
 ];
 
+const openMeeting = {
+  id: "seed-meeting-public-townhall-2026",
+  tenantId: "default-tenant",
+  name: "Public Townhall 2026",
+  description:
+    "Demo open-registration meeting that requires location during QR check-in.",
+  mode: EventMode.OPEN_REGISTRATION,
+  separateQrByPlace: false,
+  requireLocation: true,
+  locationName: "Community Innovation Hub",
+  latitude: "11.5681000",
+  longitude: "104.9223000",
+  radiusMeters: 180,
+  startsAt: new Date("2026-06-06T02:00:00.000Z"),
+  endsAt: new Date("2026-06-06T05:00:00.000Z"),
+  createdById: "seed-user-admin",
+};
+
+const openMeetingChairpersons = [
+  {
+    id: "seed-chairperson-townhall-dara",
+    honorificTitleEn: "Mr.",
+    honorificTitleKm: "លោក",
+    firstNameEn: "Dara",
+    firstNameKm: "ដារ៉ា",
+    lastNameEn: "Sok",
+    lastNameKm: "សុខ",
+    position: "Community Lead",
+    organization: "Default Tenant",
+  },
+];
+
+const openMeetingParticipants = [
+  {
+    id: "seed-meeting-participant-townhall-vicheka",
+    fullNameEn: "Vicheka Nuon",
+    fullNameKm: null,
+    gender: Gender.FEMALE,
+    position: "Community Visitor",
+    department: "Public",
+    latitude: "11.5681300",
+    longitude: "104.9223500",
+    distanceMeters: 10,
+  },
+];
+
 async function resetDatabase() {
   await prisma.attendance.deleteMany();
   await prisma.eventRegistration.deleteMany();
@@ -633,12 +688,10 @@ async function seedExtraTenants(
       },
     });
     const roleByName = await seedRoles(tenant.id, permissionByKey);
-    await seedUsers(
-      tenant.id,
-      roleByName,
-      passwordHash,
-      [tenantSeed.owner, ...tenantSeed.users],
-    );
+    await seedUsers(tenant.id, roleByName, passwordHash, [
+      tenantSeed.owner,
+      ...tenantSeed.users,
+    ]);
     await prisma.tenant.update({
       where: { id: tenant.id },
       data: { ownerUserId: tenantSeed.owner.id },
@@ -1128,6 +1181,7 @@ async function seedMeetings() {
 
   for (const participantSeed of boardMeetingParticipants) {
     const { id: participantId, ...participantData } = participantSeed;
+    const joined = participantId === "seed-meeting-participant-board-sopheak";
 
     await prisma.meetingParticipant.upsert({
       where: { id: participantId },
@@ -1135,14 +1189,26 @@ async function seedMeetings() {
         meetingId: board.id,
         placeId: null,
         ...participantData,
-        status: MeetingParticipantStatus.INVITED,
+        status: joined
+          ? MeetingParticipantStatus.JOINED
+          : MeetingParticipantStatus.INVITED,
+        joinedAt: joined ? new Date("2026-06-04T02:15:00.000Z") : null,
+        latitude: joined ? "11.5564300" : null,
+        longitude: joined ? "104.9282400" : null,
+        distanceMeters: joined ? 6 : 0,
         source: "SEED",
       },
       create: {
         id: participantId,
         meetingId: board.id,
         ...participantData,
-        status: MeetingParticipantStatus.INVITED,
+        status: joined
+          ? MeetingParticipantStatus.JOINED
+          : MeetingParticipantStatus.INVITED,
+        joinedAt: joined ? new Date("2026-06-04T02:15:00.000Z") : null,
+        latitude: joined ? "11.5564300" : null,
+        longitude: joined ? "104.9282400" : null,
+        distanceMeters: joined ? 6 : 0,
         source: "SEED",
       },
     });
@@ -1232,6 +1298,73 @@ async function seedMeetings() {
         },
       });
     }
+  }
+
+  const { id: openMeetingId, ...openMeetingData } = openMeeting;
+  const townhall = await prisma.meeting.upsert({
+    where: { id: openMeetingId },
+    update: openMeetingData,
+    create: openMeeting,
+  });
+
+  for (const chairpersonSeed of openMeetingChairpersons) {
+    await prisma.meetingChairperson.upsert({
+      where: { id: chairpersonSeed.id },
+      update: {
+        meetingId: townhall.id,
+        honorificTitleEn: chairpersonSeed.honorificTitleEn,
+        honorificTitleKm: chairpersonSeed.honorificTitleKm,
+        firstNameEn: chairpersonSeed.firstNameEn,
+        firstNameKm: chairpersonSeed.firstNameKm,
+        lastNameEn: chairpersonSeed.lastNameEn,
+        lastNameKm: chairpersonSeed.lastNameKm,
+        position: chairpersonSeed.position,
+        organization: chairpersonSeed.organization,
+      },
+      create: {
+        ...chairpersonSeed,
+        meetingId: townhall.id,
+      },
+    });
+  }
+
+  await prisma.meetingQrCode.upsert({
+    where: { code: "DEMO-PUBLIC-TOWNHALL-2026" },
+    update: {
+      meetingId: townhall.id,
+      placeId: null,
+      active: true,
+      expiresAt: null,
+    },
+    create: {
+      code: "DEMO-PUBLIC-TOWNHALL-2026",
+      meetingId: townhall.id,
+      active: true,
+    },
+  });
+
+  for (const participantSeed of openMeetingParticipants) {
+    const { id: participantId, ...participantData } = participantSeed;
+
+    await prisma.meetingParticipant.upsert({
+      where: { id: participantId },
+      update: {
+        meetingId: townhall.id,
+        placeId: null,
+        ...participantData,
+        status: MeetingParticipantStatus.JOINED,
+        joinedAt: new Date("2026-06-06T02:30:00.000Z"),
+        source: "OPEN_REGISTRATION",
+      },
+      create: {
+        id: participantId,
+        meetingId: townhall.id,
+        ...participantData,
+        status: MeetingParticipantStatus.JOINED,
+        joinedAt: new Date("2026-06-06T02:30:00.000Z"),
+        source: "OPEN_REGISTRATION",
+      },
+    });
   }
 }
 
@@ -1358,6 +1491,7 @@ async function main() {
   console.log(
     "Demo meeting place QR codes: DEMO-MEETING-POLICY-ROOM, DEMO-MEETING-BUDGET-ROOM",
   );
+  console.log("Demo open meeting QR code: DEMO-PUBLIC-TOWNHALL-2026");
 }
 
 main()

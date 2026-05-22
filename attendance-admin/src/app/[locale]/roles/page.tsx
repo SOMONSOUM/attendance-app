@@ -15,6 +15,7 @@ import {
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -50,15 +51,16 @@ export default function RolesPage() {
   const [page, setPage] = useState(1);
   const editing = useAdminUiStore((state) => state.editingRole);
   const setEditing = useAdminUiStore((state) => state.setEditingRole);
+  const formMethods = useForm<RoleValues>({
+    resolver: zodResolver(roleSchema),
+    defaultValues: initialRoleForm,
+  });
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<RoleValues>({
-    resolver: zodResolver(roleSchema),
-    defaultValues: initialRoleForm,
-  });
+  } = formMethods;
   const rolesQuery = useQuery({
     queryKey: [...roleKeys.all, page],
     queryFn: () => listRoles({ page, pageSize: PAGE_SIZE }),
@@ -215,12 +217,13 @@ export default function RolesPage() {
               </p>
             </CardHeader>
             <CardContent className="p-0">
-              <form
-                className="flex max-h-[calc(100dvh-9rem)] flex-col"
-                onSubmit={handleSubmit((values) =>
-                  saveRoleMutation.mutate(values),
-                )}
-              >
+              <Form {...formMethods}>
+                <form
+                  className="flex max-h-[calc(100dvh-9rem)] flex-col"
+                  onSubmit={handleSubmit((values) =>
+                    saveRoleMutation.mutate(values),
+                  )}
+                >
                 <div className="grid gap-4 overflow-y-auto p-4">
                   <div className="grid gap-2">
                     <Label>Role name</Label>
@@ -266,7 +269,8 @@ export default function RolesPage() {
                     </Button>
                   ) : null}
                 </div>
-              </form>
+                </form>
+              </Form>
             </CardContent>
           </Card>
       </div>

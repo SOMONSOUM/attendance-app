@@ -26,7 +26,7 @@ import { apiError, apiSuccess } from "../../common/swagger/api-examples";
 import { Public } from "../auth/decorators/public.decorator";
 import type { AuthUser } from "../auth/types/auth-user";
 import { RequirePermissions } from "../rbac/permissions.decorator";
-import { CreateMeetingDto, UpdateMeetingDto } from "./dto";
+import { CreateMeetingDto, JoinMeetingDto, UpdateMeetingDto } from "./dto";
 import { MeetingsService } from "./meetings.service";
 import type { PaginationQuery } from "../../common/pagination";
 
@@ -157,7 +157,7 @@ export class MeetingsController {
   @Post("qr/:code/join")
   joinByCode(
     @Param("code") code: string,
-    @Body() dto: { fullNameEn: string; fullNameKm?: string },
+    @Body() dto: JoinMeetingDto,
   ) {
     return this.meetings.joinByCode(code, dto);
   }

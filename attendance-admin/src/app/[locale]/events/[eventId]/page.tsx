@@ -4,27 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   ArrowLeft,
   BarChart3,
-  CalendarDays,
-  ChartPie,
   Clock,
-  Download,
-  MapPin,
-  QrCode,
   RotateCcw,
   UserCheck,
   Users,
@@ -38,13 +20,7 @@ import {
   TableShell,
 } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import {
   Table,
@@ -63,34 +39,18 @@ import {
   listEvents,
   type EventRosterRecord,
 } from "@/lib/admin-data";
+import {
+  EventDetailsCard,
+  LocationRequirementBadge,
+  MetricCard,
+  PlacesEmptyState,
+  QrPlaceCard,
+  SingleQrCard,
+  buildCoordinates,
+} from "./_components/event-detail-components";
 
 const ALL = "all";
 const DEFAULT_PAGE_SIZE = 10;
-
-const attendanceConfig = {
-  joined: {
-    label: "Joined",
-    color: "var(--primary)",
-  },
-} satisfies ChartConfig;
-
-const barConfig = {
-  value: {
-    label: "Attendees",
-    color: "var(--primary)",
-  },
-} satisfies ChartConfig;
-
-const splitConfig = {
-  joined: {
-    label: "Joined",
-    color: "var(--primary)",
-  },
-  notYet: {
-    label: "Not yet",
-    color: "var(--info)",
-  },
-} satisfies ChartConfig;
 
 export default function EventDetailPage() {
   const params = useParams<{ locale: string; eventId: string }>();
@@ -144,6 +104,10 @@ export default function EventDetailPage() {
     selectedPlaceId === ALL
       ? null
       : event?.places?.find((place) => place.id === selectedPlaceId);
+  const detailCoordinates = buildCoordinates(
+    selectedPlace?.latitude ?? event?.latitude,
+    selectedPlace?.longitude ?? event?.longitude,
+  );
   const joinedRows = scopedRows.filter((row) => row.joined);
   const notYetRows = scopedRows.filter((row) => !row.joined);
   const filteredRows = useMemo(
@@ -185,42 +149,41 @@ export default function EventDetailPage() {
     () => event?.shifts?.map((eventShift) => eventShift.name).sort() ?? [],
     [event?.shifts],
   );
-  const departmentGroups = useMemo(
-    () => groupCounts(filteredRows, "department"),
-    [filteredRows],
-  );
-  const positionGroups = useMemo(
-    () => groupCounts(filteredRows, "position"),
-    [filteredRows],
-  );
-  const genderGroups = useMemo(
-    () => groupCounts(filteredRows, "gender"),
-    [filteredRows],
-  );
-  const trendRows = useMemo(() => buildTrend(joinedRows), [joinedRows]);
-  const splitRows = [
-    {
-      name: "Joined",
-      key: "joined",
-      value: joinedRows.length,
-      fill: "var(--color-joined)",
-    },
-    {
-      name: "Not yet",
-      key: "notYet",
-      value: notYetRows.length,
-      fill: "var(--color-notYet)",
-    },
-  ];
   const joinRate = percentage(joinedRows.length, scopedRows.length);
+  const placeRows = useMemo(
+    () =>
+      (event?.places ?? []).map((place) => {
+        const rows = roster.filter((row) => row.placeId === place.id);
+        const joined = rows.filter((row) => row.joined);
+
+        return {
+          ...place,
+          coordinates: buildCoordinates(
+            place.latitude ?? event?.latitude,
+            place.longitude ?? event?.longitude,
+          ),
+          total: rows.length,
+          joined: joined.length,
+          rate: percentage(joined.length, rows.length),
+          qr: qrQuery.data?.qrCodes?.find((item) => item.placeId === place.id),
+        };
+      }),
+    [event?.places, event?.latitude, event?.longitude, roster, qrQuery.data?.qrCodes],
+  );
 
   return (
     <AdminShell
       active="Events"
-      title={event?.name ?? "Event overview"}
+      title={
+        selectedPlace
+          ? `${selectedPlace.name} overview`
+          : event?.name ?? "Event overview"
+      }
       description={
         event
-          ? `${event.mode.replace("_", " ")} event, ${formatDateRange(event.startsAt, event.endsAt)}`
+          ? selectedPlace
+            ? `${event.name}, ${selectedPlace.locationName || event.locationName}`
+            : `${event.mode.replace("_", " ")} event, ${formatDateRange(event.startsAt, event.endsAt)}`
           : "Event attendance overview and check-in breakdown."
       }
       action={
@@ -243,6 +206,14 @@ export default function EventDetailPage() {
         />
       ) : (
         <div className="space-y-5">
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone={event.separateQrByPlace ? "purple" : "blue"}>
+              {event.separateQrByPlace ? "By place" : "Single QR"}
+            </StatusPill>
+            <StatusPill tone={eventTone(event)}>{eventStatus(event)}</StatusPill>
+            <LocationRequirementBadge required={event.requireLocation} />
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label={selectedPlace ? "Place users" : "All users"}
@@ -270,13 +241,26 @@ export default function EventDetailPage() {
             />
           </div>
 
-          {event.separateQrByPlace ? (
+          <div className="grid gap-5 xl:grid-cols-[0.9fr_1.35fr]">
+            <EventDetailsCard
+              name={selectedPlace?.name ?? event.name}
+              description={event.description}
+              locationName={selectedPlace?.locationName || event.locationName}
+              requireLocation={event.requireLocation}
+              coordinates={detailCoordinates}
+              startsAt={event.startsAt}
+              endsAt={event.endsAt}
+              shifts={event.shifts}
+            />
+
             <Card>
               <SectionToolbar
                 title={
-                  selectedPlace
-                    ? `${selectedPlace.name} overview`
-                    : "Places and QR codes"
+                  event.separateQrByPlace
+                    ? selectedPlace
+                      ? `${selectedPlace.name} QR and stats`
+                      : "Places and QR codes"
+                    : "Event QR"
                 }
               >
                 {selectedPlace ? (
@@ -285,84 +269,43 @@ export default function EventDetailPage() {
                   </Button>
                 ) : null}
               </SectionToolbar>
-              <CardContent className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-                {event.places?.length ? (
-                  event.places.map((place) => {
-                    const placeRows = roster.filter(
-                      (row) => row.placeId === place.id,
-                    );
-                    const joinedCount = placeRows.filter((row) => row.joined).length;
-                    const qr = qrQuery.data?.qrCodes?.find(
-                      (item) => item.placeId === place.id,
-                    );
-
-                    return (
-                      <div
-                        className="grid gap-3 rounded-md border border-border bg-background p-4"
-                        key={place.id ?? place.name}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold">{place.name}</p>
-                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-fg">
-                              <MapPin size={12} />
-                              {place.locationName || "Location not set"}
-                            </p>
-                          </div>
-                          <span className="grid size-8 place-items-center rounded-md border border-border text-muted-fg">
-                            <QrCode size={16} />
-                          </span>
-                        </div>
-                        {place.description ? (
-                          <p className="line-clamp-2 text-sm text-muted-fg">
-                            {place.description}
-                          </p>
-                        ) : null}
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          <Stat label="Users" value={placeRows.length} />
-                          <Stat label="Joined" value={joinedCount} />
-                          <Stat
-                            label="Rate"
-                            value={`${percentage(joinedCount, placeRows.length)}%`}
-                          />
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button asChild className="h-8">
-                            <Link
-                              href={`/${locale}/events/${event.id}?placeId=${place.id}`}
-                            >
-                              View
-                            </Link>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="h-8"
-                            disabled={!qr?.qrImage}
-                            onClick={() =>
-                              qr?.qrImage
-                                ? downloadDataUrl(
-                                    qr.qrImage,
-                                    `${event.name}-${place.name}.png`,
-                                  )
-                                : undefined
-                            }
-                          >
-                            <Download size={14} />
-                            QR
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
+              <CardContent className="grid gap-3 p-4 md:grid-cols-2">
+                {event.separateQrByPlace ? (
+                  placeRows.length ? (
+                    placeRows
+                      .filter((place) =>
+                        selectedPlace ? place.id === selectedPlace.id : true,
+                      )
+                      .map((place) => (
+                        <QrPlaceCard
+                          key={place.id ?? place.name}
+                          name={place.name}
+                          locationName={place.locationName}
+                          description={place.description}
+                          total={place.total}
+                          joined={place.joined}
+                          rate={place.rate}
+                          qrImage={place.qr?.qrImage}
+                          fileName={`${event.name}-${place.name}.png`}
+                          href={`/${locale}/events/${event.id}?placeId=${place.id}`}
+                          requireLocation={event.requireLocation}
+                          coordinates={place.coordinates}
+                          showView={!selectedPlace}
+                        />
+                      ))
+                  ) : (
+                    <PlacesEmptyState />
+                  )
                 ) : (
-                  <EmptyState
-                    title="No places configured"
-                    text="Add places to this event to generate room-specific QR codes."
+                  <SingleQrCard
+                    name={event.name}
+                    code={qrQuery.data?.code}
+                    qrImage={qrQuery.data?.qrImage}
                   />
                 )}
               </CardContent>
             </Card>
-          ) : null}
+          </div>
 
           <Card>
             <CardContent className="grid gap-3 p-4 xl:grid-cols-6">
@@ -419,87 +362,6 @@ export default function EventDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          <div className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr]">
-            <Card className="min-w-0">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Join activity</CardTitle>
-                <Button variant="outline" className="h-8">
-                  <CalendarDays size={14} />
-                  Timeline
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={attendanceConfig}
-                  className="h-72 w-full"
-                >
-                  <AreaChart data={trendRows} margin={{ left: 12, right: 12 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent />}
-                    />
-                    <Area
-                      dataKey="joined"
-                      type="natural"
-                      fill="var(--color-joined)"
-                      fillOpacity={0.28}
-                      stroke="var(--color-joined)"
-                    />
-                  </AreaChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="min-w-0">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Joined split</CardTitle>
-                <StatusPill tone={eventTone(event)}>{eventStatus(event)}</StatusPill>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={splitConfig} className="mx-auto h-72">
-                  <PieChart>
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent hideLabel />}
-                    />
-                    <Pie
-                      data={splitRows}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={62}
-                      outerRadius={92}
-                      paddingAngle={2}
-                    >
-                      {splitRows.map((row) => (
-                        <Cell key={row.key} fill={row.fill} />
-                      ))}
-                      <LabelList
-                        dataKey="value"
-                        position="outside"
-                        className="fill-muted-fg"
-                        fontSize={12}
-                      />
-                    </Pie>
-                  </PieChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-5 xl:grid-cols-3">
-            <BreakdownChart title="Departments" rows={departmentGroups} />
-            <BreakdownChart title="Positions" rows={positionGroups} />
-            <BreakdownChart title="Gender" rows={genderGroups} />
-          </div>
 
           <TableShell>
             <SectionToolbar
@@ -647,42 +509,6 @@ export default function EventDetailPage() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  icon: typeof Users;
-}) {
-  return (
-    <Card className="min-w-0">
-      <CardContent className="p-4">
-        <div className="mb-5 flex items-center justify-between">
-          <p className="text-sm font-medium">{label}</p>
-          <span className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-fg">
-            <Icon size={14} />
-          </span>
-        </div>
-        <p className="text-3xl font-semibold tracking-tight">{value}</p>
-        <p className="mt-1 text-xs text-muted-fg">{sub}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="rounded-md bg-muted p-2">
-      <p className="text-xs text-muted-fg">{label}</p>
-      <p className="mt-1 font-semibold">{value}</p>
-    </div>
-  );
-}
-
 function FilterSelect({
   label,
   value,
@@ -709,96 +535,8 @@ function FilterSelect({
   );
 }
 
-function BreakdownChart({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: { label: string; value: number }[];
-}) {
-  const data = rows.slice(0, 8);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {data.length ? (
-          <ChartContainer config={barConfig} className="h-64 w-full">
-            <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }}>
-              <CartesianGrid horizontal={false} />
-              <YAxis
-                dataKey="label"
-                type="category"
-                tickLine={false}
-                axisLine={false}
-                width={86}
-              />
-              <XAxis dataKey="value" type="number" hide />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-              <Bar
-                dataKey="value"
-                fill="var(--color-value)"
-                radius={[0, 6, 6, 0]}
-              >
-                <LabelList
-                  dataKey="value"
-                  position="right"
-                  className="fill-muted-fg"
-                  fontSize={12}
-                />
-              </Bar>
-            </BarChart>
-          </ChartContainer>
-        ) : (
-          <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-fg">
-            No data yet.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function uniqueValues(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => cleanValue(value)))).sort();
-}
-
-function groupCounts(
-  rows: EventRosterRecord[],
-  key: "department" | "position" | "gender",
-) {
-  const counts = new Map<string, number>();
-
-  for (const row of rows) {
-    const label = cleanValue(row[key]);
-    counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-
-  return Array.from(counts.entries())
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
-}
-
-function buildTrend(rows: EventRosterRecord[]) {
-  const counts = new Map<string, number>();
-
-  for (const row of rows) {
-    if (!row.joinedAt) continue;
-    const date = new Date(row.joinedAt).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
-    counts.set(date, (counts.get(date) ?? 0) + 1);
-  }
-
-  const data = Array.from(counts.entries()).map(([date, joined]) => ({
-    date,
-    joined,
-  }));
-
-  return data.length ? data : [{ date: "No joins", joined: 0 }];
 }
 
 function cleanValue(value: string | null | undefined) {
@@ -859,11 +597,4 @@ function eventTone(event: { startsAt: string; endsAt: string }) {
   if (status === "Live") return "green";
   if (status === "Ready") return "purple";
   return "amber";
-}
-
-function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = filename.replace(/[^\w.-]+/g, "-").toLowerCase();
-  link.click();
 }

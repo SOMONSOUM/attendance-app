@@ -58,13 +58,56 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { key: "dashboard", label: "Dashboard", href: "/en", icon: Home },
-  { key: "events", label: "Events", href: "/en/events", icon: CalendarDays, permission: "events:read" },
-  { key: "meetings", label: "Meetings", href: "/en/meetings", icon: Handshake, permission: "meetings:read" },
-  { key: "registrations", label: "Registrations", href: "/en/registrations", icon: FileSpreadsheet, permission: "registrations:read" },
-  { key: "attendance", label: "Attendance", href: "/en/attendance", icon: ClipboardCheck, permission: "attendance:read" },
-  { key: "people", label: "People", href: "/en/people", icon: Users, permission: "users:read" },
-  { key: "roles", label: "Roles & RBAC", href: "/en/roles", icon: ShieldCheck, permission: "roles:read" },
-  { key: "theme", label: "Theme Builder", href: "/en/theme", icon: Palette, badge: "NEW", permission: "theme:update" },
+  {
+    key: "events",
+    label: "Events",
+    href: "/en/events",
+    icon: CalendarDays,
+    permission: "events:read",
+  },
+  {
+    key: "meetings",
+    label: "Meetings",
+    href: "/en/meetings",
+    icon: Handshake,
+    permission: "meetings:read",
+  },
+  {
+    key: "registrations",
+    label: "Registrations",
+    href: "/en/registrations",
+    icon: FileSpreadsheet,
+    permission: "registrations:read",
+  },
+  {
+    key: "attendance",
+    label: "Attendance",
+    href: "/en/attendance",
+    icon: ClipboardCheck,
+    permission: "attendance:read",
+  },
+  {
+    key: "people",
+    label: "People",
+    href: "/en/people",
+    icon: Users,
+    permission: "users:read",
+  },
+  {
+    key: "roles",
+    label: "Roles & RBAC",
+    href: "/en/roles",
+    icon: ShieldCheck,
+    permission: "roles:read",
+  },
+  {
+    key: "theme",
+    label: "Theme Builder",
+    href: "/en/theme",
+    icon: Palette,
+    badge: "NEW",
+    permission: "theme:update",
+  },
   { key: "settings", label: "Settings", href: "/en/settings", icon: Settings },
 ];
 
@@ -148,13 +191,7 @@ export function AdminShell({
                   <p className="mt-1 text-sm text-muted-fg">{description}</p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" className="gap-2">
-                  <SlidersHorizontal size={16} />
-                  {t("customize")}
-                </Button>
-                {action}
-              </div>
+              <div className="flex flex-wrap items-center gap-2">{action}</div>
             </div>
             {children}
           </div>
@@ -169,12 +206,9 @@ function TenantBadge({ currentUser }: { currentUser?: ShellUser }) {
     currentUser?.tenantName ?? currentUser?.tenantSlug ?? "Tenant";
 
   return (
-    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-background px-2.5 sm:max-w-64 md:flex-none md:basis-56">
+    <div className="flex h-10 min-w-0 flex-1 items-center gap-2  px-2.5 sm:max-w-64 md:flex-none md:basis-56">
       <Building2 size={16} className="shrink-0 text-primary" />
       <div className="min-w-0 leading-tight">
-        <p className="hidden text-[11px] font-medium text-muted-fg sm:block">
-          Tenant
-        </p>
         <p className="truncate text-sm font-semibold">{tenantName}</p>
       </div>
     </div>
@@ -351,7 +385,7 @@ function SidebarContent({
             <span className="absolute right-0 top-3 size-5 rounded-full bg-warning" />
           </div>
           <div className={cn("min-w-0", collapsed && "hidden")}>
-            <p className="text-sm font-semibold leading-none">Attendly</p>
+            <p className="text-sm font-semibold leading-none">EMS</p>
             <p className="mt-1 text-xs text-muted-fg">{t("brandSubtitle")}</p>
           </div>
         </Link>
@@ -371,7 +405,12 @@ function SidebarContent({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <p className={cn("mb-2 px-2 text-[11px] font-semibold uppercase text-muted-fg", collapsed && "sr-only")}>
+        <p
+          className={cn(
+            "mb-2 px-2 text-[11px] font-semibold uppercase text-muted-fg",
+            collapsed && "sr-only",
+          )}
+        >
           {t("menu")}
         </p>
         <nav className="grid gap-1">
@@ -387,7 +426,12 @@ function SidebarContent({
           ))}
         </nav>
 
-        <p className={cn("mb-2 mt-6 px-2 text-[11px] font-semibold uppercase text-muted-fg", collapsed && "sr-only")}>
+        <p
+          className={cn(
+            "mb-2 mt-6 px-2 text-[11px] font-semibold uppercase text-muted-fg",
+            collapsed && "sr-only",
+          )}
+        >
           {t("system")}
         </p>
         <nav className="grid gap-1">
@@ -404,7 +448,12 @@ function SidebarContent({
         </nav>
       </div>
 
-      <div className={cn("shrink-0 border-t border-border p-3", collapsed && "grid place-items-center")}>
+      <div
+        className={cn(
+          "shrink-0 border-t border-border p-3",
+          collapsed && "grid place-items-center",
+        )}
+      >
         <div
           className={cn(
             "rounded-md bg-muted p-3",
@@ -483,7 +532,12 @@ function NavLink({
         {t(`nav.${item.key}`)}
       </span>
       {item.badge ? (
-        <span className={cn("rounded-full bg-info px-2 py-0.5 text-[10px] font-semibold text-white", collapsed && "hidden")}>
+        <span
+          className={cn(
+            "rounded-full bg-info px-2 py-0.5 text-[10px] font-semibold text-white",
+            collapsed && "hidden",
+          )}
+        >
           {item.badge}
         </span>
       ) : null}
@@ -505,7 +559,8 @@ function filterNavItems(
 ) {
   if (!currentUser) return items.filter((item) => !item.permission);
   return items.filter(
-    (item) => !item.permission || currentUser.permissions.includes(item.permission),
+    (item) =>
+      !item.permission || currentUser.permissions.includes(item.permission),
   );
 }
 

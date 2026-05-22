@@ -6,7 +6,11 @@ model Meeting {
   description  String?              @db.Text
   mode         EventMode
   separateQrByPlace Boolean         @default(false) @map("separate_qr_by_place")
+  requireLocation Boolean           @default(false) @map("require_location")
   locationName String               @map("location_name") @db.Text
+  latitude     Decimal              @default(0) @db.Decimal(10, 7)
+  longitude    Decimal              @default(0) @db.Decimal(10, 7)
+  radiusMeters Int                  @default(0) @map("radius_meters")
   startsAt     DateTime             @map("starts_at")
   endsAt       DateTime             @map("ends_at")
   chairpersons MeetingChairperson[]
@@ -86,6 +90,9 @@ model MeetingParticipant {
   email        String?
   status       MeetingParticipantStatus @default(INVITED)
   source       String                   @default("MANUAL")
+  latitude     Decimal?                 @db.Decimal(10, 7)
+  longitude    Decimal?                 @db.Decimal(10, 7)
+  distanceMeters Int                    @default(0) @map("distance_meters")
   joinedAt     DateTime?                @map("joined_at")
   createdAt    DateTime                 @default(now()) @map("created_at")
   updatedAt    DateTime                 @updatedAt @map("updated_at")

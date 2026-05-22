@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   Matches,
   IsOptional,
   IsString,
@@ -115,6 +116,11 @@ export class CreateEventDto {
   @IsBoolean()
   separateQrByPlace?: boolean;
 
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  requireLocation?: boolean;
+
   @ApiPropertyOptional({ example: "Not required" })
   @IsOptional()
   @IsString()
@@ -122,10 +128,12 @@ export class CreateEventDto {
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
+  @IsNumber()
   latitude?: number;
 
   @ApiPropertyOptional({ example: 0 })
   @IsOptional()
+  @IsNumber()
   longitude?: number;
 
   @ApiPropertyOptional({ example: 0, minimum: 0, maximum: 5000 })

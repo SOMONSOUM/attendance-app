@@ -19,6 +19,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { LocationPicker } from "@/components/admin/location-picker";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,7 +75,11 @@ const initialForm: MeetingForm = {
   description: "",
   mode: "PRE_REGISTERED",
   separateQrByPlace: false,
+  requireLocation: false,
   locationName: "",
+  latitude: 11.5564,
+  longitude: 104.9282,
+  radiusMeters: 100,
   startsAt: "2026-06-01",
   endsAt: "2026-06-01",
   chairpersons: [{ ...emptyChairperson }],
@@ -172,7 +177,11 @@ export default function MeetingsPage() {
       description: meeting.description ?? "",
       mode: meeting.mode,
       separateQrByPlace: Boolean(meeting.separateQrByPlace),
+      requireLocation: Boolean(meeting.requireLocation),
       locationName: meeting.locationName ?? "",
+      latitude: toNumber(meeting.latitude, initialForm.latitude),
+      longitude: toNumber(meeting.longitude, initialForm.longitude),
+      radiusMeters: meeting.radiusMeters ?? initialForm.radiusMeters,
       startsAt: toDateInput(meeting.startsAt),
       endsAt: toDateInput(meeting.endsAt),
       chairpersons: meeting.chairpersons.length
@@ -623,6 +632,17 @@ export default function MeetingsPage() {
 
               {step === 2 ? (
               <div className="grid gap-3">
+                <LocationPicker
+                  value={{
+                    requireLocation: form.requireLocation,
+                    locationName: form.locationName,
+                    latitude: form.latitude,
+                    longitude: form.longitude,
+                    radiusMeters: form.radiusMeters,
+                  }}
+                  onChange={(value) => setForm({ ...form, ...value })}
+                  title="Meeting location check-in"
+                />
                 <h3 className="text-sm font-semibold">Participants</h3>
                 {form.mode === "PRE_REGISTERED" ? (
                   <div className="grid gap-2 rounded-md border border-dashed border-border p-3">
@@ -798,9 +818,14 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function normalizeForm(form: MeetingForm): MeetingForm {
+  const requireLocation = Boolean(form.requireLocation);
   return {
     ...form,
-    locationName: form.locationName?.trim() || "Not required",
+    requireLocation,
+    locationName: requireLocation ? form.locationName?.trim() || "Meeting venue" : form.locationName?.trim() || "Not required",
+    latitude: requireLocation ? form.latitude ?? 0 : 0,
+    longitude: requireLocation ? form.longitude ?? 0 : 0,
+    radiusMeters: requireLocation ? clamp(form.radiusMeters ?? 100, 10, 5000) : 0,
     places: form.separateQrByPlace
       ? (form.places ?? [])
           .filter((place) => place.name.trim())
@@ -817,6 +842,16 @@ function cleanObject<T extends object>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== "" && item !== null),
   ) as T;
+}
+
+function clamp(value: number, min: number, max: number) {
+  if (Number.isNaN(value)) return min;
+  return Math.min(Math.max(value, min), max);
+}
+
+function toNumber(value: string | number | undefined, fallback?: number) {
+  const parsed = Number(value ?? fallback ?? 0);
+  return Number.isFinite(parsed) ? parsed : fallback ?? 0;
 }
 
 function stripChairperson(

@@ -47,6 +47,11 @@ export const eventSchema = z
     description: z.string().optional(),
     mode: z.enum(["PRE_REGISTERED", "OPEN_REGISTRATION"]),
     separateQrByPlace: z.boolean().optional(),
+    requireLocation: z.boolean().optional(),
+    locationName: z.string().optional(),
+    latitude: z.number().min(-85).max(85).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    radiusMeters: z.number().min(0).max(5000).optional(),
     places: z
       .array(
         z.object({
@@ -119,7 +124,11 @@ export const meetingSchema = z
     description: z.string().optional(),
     mode: z.enum(["PRE_REGISTERED", "OPEN_REGISTRATION"]),
     separateQrByPlace: z.boolean().optional(),
+    requireLocation: z.boolean().optional(),
     locationName: z.string().optional(),
+    latitude: z.number().min(-85).max(85).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    radiusMeters: z.number().min(0).max(5000).optional(),
     startsAt: dateOnlySchema,
     endsAt: dateOnlySchema,
     chairpersons: z

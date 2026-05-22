@@ -49,6 +49,10 @@ type Event = {
   description?: string | null;
   mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
   locationName?: string;
+  requireLocation?: boolean;
+  latitude?: string | number;
+  longitude?: string | number;
+  radiusMeters?: number;
   startsAt: string;
   endsAt: string;
   shifts: {
@@ -209,13 +213,21 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
     }
 
     setBusy(true);
-    setStatus(t("checkingLocation"));
-    const payload = {
-      ...(selected ?? getValues()),
-      registrationId: selected?.id,
-    };
+    setStatus(event.requireLocation ? "Requesting your current location..." : t("checkingLocation"));
 
     try {
+      const position = event.requireLocation ? await getCurrentLocation() : null;
+      const payload = {
+        ...(selected ?? getValues()),
+        registrationId: selected?.id,
+        ...(position
+          ? {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            }
+          : {}),
+      };
+
       await api(`/attendance/qr/${code}/join`, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -314,6 +326,12 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           ) : null}
           {event.description ? (
             <p className="mt-3 text-muted-fg">{event.description}</p>
+          ) : null}
+          {event.requireLocation ? (
+            <p className="mt-3 rounded-md border border-border bg-background/70 p-3 text-sm text-muted-fg">
+              Location check-in is required within {event.radiusMeters ?? 100}m of{" "}
+              {event.locationName || "the venue"}.
+            </p>
           ) : null}
         </section>
 
@@ -614,6 +632,20 @@ function endOfDay(date: Date) {
   const end = new Date(date);
   end.setHours(23, 59, 59, 999);
   return end;
+}
+
+function getCurrentLocation() {
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error("This browser does not support location sharing."));
+  }
+
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      maximumAge: 30_000,
+      timeout: 15_000,
+    });
+  });
 }
 
 function Detail({ label, value }: { label: string; value?: string | null }) {

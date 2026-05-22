@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginSchema, type LoginValues } from "@/lib/validation";
@@ -15,14 +16,15 @@ import { loginAdmin } from "../actions";
 export function LoginForm({ locale }: { locale: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const formMethods = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-  });
+  } = formMethods;
 
   const loginMutation = useMutation({
     mutationFn: loginAdmin,
@@ -38,10 +40,11 @@ export function LoginForm({ locale }: { locale: string }) {
         <CardTitle>Admin sign in</CardTitle>
       </CardHeader>
       <CardContent>
-        <form
-          className="grid gap-4"
-          onSubmit={handleSubmit((values) => loginMutation.mutate(values))}
-        >
+        <Form {...formMethods}>
+          <form
+            className="grid gap-4"
+            onSubmit={handleSubmit((values) => loginMutation.mutate(values))}
+          >
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -83,7 +86,8 @@ export function LoginForm({ locale }: { locale: string }) {
             )}
             Sign in
           </Button>
-        </form>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

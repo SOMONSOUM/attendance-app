@@ -3,11 +3,16 @@ import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
+  IsInt,
+  IsNumber,
   IsOptional,
   IsString,
+  Max,
+  Min,
   ValidateNested,
 } from "class-validator";
 import { EventMode, Gender, MeetingParticipantStatus } from "@prisma/client";
@@ -129,12 +134,35 @@ export class CreateMeetingDto {
 
   @ApiPropertyOptional({ example: false })
   @IsOptional()
+  @IsBoolean()
   separateQrByPlace?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  requireLocation?: boolean;
 
   @ApiPropertyOptional({ example: "Conference Room A" })
   @IsOptional()
   @IsString()
   locationName?: string;
+
+  @ApiPropertyOptional({ example: 11.5564 })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 104.9282 })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 100, minimum: 0, maximum: 5000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(5000)
+  radiusMeters?: number;
 
   @ApiProperty({ example: "2026-06-01T01:30:00.000Z" })
   @IsDateString()
