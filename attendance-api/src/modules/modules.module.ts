@@ -9,6 +9,7 @@ import { RegistrationImportsModule } from "./registration-imports/registration-i
 import { TenantsModule } from "./tenants/tenants.module";
 import { ThemeModule } from "./theme/theme.module";
 import { UsersModule } from "./users/users.module";
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UsersModule } from "./users/users.module";
     TenantsModule,
     AttendanceModule,
     ThemeModule,
+    HealthModule,
   ],
 })
 export class ModulesModule {}

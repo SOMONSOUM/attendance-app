@@ -1,6 +1,13 @@
 "use client";
 
-import { Map, MapPin, Minus, Navigation, Plus, ShieldCheck } from "lucide-react";
+import {
+  Map,
+  MapPin,
+  Minus,
+  Navigation,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import type {
   MouseEvent as ReactMouseEvent,
@@ -9,6 +16,7 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "../ui/switch";
 
 type LocationPickerValue = {
   requireLocation?: boolean;
@@ -59,12 +67,17 @@ export function LocationPicker({
   onChange: (value: LocationPickerValue) => void;
   title?: string;
 }) {
-  const latitude = Number.isFinite(value.latitude) ? value.latitude! : DEFAULT_LAT;
-  const longitude = Number.isFinite(value.longitude) ? value.longitude! : DEFAULT_LNG;
+  const latitude = Number.isFinite(value.latitude)
+    ? value.latitude!
+    : DEFAULT_LAT;
+  const longitude = Number.isFinite(value.longitude)
+    ? value.longitude!
+    : DEFAULT_LNG;
   const radiusMeters = value.radiusMeters ?? 100;
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [tileSource, setTileSource] = useState<keyof typeof TILE_SOURCES>("map");
+  const [tileSource, setTileSource] =
+    useState<keyof typeof TILE_SOURCES>("map");
   const center = useMemo(
     () => latLngToWorld(latitude, longitude, zoom),
     [latitude, longitude, zoom],
@@ -185,17 +198,20 @@ export function LocationPicker({
             {title}
           </h3>
           <p className="mt-1 text-xs text-muted-fg">
-            Require attendees to share their current location before the QR check-in is accepted.
+            Require attendees to share their current location before the QR
+            check-in is accepted.
           </p>
         </div>
-        <Button
-          type="button"
-          variant={value.requireLocation ? "secondary" : "outline"}
-          className="h-8 shrink-0"
-          onClick={() => update({ requireLocation: !value.requireLocation })}
-        >
-          {value.requireLocation ? "Required" : "Optional"}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Label htmlFor="require-location" className="text-xs text-muted-fg">
+            {value.requireLocation ? "Required" : "Optional"}
+          </Label>
+          <Switch
+            id="require-location"
+            checked={!!value.requireLocation}
+            onCheckedChange={(checked) => update({ requireLocation: checked })}
+          />
+        </div>
       </div>
 
       {value.requireLocation ? (
@@ -210,20 +226,20 @@ export function LocationPicker({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex rounded-md border border-border bg-card p-1">
-              {(Object.keys(TILE_SOURCES) as Array<keyof typeof TILE_SOURCES>).map(
-                (source) => (
-                  <Button
-                    key={source}
-                    type="button"
-                    variant={tileSource === source ? "secondary" : "ghost"}
-                    className="h-8"
-                    onClick={() => setTileSource(source)}
-                  >
-                    <Map size={14} />
-                    {TILE_SOURCES[source].label}
-                  </Button>
-                ),
-              )}
+              {(
+                Object.keys(TILE_SOURCES) as Array<keyof typeof TILE_SOURCES>
+              ).map((source) => (
+                <Button
+                  key={source}
+                  type="button"
+                  variant={tileSource === source ? "secondary" : "ghost"}
+                  className="h-8"
+                  onClick={() => setTileSource(source)}
+                >
+                  <Map size={14} />
+                  {TILE_SOURCES[source].label}
+                </Button>
+              ))}
             </div>
             <div className="flex rounded-md border border-border bg-card p-1">
               <Button
@@ -232,7 +248,9 @@ export function LocationPicker({
                 className="size-8 px-0"
                 aria-label="Zoom out"
                 disabled={zoom <= MIN_ZOOM}
-                onClick={() => setZoom((current) => Math.max(current - 1, MIN_ZOOM))}
+                onClick={() =>
+                  setZoom((current) => Math.max(current - 1, MIN_ZOOM))
+                }
               >
                 <Minus size={14} />
               </Button>
@@ -245,7 +263,9 @@ export function LocationPicker({
                 className="size-8 px-0"
                 aria-label="Zoom in"
                 disabled={zoom >= MAX_ZOOM}
-                onClick={() => setZoom((current) => Math.min(current + 1, MAX_ZOOM))}
+                onClick={() =>
+                  setZoom((current) => Math.min(current + 1, MAX_ZOOM))
+                }
               >
                 <Plus size={14} />
               </Button>
@@ -383,10 +403,7 @@ function latLngToWorld(lat: number, lng: number, zoom: number) {
   const sinLat = Math.sin((clampCoordinate(lat, -85, 85) * Math.PI) / 180);
   return {
     x: ((lng + 180) / 360) * scale,
-    y:
-      (0.5 -
-        Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) *
-      scale,
+    y: (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale,
   };
 }
 

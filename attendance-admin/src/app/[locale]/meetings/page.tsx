@@ -125,7 +125,9 @@ export default function MeetingsPage() {
   const meetings = meetingsQuery.data?.items ?? [];
   const meetingImports = importsQuery.data?.items ?? [];
   const activeCount = useMemo(
-    () => meetings.filter((meeting) => new Date(meeting.endsAt) >= new Date()).length,
+    () =>
+      meetings.filter((meeting) => new Date(meeting.endsAt) >= new Date())
+        .length,
     [meetings],
   );
 
@@ -140,7 +142,8 @@ export default function MeetingsPage() {
         if (sourceImportId) {
           await copyMeetingRegistrationImport(meeting.id, sourceImportId);
         } else if (participantFile) {
-          const uploaded = await uploadMeetingRegistrationImport(participantFile);
+          const uploaded =
+            await uploadMeetingRegistrationImport(participantFile);
           await copyMeetingRegistrationImport(meeting.id, uploaded.id);
         }
       }
@@ -149,7 +152,9 @@ export default function MeetingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: meetingKeys.all });
-      queryClient.invalidateQueries({ queryKey: ["registration-imports", "meetings"] });
+      queryClient.invalidateQueries({
+        queryKey: ["registration-imports", "meetings"],
+      });
       resetForm();
     },
   });
@@ -187,12 +192,13 @@ export default function MeetingsPage() {
       chairpersons: meeting.chairpersons.length
         ? meeting.chairpersons.map(stripChairperson)
         : [{ ...emptyChairperson }],
-      places: meeting.places?.map((place) => ({
-        id: place.id,
-        name: place.name,
-        description: place.description ?? "",
-        locationName: place.locationName ?? "",
-      })) ?? [],
+      places:
+        meeting.places?.map((place) => ({
+          id: place.id,
+          name: place.name,
+          description: place.description ?? "",
+          locationName: place.locationName ?? "",
+        })) ?? [],
       participants: meeting.participants.map(stripParticipant),
     });
     setParticipantFile(null);
@@ -200,7 +206,10 @@ export default function MeetingsPage() {
     setStep(0);
   }
 
-  function updateChairperson(index: number, patch: Partial<MeetingChairperson>) {
+  function updateChairperson(
+    index: number,
+    patch: Partial<MeetingChairperson>,
+  ) {
     setForm({
       ...form,
       chairpersons: form.chairpersons.map((chairperson, chairpersonIndex) =>
@@ -244,86 +253,95 @@ export default function MeetingsPage() {
             <div className="p-5 text-sm text-muted-fg">Loading meetings...</div>
           ) : meetings.length ? (
             <>
-            <Table className="min-w-180">
-              <TableHeader>
-                <TableRow className="border-t-0">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>QR mode</TableHead>
-                  <TableHead>Chairperson</TableHead>
-                  <TableHead>Total users</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {meetings.map((meeting) => (
-                  <TableRow
-                    key={meeting.id}
-                    className="cursor-pointer transition-colors hover:bg-muted"
-                    onClick={() => router.push(`/${locale}/meetings/${meeting.id}`)}
-                  >
-                    <TableCell className="font-medium">
-                      <span className="hover:text-primary">{meeting.name}</span>
-                      <p className="mt-1 text-xs font-normal text-muted-fg">
-                        {meeting.locationName}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {meeting.mode.replace("_", " ")}
-                    </TableCell>
-                    <TableCell>
-                      <StatusPill tone={meeting.separateQrByPlace ? "purple" : "blue"}>
-                        {meeting.separateQrByPlace ? "By place" : "Single QR"}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell>{formatChairperson(meeting.chairpersons[0])}</TableCell>
-                    <TableCell className="text-muted-fg">
-                      {meeting._count?.participants ?? meeting.participants.length}
-                    </TableCell>
-                    <TableCell>
-                      <StatusPill tone={meetingTone(meeting)}>
-                        {meetingStatus(meeting)}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          className="h-8 px-3"
-                          aria-label="Edit meeting"
-                          onClick={(clickEvent) => {
-                            clickEvent.stopPropagation();
-                            startEdit(meeting);
-                          }}
-                          disabled={!canUpdate}
-                        >
-                          <Edit3 size={14} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="h-8 px-3"
-                          aria-label="Delete meeting"
-                          onClick={(clickEvent) => {
-                            clickEvent.stopPropagation();
-                            setDeleteTarget(meeting);
-                          }}
-                          disabled={!canDelete || deleteMutation.isPending}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </TableCell>
+              <Table className="min-w-180">
+                <TableHeader>
+                  <TableRow className="border-t-0">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Mode</TableHead>
+                    <TableHead>QR mode</TableHead>
+                    <TableHead>Chairperson</TableHead>
+                    <TableHead>Total users</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <PaginationFooter
-              page={page}
-              pageSize={PAGE_SIZE}
-              totalItems={meetingsQuery.data?.meta.totalItems ?? 0}
-              onPageChange={setPage}
-            />
+                </TableHeader>
+                <TableBody>
+                  {meetings.map((meeting) => (
+                    <TableRow
+                      key={meeting.id}
+                      className="cursor-pointer transition-colors hover:bg-muted"
+                      onClick={() =>
+                        router.push(`/${locale}/meetings/${meeting.id}`)
+                      }
+                    >
+                      <TableCell className="font-medium">
+                        <span className="hover:text-primary">
+                          {meeting.name}
+                        </span>
+                        <p className="mt-1 text-xs font-normal text-muted-fg">
+                          {meeting.locationName}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-muted-fg">
+                        {meeting.mode.replace("_", " ")}
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill
+                          tone={meeting.separateQrByPlace ? "purple" : "blue"}
+                        >
+                          {meeting.separateQrByPlace ? "By place" : "Single QR"}
+                        </StatusPill>
+                      </TableCell>
+                      <TableCell>
+                        {formatChairperson(meeting.chairpersons[0])}
+                      </TableCell>
+                      <TableCell className="text-muted-fg">
+                        {meeting._count?.participants ??
+                          meeting.participants.length}
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill tone={meetingTone(meeting)}>
+                          {meetingStatus(meeting)}
+                        </StatusPill>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            className="h-8 px-3"
+                            aria-label="Edit meeting"
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              startEdit(meeting);
+                            }}
+                            disabled={!canUpdate}
+                          >
+                            <Edit3 size={14} />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-8 px-3"
+                            aria-label="Delete meeting"
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              setDeleteTarget(meeting);
+                            }}
+                            disabled={!canDelete || deleteMutation.isPending}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <PaginationFooter
+                page={page}
+                pageSize={PAGE_SIZE}
+                totalItems={meetingsQuery.data?.meta.totalItems ?? 0}
+                onPageChange={setPage}
+              />
             </>
           ) : (
             <div className="p-5">
@@ -339,7 +357,9 @@ export default function MeetingsPage() {
           <CardHeader className="border-b border-border bg-muted/30 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle>{editing ? "Update meeting" : "Create meeting"}</CardTitle>
+                <CardTitle>
+                  {editing ? "Update meeting" : "Create meeting"}
+                </CardTitle>
                 <p className="mt-1 text-sm text-muted-fg">
                   Step {step + 1} of {wizardSteps.length}:{" "}
                   {wizardSteps[step].description}
@@ -356,7 +376,9 @@ export default function MeetingsPage() {
               onSubmit={(event) => {
                 event.preventDefault();
                 if (step < wizardSteps.length - 1) {
-                  setStep((value) => Math.min(value + 1, wizardSteps.length - 1));
+                  setStep((value) =>
+                    Math.min(value + 1, wizardSteps.length - 1),
+                  );
                   return;
                 }
                 saveMutation.mutate();
@@ -366,329 +388,378 @@ export default function MeetingsPage() {
                 <WizardSteps step={step} onStepChange={setStep} />
               </div>
               <div className="grid gap-4 overflow-y-auto p-4">
-              {step === 0 ? (
-                <>
-                  <Field label="Meeting name">
-                    <Input
-                      value={form.name}
-                      onChange={(event) =>
-                        setForm({ ...form, name: event.target.value })
-                      }
-                      required
-                    />
-                  </Field>
-                  <Field label="Description">
-                    <Input
-                      value={form.description ?? ""}
-                      onChange={(event) =>
-                        setForm({ ...form, description: event.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Location">
-                    <Input
-                      value={form.locationName ?? ""}
-                      onChange={(event) =>
-                        setForm({ ...form, locationName: event.target.value })
-                      }
-                    />
-                  </Field>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Start date">
+                {step === 0 ? (
+                  <>
+                    <Field label="Meeting name">
                       <Input
-                        type="date"
-                        value={form.startsAt}
+                        value={form.name}
                         onChange={(event) =>
-                          setForm({ ...form, startsAt: event.target.value })
+                          setForm({ ...form, name: event.target.value })
                         }
                         required
                       />
                     </Field>
-                    <Field label="End date">
+                    <Field label="Description">
                       <Input
-                        type="date"
-                        value={form.endsAt}
+                        value={form.description ?? ""}
                         onChange={(event) =>
-                          setForm({ ...form, endsAt: event.target.value })
+                          setForm({ ...form, description: event.target.value })
                         }
-                        required
                       />
                     </Field>
-                  </div>
-                </>
-              ) : null}
-
-              {step === 1 ? (
-                <>
-                  <Field label="Registration mode">
-                    <Select
-                      value={form.mode}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          mode: event.target.value as MeetingForm["mode"],
-                        })
-                      }
-                    >
-                      <option value="PRE_REGISTERED">Pre-registered participants</option>
-                      <option value="OPEN_REGISTRATION">Open registration by QR</option>
-                    </Select>
-                  </Field>
-
-                  <Field label="QR mode">
-                    <Select
-                      value={form.separateQrByPlace ? "separate" : "single"}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          separateQrByPlace: event.target.value === "separate",
-                          places:
-                            event.target.value === "separate" && !form.places?.length
-                              ? [{ ...emptyPlace }]
-                              : form.places,
-                        })
-                      }
-                    >
-                      <option value="single">One QR code for the meeting</option>
-                      <option value="separate">Separate QR codes by place</option>
-                    </Select>
-                  </Field>
-
-                  {form.separateQrByPlace ? (
-                    <div className="grid gap-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold">Meeting places</h3>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-8 px-3"
-                          onClick={() =>
-                            setForm({
-                              ...form,
-                              places: [...(form.places ?? []), { ...emptyPlace }],
-                            })
+                    <Field label="Location">
+                      <Input
+                        value={form.locationName ?? ""}
+                        onChange={(event) =>
+                          setForm({ ...form, locationName: event.target.value })
+                        }
+                      />
+                    </Field>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Start date">
+                        <Input
+                          type="date"
+                          value={form.startsAt}
+                          onChange={(event) =>
+                            setForm({ ...form, startsAt: event.target.value })
                           }
-                        >
-                          <Plus size={14} />
-                          Add
-                        </Button>
-                      </div>
-                      {(form.places ?? []).map((place, index) => (
-                        <div
-                          key={index}
-                          className="grid gap-3 rounded-md border border-border p-3"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Input
-                              placeholder="Place name"
-                              value={place.name}
-                              onChange={(event) =>
-                                updatePlace(index, { name: event.target.value })
-                              }
-                              required
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="size-9 px-0"
-                              aria-label="Remove place"
-                              onClick={() =>
-                                setForm({
-                                  ...form,
-                                  places: (form.places ?? []).filter(
-                                    (_, placeIndex) => placeIndex !== index,
-                                  ),
-                                })
-                              }
-                            >
-                              <Trash2 size={15} />
-                            </Button>
-                          </div>
-                          <Input
-                            placeholder="Location name"
-                            value={place.locationName ?? ""}
-                            onChange={(event) =>
-                              updatePlace(index, { locationName: event.target.value })
-                            }
-                          />
-                        </div>
-                      ))}
+                          required
+                        />
+                      </Field>
+                      <Field label="End date">
+                        <Input
+                          type="date"
+                          value={form.endsAt}
+                          onChange={(event) =>
+                            setForm({ ...form, endsAt: event.target.value })
+                          }
+                          required
+                        />
+                      </Field>
                     </div>
-                  ) : null}
-                </>
-              ) : null}
+                  </>
+                ) : null}
 
-              {step === 0 ? (
-              <div className="grid gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold">Meeting chairpersons</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8 px-3"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        chairpersons: [...form.chairpersons, { ...emptyChairperson }],
-                      })
-                    }
-                  >
-                    <Plus size={14} />
-                    Add
-                  </Button>
-                </div>
-                {form.chairpersons.map((chairperson, index) => (
-                  <div key={index} className="grid gap-3 rounded-md border border-border p-3">
-                    <div className="flex items-center gap-2">
-                      <p className="flex-1 text-sm font-medium">Chairperson {index + 1}</p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="size-9 px-0"
-                        aria-label="Remove chairperson"
-                        onClick={() =>
+                {step === 1 ? (
+                  <>
+                    <Field label="Registration mode">
+                      <Select
+                        value={form.mode}
+                        onChange={(event) =>
                           setForm({
                             ...form,
-                            chairpersons:
-                              form.chairpersons.length > 1
-                                ? form.chairpersons.filter(
-                                    (_, chairpersonIndex) => chairpersonIndex !== index,
-                                  )
-                                : form.chairpersons,
+                            mode: event.target.value as MeetingForm["mode"],
                           })
                         }
                       >
-                        <Trash2 size={15} />
-                      </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Input
-                        placeholder="Honorific EN"
-                        value={chairperson.honorificTitleEn}
-                        onChange={(event) =>
-                          updateChairperson(index, { honorificTitleEn: event.target.value })
-                        }
-                        required
-                      />
-                      <Input
-                        placeholder="Honorific KM"
-                        value={chairperson.honorificTitleKm}
-                        onChange={(event) =>
-                          updateChairperson(index, { honorificTitleKm: event.target.value })
-                        }
-                        required
-                      />
-                      <Input
-                        placeholder="First name EN"
-                        value={chairperson.firstNameEn}
-                        onChange={(event) =>
-                          updateChairperson(index, { firstNameEn: event.target.value })
-                        }
-                        required
-                      />
-                      <Input
-                        placeholder="First name KM"
-                        value={chairperson.firstNameKm}
-                        onChange={(event) =>
-                          updateChairperson(index, { firstNameKm: event.target.value })
-                        }
-                        required
-                      />
-                      <Input
-                        placeholder="Last name EN"
-                        value={chairperson.lastNameEn}
-                        onChange={(event) =>
-                          updateChairperson(index, { lastNameEn: event.target.value })
-                        }
-                        required
-                      />
-                      <Input
-                        placeholder="Last name KM"
-                        value={chairperson.lastNameKm}
-                        onChange={(event) =>
-                          updateChairperson(index, { lastNameKm: event.target.value })
-                        }
-                        required
-                      />
-                      <Input
-                        placeholder="Position"
-                        value={chairperson.position ?? ""}
-                        onChange={(event) =>
-                          updateChairperson(index, { position: event.target.value })
-                        }
-                      />
-                      <Input
-                        placeholder="Organization"
-                        value={chairperson.organization ?? ""}
-                        onChange={(event) =>
-                          updateChairperson(index, { organization: event.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              ) : null}
-
-              {step === 2 ? (
-              <div className="grid gap-3">
-                <LocationPicker
-                  value={{
-                    requireLocation: form.requireLocation,
-                    locationName: form.locationName,
-                    latitude: form.latitude,
-                    longitude: form.longitude,
-                    radiusMeters: form.radiusMeters,
-                  }}
-                  onChange={(value) => setForm({ ...form, ...value })}
-                  title="Meeting location check-in"
-                />
-                <h3 className="text-sm font-semibold">Participants</h3>
-                {form.mode === "PRE_REGISTERED" ? (
-                  <div className="grid gap-2 rounded-md border border-dashed border-border p-3">
-                    <Label>Reusable meeting participants</Label>
-                    <Select
-                      value={sourceImportId}
-                      onChange={(event) => {
-                        setSourceImportId(event.target.value);
-                        if (event.target.value) setParticipantFile(null);
-                      }}
-                    >
-                      <option value="">Choose saved meeting import</option>
-                      {meetingImports.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.originalName} ({item.rowCount} rows)
+                        <option value="PRE_REGISTERED">
+                          Pre-registered participants
                         </option>
-                      ))}
-                    </Select>
-                    <div className="flex gap-2">
-                      <Input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        disabled={Boolean(sourceImportId)}
+                        <option value="OPEN_REGISTRATION">
+                          Open registration by QR
+                        </option>
+                      </Select>
+                    </Field>
+
+                    <Field label="QR mode">
+                      <Select
+                        value={form.separateQrByPlace ? "separate" : "single"}
                         onChange={(event) =>
-                          setParticipantFile(event.target.files?.[0] ?? null)
+                          setForm({
+                            ...form,
+                            separateQrByPlace:
+                              event.target.value === "separate",
+                            places:
+                              event.target.value === "separate" &&
+                              !form.places?.length
+                                ? [{ ...emptyPlace }]
+                                : form.places,
+                          })
                         }
-                      />
-                      <Button type="button" variant="outline" disabled>
-                        <FileSpreadsheet size={15} />
-                        On save
+                      >
+                        <option value="single">
+                          One QR code for the meeting
+                        </option>
+                        <option value="separate">
+                          Separate QR codes by place
+                        </option>
+                      </Select>
+                    </Field>
+
+                    {form.separateQrByPlace ? (
+                      <div className="grid gap-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-semibold">
+                            Meeting places
+                          </h3>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8 px-3"
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                places: [
+                                  ...(form.places ?? []),
+                                  { ...emptyPlace },
+                                ],
+                              })
+                            }
+                          >
+                            <Plus size={14} />
+                            Add
+                          </Button>
+                        </div>
+                        {(form.places ?? []).map((place, index) => (
+                          <div
+                            key={index}
+                            className="grid gap-3 rounded-md border border-border p-3"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Place name"
+                                value={place.name}
+                                onChange={(event) =>
+                                  updatePlace(index, {
+                                    name: event.target.value,
+                                  })
+                                }
+                                required
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="size-9 px-0"
+                                aria-label="Remove place"
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    places: (form.places ?? []).filter(
+                                      (_, placeIndex) => placeIndex !== index,
+                                    ),
+                                  })
+                                }
+                              >
+                                <Trash2 size={15} />
+                              </Button>
+                            </div>
+                            <Input
+                              placeholder="Location name"
+                              value={place.locationName ?? ""}
+                              onChange={(event) =>
+                                updatePlace(index, {
+                                  locationName: event.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {step === 0 ? (
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold">
+                        Meeting chairpersons
+                      </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 px-3"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            chairpersons: [
+                              ...form.chairpersons,
+                              { ...emptyChairperson },
+                            ],
+                          })
+                        }
+                      >
+                        <Plus size={14} />
+                        Add
                       </Button>
                     </div>
+                    {form.chairpersons.map((chairperson, index) => (
+                      <div
+                        key={index}
+                        className="grid gap-3 rounded-md border border-border p-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <p className="flex-1 text-sm font-medium">
+                            Chairperson {index + 1}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="size-9 px-0"
+                            aria-label="Remove chairperson"
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                chairpersons:
+                                  form.chairpersons.length > 1
+                                    ? form.chairpersons.filter(
+                                        (_, chairpersonIndex) =>
+                                          chairpersonIndex !== index,
+                                      )
+                                    : form.chairpersons,
+                              })
+                            }
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Input
+                            placeholder="Honorific EN"
+                            value={chairperson.honorificTitleEn}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                honorificTitleEn: event.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Input
+                            placeholder="Honorific KM"
+                            value={chairperson.honorificTitleKm}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                honorificTitleKm: event.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Input
+                            placeholder="First name EN"
+                            value={chairperson.firstNameEn}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                firstNameEn: event.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Input
+                            placeholder="First name KM"
+                            value={chairperson.firstNameKm}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                firstNameKm: event.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Input
+                            placeholder="Last name EN"
+                            value={chairperson.lastNameEn}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                lastNameEn: event.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Input
+                            placeholder="Last name KM"
+                            value={chairperson.lastNameKm}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                lastNameKm: event.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Input
+                            placeholder="Position"
+                            value={chairperson.position ?? ""}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                position: event.target.value,
+                              })
+                            }
+                          />
+                          <Input
+                            placeholder="Organization"
+                            value={chairperson.organization ?? ""}
+                            onChange={(event) =>
+                              updateChairperson(index, {
+                                organization: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
-                    Participants will register after scanning the meeting QR code.
-                  </p>
-                )}
-              </div>
-              ) : null}
+                ) : null}
 
-              {saveMutation.error ? (
-                <p className="text-sm text-destructive">
-                  {saveMutation.error.message}
-                </p>
-              ) : null}
+                {step === 2 ? (
+                  <div className="grid gap-3">
+                    <LocationPicker
+                      value={{
+                        requireLocation: form.requireLocation,
+                        locationName: form.locationName,
+                        latitude: form.latitude,
+                        longitude: form.longitude,
+                        radiusMeters: form.radiusMeters,
+                      }}
+                      onChange={(value) => setForm({ ...form, ...value })}
+                      title="Meeting location check-in"
+                    />
+                    <h3 className="text-sm font-semibold">Participants</h3>
+                    {form.mode === "PRE_REGISTERED" ? (
+                      <div className="grid gap-2 rounded-md border border-dashed border-border p-3">
+                        <Label>Reusable meeting participants</Label>
+                        <Select
+                          value={sourceImportId}
+                          onChange={(event) => {
+                            setSourceImportId(event.target.value);
+                            if (event.target.value) setParticipantFile(null);
+                          }}
+                        >
+                          <option value="">Choose saved meeting import</option>
+                          {meetingImports.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.originalName} ({item.rowCount} rows)
+                            </option>
+                          ))}
+                        </Select>
+                        <div className="flex gap-2">
+                          <Input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            disabled={Boolean(sourceImportId)}
+                            onChange={(event) =>
+                              setParticipantFile(
+                                event.target.files?.[0] ?? null,
+                              )
+                            }
+                          />
+                          <Button type="button" variant="outline" disabled>
+                            <FileSpreadsheet size={15} />
+                            On save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
+                        Participants will register after scanning the meeting QR
+                        code.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+
+                {saveMutation.error ? (
+                  <p className="text-sm text-destructive">
+                    {saveMutation.error.message}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-border bg-card p-4">
                 <Button
@@ -757,7 +828,9 @@ export default function MeetingsPage() {
           <Button
             type="button"
             disabled={!deleteTarget || deleteMutation.isPending}
-            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            onClick={() =>
+              deleteTarget && deleteMutation.mutate(deleteTarget.id)
+            }
           >
             {deleteMutation.isPending ? "Deleting..." : "Delete"}
           </Button>
@@ -822,16 +895,22 @@ function normalizeForm(form: MeetingForm): MeetingForm {
   return {
     ...form,
     requireLocation,
-    locationName: requireLocation ? form.locationName?.trim() || "Meeting venue" : form.locationName?.trim() || "Not required",
-    latitude: requireLocation ? form.latitude ?? 0 : 0,
-    longitude: requireLocation ? form.longitude ?? 0 : 0,
-    radiusMeters: requireLocation ? clamp(form.radiusMeters ?? 100, 10, 5000) : 0,
+    locationName: requireLocation
+      ? form.locationName?.trim() || "Meeting venue"
+      : form.locationName?.trim() || "Not required",
+    latitude: requireLocation ? (form.latitude ?? 0) : 0,
+    longitude: requireLocation ? (form.longitude ?? 0) : 0,
+    radiusMeters: requireLocation
+      ? clamp(form.radiusMeters ?? 100, 10, 5000)
+      : 0,
     places: form.separateQrByPlace
       ? (form.places ?? [])
           .filter((place) => place.name.trim())
           .map((place) => cleanObject(place))
       : [],
-    chairpersons: form.chairpersons.map((chairperson) => cleanObject(chairperson)),
+    chairpersons: form.chairpersons.map((chairperson) =>
+      cleanObject(chairperson),
+    ),
     participants: (form.participants ?? [])
       .filter((participant) => participant.fullNameEn.trim())
       .map((participant) => cleanObject(participant)),
@@ -851,12 +930,10 @@ function clamp(value: number, min: number, max: number) {
 
 function toNumber(value: string | number | undefined, fallback?: number) {
   const parsed = Number(value ?? fallback ?? 0);
-  return Number.isFinite(parsed) ? parsed : fallback ?? 0;
+  return Number.isFinite(parsed) ? parsed : (fallback ?? 0);
 }
 
-function stripChairperson(
-  chairperson: MeetingChairperson,
-): MeetingChairperson {
+function stripChairperson(chairperson: MeetingChairperson): MeetingChairperson {
   return {
     honorificTitleEn: chairperson.honorificTitleEn,
     honorificTitleKm: chairperson.honorificTitleKm,

@@ -158,7 +158,11 @@ export default function EventsPage() {
               await copyRegistrationImport(savedEvent.id, importId, place.id);
             } else if (file) {
               const uploaded = await uploadRegistrationImport(file);
-              await copyRegistrationImport(savedEvent.id, uploaded.id, place.id);
+              await copyRegistrationImport(
+                savedEvent.id,
+                uploaded.id,
+                place.id,
+              );
             }
           }
         }
@@ -210,21 +214,24 @@ export default function EventsPage() {
       latitude: toNumber(event.latitude, initialForm.latitude),
       longitude: toNumber(event.longitude, initialForm.longitude),
       radiusMeters: event.radiusMeters ?? initialForm.radiusMeters,
-      places: event.places?.map((place) => ({
-        id: place.id,
-        name: place.name,
-        description: place.description ?? "",
-        locationName: place.locationName ?? "",
-      })) ?? [],
+      places:
+        event.places?.map((place) => ({
+          id: place.id,
+          name: place.name,
+          description: place.description ?? "",
+          locationName: place.locationName ?? "",
+        })) ?? [],
       startsAt: toDateInput(event.startsAt),
       endsAt: toDateInput(event.endsAt),
-      shifts: event.shifts?.map((shift) => ({
-        name: shift.name,
-        startTime: toTimeInput(shift.startTime),
-        endTime: toTimeInput(shift.endTime),
-      })) ?? [],
+      shifts:
+        event.shifts?.map((shift) => ({
+          name: shift.name,
+          startTime: toTimeInput(shift.startTime),
+          endTime: toTimeInput(shift.endTime),
+        })) ?? [],
       theme: {
-        primaryColor: event.theme?.primaryColor ?? initialForm.theme.primaryColor,
+        primaryColor:
+          event.theme?.primaryColor ?? initialForm.theme.primaryColor,
         backgroundColor:
           event.theme?.backgroundColor ?? initialForm.theme.backgroundColor,
         backgroundImageUrl: event.theme?.backgroundImageUrl ?? "",
@@ -291,89 +298,97 @@ export default function EventsPage() {
             <div className="p-5 text-sm text-muted-fg">Loading events...</div>
           ) : events.length ? (
             <>
-            <Table className="min-w-180">
-              <TableHeader>
-                <TableRow className="border-t-0">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead>QR mode</TableHead>
-                  <TableHead>Total users</TableHead>
-                  <TableHead>Checked in</TableHead>
-                  <TableHead>Join rate</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {events.map((event) => (
-                  <TableRow
-                    key={event.id}
-                    className="cursor-pointer transition-colors hover:bg-muted"
-                    onClick={() => router.push(`/${locale}/events/${event.id}`)}
-                  >
-                    <TableCell className="font-medium">
-                      <span className="hover:text-primary">{event.name}</span>
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {event.mode.replace("_", " ")}
-                    </TableCell>
-                    <TableCell>
-                      <StatusPill tone={event.separateQrByPlace ? "purple" : "blue"}>
-                        {event.separateQrByPlace ? "By place" : "Single QR"}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {event.summary?.totalUsers ?? event._count?.registrations ?? 0}
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {event.summary?.checkedIn ?? event._count?.attendances ?? 0}
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {event.summary?.joinRate ?? 0}%
-                    </TableCell>
-                    <TableCell>
-                      <StatusPill tone={eventTone(event)}>
-                        {eventStatus(event)}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {canUpdate ? (
-                          <Button
-                            variant="outline"
-                            className="h-8 px-3"
-                            onClick={(clickEvent) => {
-                              clickEvent.stopPropagation();
-                              startEdit(event);
-                            }}
-                          >
-                            <Edit3 size={14} />
-                          </Button>
-                        ) : null}
-                        {canDelete ? (
-                          <Button
-                            variant="outline"
-                            className="h-8 px-3"
-                            onClick={(clickEvent) => {
-                              clickEvent.stopPropagation();
-                              setDeleteTarget(event);
-                            }}
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
+              <Table className="min-w-180">
+                <TableHeader>
+                  <TableRow className="border-t-0">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Mode</TableHead>
+                    <TableHead>QR mode</TableHead>
+                    <TableHead>Total users</TableHead>
+                    <TableHead>Checked in</TableHead>
+                    <TableHead>Join rate</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <PaginationFooter
-              page={page}
-              pageSize={PAGE_SIZE}
-              totalItems={eventsQuery.data?.meta.totalItems ?? 0}
-              onPageChange={setPage}
-            />
+                </TableHeader>
+                <TableBody>
+                  {events.map((event) => (
+                    <TableRow
+                      key={event.id}
+                      className="cursor-pointer transition-colors hover:bg-muted"
+                      onClick={() =>
+                        router.push(`/${locale}/events/${event.id}`)
+                      }
+                    >
+                      <TableCell className="font-medium">
+                        <span className="hover:text-primary">{event.name}</span>
+                      </TableCell>
+                      <TableCell className="text-muted-fg">
+                        {event.mode.replace("_", " ")}
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill
+                          tone={event.separateQrByPlace ? "purple" : "blue"}
+                        >
+                          {event.separateQrByPlace ? "By place" : "Single QR"}
+                        </StatusPill>
+                      </TableCell>
+                      <TableCell className="text-muted-fg">
+                        {event.summary?.totalUsers ??
+                          event._count?.registrations ??
+                          0}
+                      </TableCell>
+                      <TableCell className="text-muted-fg">
+                        {event.summary?.checkedIn ??
+                          event._count?.attendances ??
+                          0}
+                      </TableCell>
+                      <TableCell className="text-muted-fg">
+                        {event.summary?.joinRate ?? 0}%
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill tone={eventTone(event)}>
+                          {eventStatus(event)}
+                        </StatusPill>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {canUpdate ? (
+                            <Button
+                              variant="outline"
+                              className="h-8 px-3"
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                startEdit(event);
+                              }}
+                            >
+                              <Edit3 size={14} />
+                            </Button>
+                          ) : null}
+                          {canDelete ? (
+                            <Button
+                              variant="outline"
+                              className="h-8 px-3"
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                setDeleteTarget(event);
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <PaginationFooter
+                page={page}
+                pageSize={PAGE_SIZE}
+                totalItems={eventsQuery.data?.meta.totalItems ?? 0}
+                onPageChange={setPage}
+              />
             </>
           ) : (
             <EmptyState
@@ -387,7 +402,9 @@ export default function EventsPage() {
           <CardHeader className="border-b border-border bg-muted/30 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle>{editing ? "Update event" : "Create event"}</CardTitle>
+                <CardTitle>
+                  {editing ? "Update event" : "Create event"}
+                </CardTitle>
                 <p className="mt-1 text-sm text-muted-fg">
                   Step {step + 1} of {wizardSteps.length}:{" "}
                   {wizardSteps[step].description}
@@ -404,519 +421,577 @@ export default function EventsPage() {
                 className="flex max-h-[calc(100dvh-9rem)] flex-col"
                 onSubmit={handleSubmit(() => saveMutation.mutate())}
               >
-              <div className="border-b border-border p-4">
-                <WizardSteps step={step} onStepChange={setStep} />
-              </div>
-              <div className="grid gap-4 overflow-y-auto p-4">
-              {step === 0 ? (
-                <>
-              <Field
-                label="Event name"
-                value={form.name}
-                error={errors.name?.message}
-                onChange={(value) => setForm({ ...form, name: value })}
-              />
-              <Field
-                label="Description"
-                value={form.description ?? ""}
-                onChange={(value) => setForm({ ...form, description: value })}
-              />
-                </>
-              ) : null}
-              {step === 1 ? (
-                <>
-              <div className="grid gap-2">
-                <Label>Registration mode</Label>
-                <Select
-                  value={form.mode}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      mode: event.target.value as EventForm["mode"],
-                    })
-                  }
-                >
-                  <option value="PRE_REGISTERED">Pre-registered</option>
-                  <option value="OPEN_REGISTRATION">Open registration</option>
-                </Select>
-              </div>
-              <div className="grid gap-3 rounded-md border border-border bg-background p-3">
-                <div>
-                  <h3 className="text-sm font-semibold">QR code setup</h3>
-                  <p className="mt-1 text-xs text-muted-fg">
-                    Use one QR for the whole event, or create separate QR codes
-                    for each place, hall, or room.
-                  </p>
+                <div className="border-b border-border p-4">
+                  <WizardSteps step={step} onStepChange={setStep} />
                 </div>
-                <div className="grid gap-2">
-                  <Label>QR code mode</Label>
-                  <Select
-                    value={form.separateQrByPlace ? "separate" : "single"}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        separateQrByPlace: event.target.value === "separate",
-                        places:
-                          event.target.value === "separate" &&
-                          !form.places?.length
-                            ? [
-                                {
-                                  name: "Main hall",
-                                  description: "",
-                                  locationName: "Main hall",
-                                },
-                              ]
-                            : form.places,
-                      })
-                    }
-                  >
-                    <option value="single">One QR code for the event</option>
-                    <option value="separate">Separate QR code by place</option>
-                  </Select>
-                </div>
-                {form.separateQrByPlace ? (
-                  <div className="grid gap-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <Label>Places / halls / rooms</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-8"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            places: [
-                              ...(form.places ?? []),
-                              {
-                                name: `Place ${(form.places?.length ?? 0) + 1}`,
-                                description: "",
-                                locationName: "",
-                              },
-                            ],
-                          })
+                <div className="grid gap-4 overflow-y-auto p-4">
+                  {step === 0 ? (
+                    <>
+                      <Field
+                        label="Event name"
+                        value={form.name}
+                        error={errors.name?.message}
+                        onChange={(value) => setForm({ ...form, name: value })}
+                      />
+                      <Field
+                        label="Description"
+                        value={form.description ?? ""}
+                        onChange={(value) =>
+                          setForm({ ...form, description: value })
                         }
-                      >
-                        Add place
-                      </Button>
-                    </div>
-                    {form.places?.map((place, index) => (
-                      <div
-                        className="grid gap-3 rounded-md border border-border bg-card p-3"
-                        key={index}
-                      >
-                        <div className="flex items-end gap-2">
-                          <Field
-                            label="Place name"
-                            value={place.name}
-                            onChange={(value) =>
-                              updatePlace(index, { name: value })
+                      />
+                    </>
+                  ) : null}
+                  {step === 1 ? (
+                    <>
+                      <div className="grid gap-2">
+                        <Label>Registration mode</Label>
+                        <Select
+                          value={form.mode}
+                          onChange={(event) =>
+                            setForm({
+                              ...form,
+                              mode: event.target.value as EventForm["mode"],
+                            })
+                          }
+                        >
+                          <option value="PRE_REGISTERED">Pre-registered</option>
+                          <option value="OPEN_REGISTRATION">
+                            Open registration
+                          </option>
+                        </Select>
+                      </div>
+                      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">
+                            QR code setup
+                          </h3>
+                          <p className="mt-1 text-xs text-muted-fg">
+                            Use one QR for the whole event, or create separate
+                            QR codes for each place, hall, or room.
+                          </p>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>QR code mode</Label>
+                          <Select
+                            value={
+                              form.separateQrByPlace ? "separate" : "single"
                             }
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="mb-0 h-10"
-                            onClick={() =>
+                            onChange={(event) =>
                               setForm({
                                 ...form,
-                                places: form.places?.filter(
-                                  (_, placeIndex) => placeIndex !== index,
-                                ),
+                                separateQrByPlace:
+                                  event.target.value === "separate",
+                                places:
+                                  event.target.value === "separate" &&
+                                  !form.places?.length
+                                    ? [
+                                        {
+                                          name: "Main hall",
+                                          description: "",
+                                          locationName: "Main hall",
+                                        },
+                                      ]
+                                    : form.places,
                               })
                             }
                           >
-                            Remove
-                          </Button>
+                            <option value="single">
+                              One QR code for the event
+                            </option>
+                            <option value="separate">
+                              Separate QR code by place
+                            </option>
+                          </Select>
                         </div>
-                        <Field
-                          label="Location / hall / room"
-                          value={place.locationName ?? ""}
-                          onChange={(value) =>
-                            updatePlace(index, { locationName: value })
-                          }
-                        />
-                        <Field
-                          label="Place description"
-                          value={place.description ?? ""}
-                          required={false}
-                          onChange={(value) =>
-                            updatePlace(index, { description: value })
-                          }
-                        />
-                        {form.mode === "PRE_REGISTERED" ? (
+                        {form.separateQrByPlace ? (
                           <div className="grid gap-3">
-                            <div className="grid gap-2">
-                              <Label>Saved attendee import</Label>
-                              <Select
-                                value={placeRegistrationImportIds[index] ?? ""}
-                                onChange={(event) => {
-                                  const importId = event.target.value;
-                                  setPlaceRegistrationImportIds({
-                                    ...placeRegistrationImportIds,
-                                    [index]: importId,
-                                  });
-                                  if (importId) {
-                                    setPlaceRegistrationFiles({
-                                      ...placeRegistrationFiles,
-                                      [index]: null,
-                                    });
-                                  }
-                                }}
-                              >
-                                <option value="">Do not use saved import</option>
-                                {registrationImports.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.originalName} ({item.rowCount} users)
-                                  </option>
-                                ))}
-                              </Select>
-                            </div>
-                            <label className="grid gap-2 text-sm font-medium">
-                              Upload Excel for this place
-                              <Input
-                                type="file"
-                                accept=".xlsx,.xls"
-                                disabled={Boolean(
-                                  placeRegistrationImportIds[index],
-                                )}
-                                onChange={(event) =>
-                                  setPlaceRegistrationFiles({
-                                    ...placeRegistrationFiles,
-                                    [index]: event.target.files?.[0] ?? null,
+                            <div className="flex items-center justify-between gap-3">
+                              <Label>Places / halls / rooms</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-8"
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    places: [
+                                      ...(form.places ?? []),
+                                      {
+                                        name: `Place ${(form.places?.length ?? 0) + 1}`,
+                                        description: "",
+                                        locationName: "",
+                                      },
+                                    ],
                                   })
                                 }
-                              />
-                            </label>
-                            {placeRegistrationImportIds[index] ? (
-                              <p className="text-xs text-muted-fg">
-                                Using saved import:{" "}
-                                {registrationImports.find(
-                                  (item) =>
-                                    item.id === placeRegistrationImportIds[index],
-                                )?.originalName ?? "Selected import"}
-                              </p>
-                            ) : placeRegistrationFiles[index] ? (
-                              <p className="text-xs text-muted-fg">
-                                Selected file: {placeRegistrationFiles[index]?.name}
-                              </p>
-                            ) : null}
+                              >
+                                Add place
+                              </Button>
+                            </div>
+                            {form.places?.map((place, index) => (
+                              <div
+                                className="grid gap-3 rounded-md border border-border bg-card p-3"
+                                key={index}
+                              >
+                                <div className="flex items-end gap-2">
+                                  <Field
+                                    label="Place name"
+                                    value={place.name}
+                                    onChange={(value) =>
+                                      updatePlace(index, { name: value })
+                                    }
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="mb-0 h-10"
+                                    onClick={() =>
+                                      setForm({
+                                        ...form,
+                                        places: form.places?.filter(
+                                          (_, placeIndex) =>
+                                            placeIndex !== index,
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                                <Field
+                                  label="Location / hall / room"
+                                  value={place.locationName ?? ""}
+                                  onChange={(value) =>
+                                    updatePlace(index, { locationName: value })
+                                  }
+                                />
+                                <Field
+                                  label="Place description"
+                                  value={place.description ?? ""}
+                                  required={false}
+                                  onChange={(value) =>
+                                    updatePlace(index, { description: value })
+                                  }
+                                />
+                                {form.mode === "PRE_REGISTERED" ? (
+                                  <div className="grid gap-3">
+                                    <div className="grid gap-2">
+                                      <Label>Saved attendee import</Label>
+                                      <Select
+                                        value={
+                                          placeRegistrationImportIds[index] ??
+                                          ""
+                                        }
+                                        onChange={(event) => {
+                                          const importId = event.target.value;
+                                          setPlaceRegistrationImportIds({
+                                            ...placeRegistrationImportIds,
+                                            [index]: importId,
+                                          });
+                                          if (importId) {
+                                            setPlaceRegistrationFiles({
+                                              ...placeRegistrationFiles,
+                                              [index]: null,
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <option value="">
+                                          Do not use saved import
+                                        </option>
+                                        {registrationImports.map((item) => (
+                                          <option key={item.id} value={item.id}>
+                                            {item.originalName} ({item.rowCount}{" "}
+                                            users)
+                                          </option>
+                                        ))}
+                                      </Select>
+                                    </div>
+                                    <label className="grid gap-2 text-sm font-medium">
+                                      Upload Excel for this place
+                                      <Input
+                                        type="file"
+                                        accept=".xlsx,.xls"
+                                        disabled={Boolean(
+                                          placeRegistrationImportIds[index],
+                                        )}
+                                        onChange={(event) =>
+                                          setPlaceRegistrationFiles({
+                                            ...placeRegistrationFiles,
+                                            [index]:
+                                              event.target.files?.[0] ?? null,
+                                          })
+                                        }
+                                      />
+                                    </label>
+                                    {placeRegistrationImportIds[index] ? (
+                                      <p className="text-xs text-muted-fg">
+                                        Using saved import:{" "}
+                                        {registrationImports.find(
+                                          (item) =>
+                                            item.id ===
+                                            placeRegistrationImportIds[index],
+                                        )?.originalName ?? "Selected import"}
+                                      </p>
+                                    ) : placeRegistrationFiles[index] ? (
+                                      <p className="text-xs text-muted-fg">
+                                        Selected file:{" "}
+                                        {placeRegistrationFiles[index]?.name}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))}
                           </div>
                         ) : null}
                       </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-                </>
-              ) : null}
-              {step === 2 ? (
-                <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <DateField
-                  label="Starts"
-                  value={form.startsAt}
-                  error={errors.startsAt?.message}
-                  onChange={(value) => setForm({ ...form, startsAt: value })}
-                />
-                <DateField
-                  label="Ends"
-                  value={form.endsAt}
-                  error={errors.endsAt?.message}
-                  onChange={(value) => setForm({ ...form, endsAt: value })}
-                />
-              </div>
-              <LocationPicker
-                value={{
-                  requireLocation: form.requireLocation,
-                  locationName: form.locationName,
-                  latitude: form.latitude,
-                  longitude: form.longitude,
-                  radiusMeters: form.radiusMeters,
-                }}
-                onChange={(value) => setForm({ ...form, ...value })}
-                title="Event location check-in"
-              />
-              <div className="grid gap-3 rounded-md border border-border bg-background p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold">Event shifts</h3>
-                    <p className="mt-1 text-xs text-muted-fg">
-                      Optional. Leave empty for a single all-day event.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        shifts: [
-                          ...(form.shifts ?? []),
-                          {
-                            name: `Shift ${(form.shifts?.length ?? 0) + 1}`,
-                            startTime: "07:00",
-                            endTime: "12:00",
-                          },
-                        ],
-                      })
-                    }
-                  >
-                    Add shift
-                  </Button>
-                </div>
-                {form.shifts?.length ? (
-                  <div className="grid gap-3">
-                    {form.shifts.map((shift, index) => (
-                      <div
-                        className="grid gap-3 rounded-md border border-border bg-card p-3"
-                        key={index}
-                      >
-                        <div className="flex items-end gap-2">
-                          <Field
-                            label="Shift name"
-                            value={shift.name}
-                            onChange={(value) =>
-                              updateShift(index, { name: value })
-                            }
-                          />
+                    </>
+                  ) : null}
+                  {step === 2 ? (
+                    <>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <DateField
+                          label="Starts"
+                          value={form.startsAt}
+                          error={errors.startsAt?.message}
+                          onChange={(value) =>
+                            setForm({ ...form, startsAt: value })
+                          }
+                        />
+                        <DateField
+                          label="Ends"
+                          value={form.endsAt}
+                          error={errors.endsAt?.message}
+                          onChange={(value) =>
+                            setForm({ ...form, endsAt: value })
+                          }
+                        />
+                      </div>
+                      <LocationPicker
+                        value={{
+                          requireLocation: form.requireLocation,
+                          locationName: form.locationName,
+                          latitude: form.latitude,
+                          longitude: form.longitude,
+                          radiusMeters: form.radiusMeters,
+                        }}
+                        onChange={(value) => setForm({ ...form, ...value })}
+                        title="Event location check-in"
+                      />
+                      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-semibold">
+                              Event shifts
+                            </h3>
+                            <p className="mt-1 text-xs text-muted-fg">
+                              Optional. Leave empty for a single all-day event.
+                            </p>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
-                            className="mb-0 h-10"
+                            className="h-8"
                             onClick={() =>
                               setForm({
                                 ...form,
-                                shifts: form.shifts?.filter(
-                                  (_, shiftIndex) => shiftIndex !== index,
-                                ),
+                                shifts: [
+                                  ...(form.shifts ?? []),
+                                  {
+                                    name: `Shift ${(form.shifts?.length ?? 0) + 1}`,
+                                    startTime: "07:00",
+                                    endTime: "12:00",
+                                  },
+                                ],
                               })
                             }
                           >
-                            Remove
+                            Add shift
                           </Button>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <TimeField
-                            label="Shift starts"
-                            value={shift.startTime}
+                        {form.shifts?.length ? (
+                          <div className="grid gap-3">
+                            {form.shifts.map((shift, index) => (
+                              <div
+                                className="grid gap-3 rounded-md border border-border bg-card p-3"
+                                key={index}
+                              >
+                                <div className="flex items-end gap-2">
+                                  <Field
+                                    label="Shift name"
+                                    value={shift.name}
+                                    onChange={(value) =>
+                                      updateShift(index, { name: value })
+                                    }
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="mb-0 h-10"
+                                    onClick={() =>
+                                      setForm({
+                                        ...form,
+                                        shifts: form.shifts?.filter(
+                                          (_, shiftIndex) =>
+                                            shiftIndex !== index,
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <TimeField
+                                    label="Shift starts"
+                                    value={shift.startTime}
+                                    onChange={(value) =>
+                                      updateShift(index, { startTime: value })
+                                    }
+                                  />
+                                  <TimeField
+                                    label="Shift ends"
+                                    value={shift.endTime}
+                                    onChange={(value) =>
+                                      updateShift(index, { endTime: value })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
+                            No shifts configured.
+                          </p>
+                        )}
+                      </div>
+                      {form.mode === "PRE_REGISTERED" &&
+                      !form.separateQrByPlace ? (
+                        <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                          <div className="flex items-center gap-2">
+                            <FileSpreadsheet
+                              size={16}
+                              className="text-primary"
+                            />
+                            <div>
+                              <h3 className="text-sm font-semibold">
+                                Pre-registration users
+                              </h3>
+                              <p className="mt-1 text-xs text-muted-fg">
+                                Select a saved attendee import or upload an
+                                Excel file after saving.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Saved attendee import</Label>
+                            <Select
+                              value={sourceImportId}
+                              onChange={(event) => {
+                                setSourceImportId(event.target.value);
+                                if (event.target.value)
+                                  setRegistrationFile(null);
+                              }}
+                            >
+                              <option value="">Do not use saved import</option>
+                              {registrationImports.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.originalName} ({item.rowCount} users)
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                          <label className="grid gap-2 text-sm font-medium">
+                            Upload Excel
+                            <Input
+                              type="file"
+                              accept=".xlsx,.xls"
+                              disabled={Boolean(sourceImportId)}
+                              onChange={(event) =>
+                                setRegistrationFile(
+                                  event.target.files?.[0] ?? null,
+                                )
+                              }
+                            />
+                          </label>
+                          {sourceImportId ? (
+                            <p className="text-xs text-muted-fg">
+                              Using saved import:{" "}
+                              {registrationImports.find(
+                                (item) => item.id === sourceImportId,
+                              )?.originalName ?? "Selected import"}
+                            </p>
+                          ) : registrationFile ? (
+                            <p className="text-xs text-muted-fg">
+                              Selected file: {registrationFile.name}
+                            </p>
+                          ) : null}
+                          <p className="text-xs text-muted-fg">
+                            Columns: Fullname English, Fullname Khmer, Gender,
+                            Position, Department.
+                          </p>
+                        </div>
+                      ) : null}
+                      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">
+                            Scan page theme
+                          </h3>
+                          <p className="mt-1 text-xs text-muted-fg">
+                            Customize the page attendees see after scanning this
+                            event QR.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <Field
+                            label="Theme color"
+                            type="color"
+                            value={form.theme.primaryColor}
                             onChange={(value) =>
-                              updateShift(index, { startTime: value })
+                              setForm({
+                                ...form,
+                                theme: { ...form.theme, primaryColor: value },
+                              })
                             }
                           />
-                          <TimeField
-                            label="Shift ends"
-                            value={shift.endTime}
+                          <Field
+                            label="Background color"
+                            type="color"
+                            value={form.theme.backgroundColor}
                             onChange={(value) =>
-                              updateShift(index, { endTime: value })
+                              setForm({
+                                ...form,
+                                theme: {
+                                  ...form.theme,
+                                  backgroundColor: value,
+                                },
+                              })
                             }
                           />
                         </div>
+                        <Field
+                          label="Image background"
+                          value={form.theme.backgroundImageUrl ?? ""}
+                          required={false}
+                          onChange={(value) =>
+                            setForm({
+                              ...form,
+                              theme: {
+                                ...form.theme,
+                                backgroundImageUrl: value,
+                              },
+                            })
+                          }
+                        />
+                        <div className="grid gap-2">
+                          <Label>Font family</Label>
+                          <Select
+                            value={form.theme.fontFamily}
+                            onChange={(event) =>
+                              setForm({
+                                ...form,
+                                theme: {
+                                  ...form.theme,
+                                  fontFamily: event.target.value,
+                                },
+                              })
+                            }
+                          >
+                            <option value="Inter">Inter</option>
+                            <option value="Noto Sans Khmer">
+                              Noto Sans Khmer
+                            </option>
+                            <option value="Koh Santepheap">
+                              Koh Santepheap
+                            </option>
+                            <option value="system-ui">System UI</option>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <Field
+                            label="Font size"
+                            type="number"
+                            value={String(form.theme.fontSize)}
+                            onChange={(value) =>
+                              setForm({
+                                ...form,
+                                theme: {
+                                  ...form.theme,
+                                  fontSize: Number(value),
+                                },
+                              })
+                            }
+                          />
+                          <Field
+                            label="Page radius"
+                            type="number"
+                            value={String(form.theme.radius)}
+                            onChange={(value) =>
+                              setForm({
+                                ...form,
+                                theme: { ...form.theme, radius: Number(value) },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Page mode</Label>
+                          <Select
+                            value={form.theme.appearance}
+                            onChange={(event) =>
+                              setForm({
+                                ...form,
+                                theme: {
+                                  ...form.theme,
+                                  appearance: event.target
+                                    .value as EventForm["theme"]["appearance"],
+                                },
+                              })
+                            }
+                          >
+                            <option value="system">System</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                          </Select>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
-                    No shifts configured.
-                  </p>
-                )}
-              </div>
-              {form.mode === "PRE_REGISTERED" && !form.separateQrByPlace ? (
-                <div className="grid gap-3 rounded-md border border-border bg-background p-3">
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet size={16} className="text-primary" />
-                    <div>
-                      <h3 className="text-sm font-semibold">
-                        Pre-registration users
-                      </h3>
-                      <p className="mt-1 text-xs text-muted-fg">
-                        Select a saved attendee import or upload an Excel file
-                        after saving.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Saved attendee import</Label>
-                    <Select
-                      value={sourceImportId}
-                      onChange={(event) => {
-                        setSourceImportId(event.target.value);
-                        if (event.target.value) setRegistrationFile(null);
-                      }}
-                    >
-                      <option value="">Do not use saved import</option>
-                      {registrationImports.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.originalName} ({item.rowCount} users)
-                          </option>
-                        ))}
-                    </Select>
-                  </div>
-                  <label className="grid gap-2 text-sm font-medium">
-                    Upload Excel
-                    <Input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      disabled={Boolean(sourceImportId)}
-                      onChange={(event) =>
-                        setRegistrationFile(event.target.files?.[0] ?? null)
-                      }
-                    />
-                  </label>
-                  {sourceImportId ? (
-                    <p className="text-xs text-muted-fg">
-                      Using saved import:{" "}
-                      {registrationImports.find((item) => item.id === sourceImportId)
-                        ?.originalName ?? "Selected import"}
-                    </p>
-                  ) : registrationFile ? (
-                    <p className="text-xs text-muted-fg">
-                      Selected file: {registrationFile.name}
-                    </p>
+                    </>
                   ) : null}
-                  <p className="text-xs text-muted-fg">
-                    Columns: Fullname English, Fullname Khmer, Gender, Position,
-                    Department.
-                  </p>
                 </div>
-              ) : null}
-              <div className="grid gap-3 rounded-md border border-border bg-background p-3">
-                <div>
-                  <h3 className="text-sm font-semibold">Scan page theme</h3>
-                  <p className="mt-1 text-xs text-muted-fg">
-                    Customize the page attendees see after scanning this event QR.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field
-                    label="Theme color"
-                    type="color"
-                    value={form.theme.primaryColor}
-                    onChange={(value) =>
-                      setForm({
-                        ...form,
-                        theme: { ...form.theme, primaryColor: value },
-                      })
-                    }
-                  />
-                  <Field
-                    label="Background color"
-                    type="color"
-                    value={form.theme.backgroundColor}
-                    onChange={(value) =>
-                      setForm({
-                        ...form,
-                        theme: { ...form.theme, backgroundColor: value },
-                      })
-                    }
-                  />
-                </div>
-                <Field
-                  label="Image background"
-                  value={form.theme.backgroundImageUrl ?? ""}
-                  required={false}
-                  onChange={(value) =>
-                    setForm({
-                      ...form,
-                      theme: { ...form.theme, backgroundImageUrl: value },
-                    })
-                  }
-                />
-                <div className="grid gap-2">
-                  <Label>Font family</Label>
-                  <Select
-                    value={form.theme.fontFamily}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        theme: { ...form.theme, fontFamily: event.target.value },
-                      })
-                    }
+                <div className="flex items-center justify-between gap-3 border-t border-border bg-card p-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={step === 0 || saveMutation.isPending}
+                    onClick={() => setStep(Math.max(step - 1, 0))}
                   >
-                    <option value="Inter">Inter</option>
-                    <option value="Noto Sans Khmer">Noto Sans Khmer</option>
-                    <option value="Koh Santepheap">Koh Santepheap</option>
-                    <option value="system-ui">System UI</option>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field
-                    label="Font size"
-                    type="number"
-                    value={String(form.theme.fontSize)}
-                    onChange={(value) =>
-                      setForm({
-                        ...form,
-                        theme: { ...form.theme, fontSize: Number(value) },
-                      })
+                    Back
+                  </Button>
+                  <Button
+                    disabled={
+                      saveMutation.isPending ||
+                      (editing ? !canUpdate : !canCreate)
                     }
-                  />
-                  <Field
-                    label="Page radius"
-                    type="number"
-                    value={String(form.theme.radius)}
-                    onChange={(value) =>
-                      setForm({
-                        ...form,
-                        theme: { ...form.theme, radius: Number(value) },
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Page mode</Label>
-                  <Select
-                    value={form.theme.appearance}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        theme: {
-                          ...form.theme,
-                          appearance: event.target
-                            .value as EventForm["theme"]["appearance"],
-                        },
-                      })
-                    }
+                    type="button"
+                    onClick={() => {
+                      if (step < 2) {
+                        setStep(step + 1);
+                        return;
+                      }
+                      void handleSubmit(() => saveMutation.mutate())();
+                    }}
                   >
-                    <option value="system">System</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </Select>
+                    <CalendarPlus size={16} />
+                    {step < 2
+                      ? "Continue"
+                      : editing
+                        ? "Update event"
+                        : "Save and generate QR"}
+                  </Button>
                 </div>
-              </div>
-                </>
-              ) : null}
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-border bg-card p-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={step === 0 || saveMutation.isPending}
-                  onClick={() => setStep(Math.max(step - 1, 0))}
-                >
-                  Back
-                </Button>
-                <Button
-                  disabled={
-                    saveMutation.isPending || (editing ? !canUpdate : !canCreate)
-                  }
-                  type="button"
-                  onClick={() => {
-                    if (step < 2) {
-                      setStep(step + 1);
-                      return;
-                    }
-                    void handleSubmit(() => saveMutation.mutate())();
-                  }}
-                >
-                  <CalendarPlus size={16} />
-                  {step < 2
-                    ? "Continue"
-                    : editing
-                      ? "Update event"
-                      : "Save and generate QR"}
-                </Button>
-              </div>
               </form>
             </Form>
           </CardContent>
@@ -943,7 +1018,9 @@ export default function EventsPage() {
           <Button
             type="button"
             disabled={!deleteTarget || deleteMutation.isPending}
-            onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            onClick={() =>
+              deleteTarget && deleteMutation.mutate(deleteTarget.id)
+            }
           >
             {deleteMutation.isPending ? "Deleting..." : "Delete"}
           </Button>
@@ -1079,10 +1156,14 @@ function normalizeForm(form: EventForm): EventForm {
   return {
     ...form,
     requireLocation,
-    locationName: requireLocation ? form.locationName?.trim() || "Event venue" : "",
-    latitude: requireLocation ? form.latitude ?? 0 : 0,
-    longitude: requireLocation ? form.longitude ?? 0 : 0,
-    radiusMeters: requireLocation ? clamp(form.radiusMeters ?? 100, 10, 5000) : 0,
+    locationName: requireLocation
+      ? form.locationName?.trim() || "Event venue"
+      : "",
+    latitude: requireLocation ? (form.latitude ?? 0) : 0,
+    longitude: requireLocation ? (form.longitude ?? 0) : 0,
+    radiusMeters: requireLocation
+      ? clamp(form.radiusMeters ?? 100, 10, 5000)
+      : 0,
     shifts: form.shifts?.map((shift) => ({
       name: shift.name,
       startTime: normalizeTime(shift.startTime),
@@ -1114,7 +1195,7 @@ function clamp(value: number, min: number, max: number) {
 
 function toNumber(value: string | number | undefined, fallback?: number) {
   const parsed = Number(value ?? fallback ?? 0);
-  return Number.isFinite(parsed) ? parsed : fallback ?? 0;
+  return Number.isFinite(parsed) ? parsed : (fallback ?? 0);
 }
 
 function toDateInput(value: string) {
