@@ -139,27 +139,31 @@ export default function RolesPage() {
             <div className="p-5 text-sm text-muted-fg">Loading roles...</div>
           ) : roles.length ? (
             <>
-            <Table className="min-w-190">
+            <Table>
               <TableHeader>
                 <TableRow className="border-t-0">
-                  <TableHead>Role</TableHead>
+                  <TableHead className="w-44">Role</TableHead>
                   <TableHead>Permissions</TableHead>
-                  <TableHead>Members</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="w-28">Members</TableHead>
+                  <TableHead className="w-28">Status</TableHead>
+                  <TableHead className="w-28 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {roles.map((role) => (
                   <TableRow key={role.id}>
-                    <TableCell className="font-medium">{role.name}</TableCell>
-                    <TableCell className="text-muted-fg">
-                      {role.permissions
-                        .map(
-                          ({ permission }) =>
-                            `${permission.resource}:${permission.action}`,
-                        )
-                        .join(", ")}
+                    <TableCell>
+                      <div className="font-semibold capitalize">
+                        {role.name}
+                      </div>
+                      {role.description ? (
+                        <p className="mt-1 max-h-10 overflow-hidden text-xs text-muted-fg">
+                          {role.description}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <PermissionChips role={role} />
                     </TableCell>
                     <TableCell className="text-muted-fg">
                       {role._count.users} users
@@ -168,7 +172,7 @@ export default function RolesPage() {
                       <StatusPill tone="green">Active</StatusPill>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
+                      <div className="flex justify-end gap-2">
                         {canUpdateRole ? (
                           <Button
                             variant="outline"
@@ -275,5 +279,33 @@ export default function RolesPage() {
           </Card>
       </div>
     </AdminShell>
+  );
+}
+
+function PermissionChips({ role }: { role: RoleRecord }) {
+  const grouped = role.permissions.reduce<Record<string, string[]>>(
+    (result, { permission }) => {
+      result[permission.resource] = [
+        ...(result[permission.resource] ?? []),
+        permission.action,
+      ];
+      return result;
+    },
+    {},
+  );
+  const entries = Object.entries(grouped);
+
+  return (
+    <div className="flex max-w-3xl flex-wrap gap-1.5">
+      {entries.map(([resource, actions]) => (
+        <span
+          key={resource}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
+        >
+          <span className="font-medium text-foreground">{resource}</span>
+          <span className="text-muted-fg">{actions.sort().join(", ")}</span>
+        </span>
+      ))}
+    </div>
   );
 }

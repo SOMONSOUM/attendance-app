@@ -51,6 +51,13 @@ export class AttendanceController {
     return this.attendance.joinByCode(code, dto);
   }
 
+  @Public()
+  @ApiOperation({ summary: "Register attendee from event QR and return attendee QR" })
+  @Post("qr/:code/register")
+  register(@Param("code") code: string, @Body() dto: JoinEventDto) {
+    return this.attendance.registerByCode(code, dto);
+  }
+
   @ApiOperation({ summary: "List attendance records for an event" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @ApiOkResponse({
@@ -89,6 +96,19 @@ export class AttendanceController {
       request.user.tenantId,
       eventId,
       registrationId,
+    );
+  }
+
+  @ApiOperation({ summary: "Mark an attendee as joined by attendee QR code" })
+  @RequirePermissions("attendance:create")
+  @Post("registrations/qr/:checkInCode/join")
+  joinRegistrationQr(
+    @Req() request: AuthRequest,
+    @Param("checkInCode") checkInCode: string,
+  ) {
+    return this.attendance.joinRegistrationByCode(
+      request.user.tenantId,
+      checkInCode,
     );
   }
 

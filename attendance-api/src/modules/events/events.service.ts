@@ -41,6 +41,7 @@ export class EventsService {
   async create(tenantId: string | null, dto: CreateEventDto) {
     const { places, shifts, theme, ...eventDto } = dto;
     const separateQrByPlace = Boolean(dto.separateQrByPlace);
+    const allowLocation = dto.mode !== EventMode.PRE_REGISTRATION;
     const code = this.toQrCode();
     const event = await this.prisma.$transaction(async (tx) => {
       const createdEvent = await tx.event.create({
@@ -48,11 +49,11 @@ export class EventsService {
           ...eventDto,
           tenantId,
           separateQrByPlace,
-          requireLocation: Boolean(dto.requireLocation),
+          requireLocation: allowLocation && Boolean(dto.requireLocation),
           locationName: dto.locationName?.trim() || "Not required",
-          latitude: dto.requireLocation ? dto.latitude ?? 0 : 0,
-          longitude: dto.requireLocation ? dto.longitude ?? 0 : 0,
-          radiusMeters: dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
+          latitude: allowLocation && dto.requireLocation ? dto.latitude ?? 0 : 0,
+          longitude: allowLocation && dto.requireLocation ? dto.longitude ?? 0 : 0,
+          radiusMeters: allowLocation && dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
           qrCodes: separateQrByPlace ? undefined : { create: { code } },
@@ -62,7 +63,11 @@ export class EventsService {
                   places?.map((place) => ({
                     name: place.name,
                     description: place.description,
+                    requireLocation: allowLocation && Boolean(place.requireLocation),
                     locationName: place.locationName?.trim() || place.name,
+                    latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+                    longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+                    radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
                   })) ?? [],
               }
             : undefined,
@@ -138,8 +143,10 @@ export class EventsService {
   }
 
   async update(tenantId: string | null, eventId: string, dto: UpdateEventDto) {
-    await this.assertEvent(tenantId, eventId);
+    const existing = await this.assertEvent(tenantId, eventId);
     const { places, shifts, theme, ...eventDto } = dto;
+    const allowLocation =
+      (dto.mode ?? existing.mode) !== EventMode.PRE_REGISTRATION;
 
     return this.prisma.$transaction(async (tx) => {
       if (shifts) {
@@ -150,22 +157,22 @@ export class EventsService {
         where: { id: eventId },
         data: {
           ...eventDto,
-          requireLocation: dto.requireLocation,
+          requireLocation: allowLocation ? dto.requireLocation : false,
           locationName: dto.locationName?.trim() || undefined,
           latitude:
-            dto.requireLocation === false
+            !allowLocation || dto.requireLocation === false
               ? 0
               : dto.latitude !== undefined
                 ? dto.latitude
                 : undefined,
           longitude:
-            dto.requireLocation === false
+            !allowLocation || dto.requireLocation === false
               ? 0
               : dto.longitude !== undefined
                 ? dto.longitude
                 : undefined,
           radiusMeters:
-            dto.requireLocation === false
+            !allowLocation || dto.requireLocation === false
               ? 0
               : dto.radiusMeters !== undefined
                 ? dto.radiusMeters
@@ -218,7 +225,11 @@ export class EventsService {
               data: {
                 name: place.name,
                 description: place.description,
+                requireLocation: allowLocation && Boolean(place.requireLocation),
                 locationName: place.locationName?.trim() || place.name,
+                latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+                longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+                radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
               },
             });
           } else {
@@ -227,7 +238,11 @@ export class EventsService {
                 eventId,
                 name: place.name,
                 description: place.description,
+                requireLocation: allowLocation && Boolean(place.requireLocation),
                 locationName: place.locationName?.trim() || place.name,
+                latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+                longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+                radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
               },
             });
           }
@@ -342,6 +357,7 @@ export class EventsService {
         gender: row.Gender ? genderMap[row.Gender.toLowerCase()] : undefined,
         position: row.Position?.trim(),
         department: row.Department?.trim(),
+        checkInCode: this.toQrCode(),
       }));
 
     if (!data.length) return { count: 0 };
@@ -394,6 +410,7 @@ export class EventsService {
         gender: registration.gender,
         position: registration.position,
         department: registration.department,
+        checkInCode: this.toQrCode(),
         source: `COPY:${sourceEventId}`,
       })),
     });
@@ -424,6 +441,7 @@ export class EventsService {
         gender: row.gender,
         position: row.position,
         department: row.department,
+        checkInCode: this.toQrCode(),
         source: `IMPORT:${importId}`,
       })),
     });
@@ -444,8 +462,7 @@ export class EventsService {
   private withSummary<T extends EventWithSummary>(event: T) {
     const registrations = event._count?.registrations ?? 0;
     const checkedIn = event._count?.attendances ?? 0;
-    const totalUsers =
-      event.mode === EventMode.PRE_REGISTERED ? registrations : checkedIn;
+    const totalUsers = registrations;
     const joinRate = totalUsers ? Math.round((checkedIn / totalUsers) * 100) : 0;
 
     const { attendances, ...eventWithoutAttendances } = event;

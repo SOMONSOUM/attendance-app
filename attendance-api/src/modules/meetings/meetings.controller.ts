@@ -161,4 +161,17 @@ export class MeetingsController {
   ) {
     return this.meetings.joinByCode(code, dto);
   }
+
+  @ApiOperation({ summary: "Mark a meeting participant as joined by participant QR code" })
+  @RequirePermissions("meetings:update")
+  @Post("participants/qr/:checkInCode/join")
+  joinParticipantQr(
+    @Req() request: AuthRequest,
+    @Param("checkInCode") checkInCode: string,
+  ) {
+    return this.meetings.joinParticipantByCode(
+      request.user.tenantId,
+      checkInCode,
+    );
+  }
 }

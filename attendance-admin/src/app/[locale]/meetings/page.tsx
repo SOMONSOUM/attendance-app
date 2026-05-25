@@ -67,13 +67,17 @@ const emptyChairperson: MeetingChairperson = {
 const emptyPlace: MeetingPlace = {
   name: "",
   description: "",
+  requireLocation: false,
   locationName: "",
+  latitude: 11.5564,
+  longitude: 104.9282,
+  radiusMeters: 100,
 };
 
 const initialForm: MeetingForm = {
   name: "",
   description: "",
-  mode: "PRE_REGISTERED",
+  mode: "BULK_REGISTRATION",
   separateQrByPlace: false,
   requireLocation: false,
   locationName: "",
@@ -138,7 +142,7 @@ export default function MeetingsPage() {
         : createMeeting(normalizeForm(form));
       const meeting = await savedMeeting;
 
-      if (form.mode === "PRE_REGISTERED") {
+      if (isBulkRegistrationMode(form.mode)) {
         if (sourceImportId) {
           await copyMeetingRegistrationImport(meeting.id, sourceImportId);
         } else if (participantFile) {
@@ -197,7 +201,11 @@ export default function MeetingsPage() {
           id: place.id,
           name: place.name,
           description: place.description ?? "",
+          requireLocation: Boolean(place.requireLocation),
           locationName: place.locationName ?? "",
+          latitude: toNumber(place.latitude, initialForm.latitude),
+          longitude: toNumber(place.longitude, initialForm.longitude),
+          radiusMeters: place.radiusMeters ?? initialForm.radiusMeters,
         })) ?? [],
       participants: meeting.participants.map(stripParticipant),
     });
@@ -227,6 +235,14 @@ export default function MeetingsPage() {
     });
   }
 
+  function changeMode(mode: MeetingForm["mode"]) {
+    setForm({ ...form, mode });
+    if (!isBulkRegistrationMode(mode)) {
+      setParticipantFile(null);
+      setSourceImportId("");
+    }
+  }
+
   return (
     <AdminShell
       active="Meetings"
@@ -253,7 +269,7 @@ export default function MeetingsPage() {
             <div className="p-5 text-sm text-muted-fg">Loading meetings...</div>
           ) : meetings.length ? (
             <>
-              <Table className="min-w-180">
+              <Table>
                 <TableHeader>
                   <TableRow className="border-t-0">
                     <TableHead>Name</TableHead>
@@ -283,7 +299,7 @@ export default function MeetingsPage() {
                         </p>
                       </TableCell>
                       <TableCell className="text-muted-fg">
-                        {meeting.mode.replace("_", " ")}
+                        {registrationModeLabel(meeting.mode)}
                       </TableCell>
                       <TableCell>
                         <StatusPill
@@ -446,20 +462,21 @@ export default function MeetingsPage() {
                       <Select
                         value={form.mode}
                         onChange={(event) =>
-                          setForm({
-                            ...form,
-                            mode: event.target.value as MeetingForm["mode"],
-                          })
+                          changeMode(event.target.value as MeetingForm["mode"])
                         }
                       >
-                        <option value="PRE_REGISTERED">
-                          Pre-registered participants
+                        <option value="BULK_REGISTRATION">
+                          Bulk registration
                         </option>
                         <option value="OPEN_REGISTRATION">
                           Open registration by QR
                         </option>
+                        <option value="PRE_REGISTRATION">
+                          Pre-registration
+                        </option>
                       </Select>
                     </Field>
+                    <RegistrationModeGuide mode={form.mode} noun="participants" />
 
                     <Field label="QR mode">
                       <Select
@@ -552,9 +569,52 @@ export default function MeetingsPage() {
                                 })
                               }
                             />
+                            {form.mode !== "PRE_REGISTRATION" ? (
+                              <LocationPicker
+                                value={{
+                                  requireLocation: place.requireLocation,
+                                  locationName: place.locationName ?? "",
+                                  latitude: toNumber(
+                                    place.latitude,
+                                    form.latitude,
+                                  ),
+                                  longitude: toNumber(
+                                    place.longitude,
+                                    form.longitude,
+                                  ),
+                                  radiusMeters:
+                                    place.radiusMeters ?? form.radiusMeters,
+                                }}
+                                onChange={(value) =>
+                                  updatePlace(index, {
+                                    requireLocation: value.requireLocation,
+                                    locationName: value.locationName,
+                                    latitude: value.latitude,
+                                    longitude: value.longitude,
+                                    radiusMeters: value.radiusMeters,
+                                  })
+                                }
+                                title={`${place.name || `Place ${index + 1}`} location check-in`}
+                              />
+                            ) : null}
                           </div>
                         ))}
                       </div>
+                    ) : null}
+
+                    {!form.separateQrByPlace &&
+                    form.mode !== "PRE_REGISTRATION" ? (
+                      <LocationPicker
+                        value={{
+                          requireLocation: form.requireLocation,
+                          locationName: form.locationName,
+                          latitude: form.latitude,
+                          longitude: form.longitude,
+                          radiusMeters: form.radiusMeters,
+                        }}
+                        onChange={(value) => setForm({ ...form, ...value })}
+                        title="Meeting location check-in"
+                      />
                     ) : null}
                   </>
                 ) : null}
@@ -700,21 +760,10 @@ export default function MeetingsPage() {
 
                 {step === 2 ? (
                   <div className="grid gap-3">
-                    <LocationPicker
-                      value={{
-                        requireLocation: form.requireLocation,
-                        locationName: form.locationName,
-                        latitude: form.latitude,
-                        longitude: form.longitude,
-                        radiusMeters: form.radiusMeters,
-                      }}
-                      onChange={(value) => setForm({ ...form, ...value })}
-                      title="Meeting location check-in"
-                    />
                     <h3 className="text-sm font-semibold">Participants</h3>
-                    {form.mode === "PRE_REGISTERED" ? (
+                    {isBulkRegistrationMode(form.mode) ? (
                       <div className="grid gap-2 rounded-md border border-dashed border-border p-3">
-                        <Label>Reusable meeting participants</Label>
+                        <Label>Bulk meeting participants</Label>
                         <Select
                           value={sourceImportId}
                           onChange={(event) => {
@@ -746,6 +795,13 @@ export default function MeetingsPage() {
                           </Button>
                         </div>
                       </div>
+                    ) : form.mode === "PRE_REGISTRATION" ? (
+                      <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
+                        Participants register before the meeting starts. After
+                        they submit their information, the system creates a
+                        unique QR code for each participant for admin check-in
+                        at arrival.
+                      </p>
                     ) : (
                       <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
                         Participants will register after scanning the meeting QR
@@ -890,8 +946,58 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function isBulkRegistrationMode(mode: MeetingForm["mode"]) {
+  return mode === "BULK_REGISTRATION";
+}
+
+function registrationModeLabel(mode: MeetingForm["mode"]) {
+  if (isBulkRegistrationMode(mode)) return "Bulk registration";
+  if (mode === "PRE_REGISTRATION") return "Pre-registration";
+  return "Open registration";
+}
+
+function RegistrationModeGuide({
+  mode,
+  noun,
+}: {
+  mode: MeetingForm["mode"];
+  noun: string;
+}) {
+  const content = isBulkRegistrationMode(mode)
+    ? {
+        title: "Bulk registration",
+        text: `Admin uploads invited ${noun}. When the meeting starts, each participant scans the meeting QR and checks in from the uploaded list.`,
+        icon: FileSpreadsheet,
+      }
+    : mode === "PRE_REGISTRATION"
+      ? {
+          title: "Pre-registration",
+          text: `Participants register before the meeting starts. The system creates a unique QR for each participant for admin check-in at arrival.`,
+          icon: QrCode,
+        }
+      : {
+          title: "Open registration",
+          text: `Participants register from the meeting QR and receive a personal QR. Admin scans that personal QR at arrival to mark attendance.`,
+          icon: Plus,
+        };
+  const Icon = content.icon;
+
+  return (
+    <div className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+        <Icon size={18} />
+      </span>
+      <div>
+        <p className="text-sm font-semibold">{content.title}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-fg">{content.text}</p>
+      </div>
+    </div>
+  );
+}
+
 function normalizeForm(form: MeetingForm): MeetingForm {
-  const requireLocation = Boolean(form.requireLocation);
+  const requireLocation =
+    form.mode !== "PRE_REGISTRATION" && Boolean(form.requireLocation);
   return {
     ...form,
     requireLocation,
@@ -906,7 +1012,27 @@ function normalizeForm(form: MeetingForm): MeetingForm {
     places: form.separateQrByPlace
       ? (form.places ?? [])
           .filter((place) => place.name.trim())
-          .map((place) => cleanObject(place))
+          .map((place) =>
+            cleanObject({
+              ...place,
+              requireLocation:
+                form.mode !== "PRE_REGISTRATION" &&
+                Boolean(place.requireLocation),
+              locationName: place.locationName?.trim() || place.name,
+              latitude:
+                form.mode !== "PRE_REGISTRATION" && place.requireLocation
+                  ? (place.latitude ?? 0)
+                  : null,
+              longitude:
+                form.mode !== "PRE_REGISTRATION" && place.requireLocation
+                  ? (place.longitude ?? 0)
+                  : null,
+              radiusMeters:
+                form.mode !== "PRE_REGISTRATION" && place.requireLocation
+                  ? clamp(place.radiusMeters ?? 100, 10, 5000)
+                  : 0,
+            }),
+          )
       : [],
     chairpersons: form.chairpersons.map((chairperson) =>
       cleanObject(chairperson),
@@ -928,7 +1054,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function toNumber(value: string | number | undefined, fallback?: number) {
+function toNumber(value: string | number | null | undefined, fallback?: number) {
   const parsed = Number(value ?? fallback ?? 0);
   return Number.isFinite(parsed) ? parsed : (fallback ?? 0);
 }

@@ -41,11 +41,22 @@ const timeSchema = z
   .string()
   .regex(/^\d{2}:\d{2}$/, "Choose a valid time.");
 
+const coordinateValueSchema = z
+  .union([z.number(), z.string()])
+  .nullable()
+  .optional();
+
+const registrationModeSchema = z.enum([
+  "BULK_REGISTRATION",
+  "OPEN_REGISTRATION",
+  "PRE_REGISTRATION",
+]);
+
 export const eventSchema = z
   .object({
     name: z.string().trim().min(1, "Event name is required."),
     description: z.string().optional(),
-    mode: z.enum(["PRE_REGISTERED", "OPEN_REGISTRATION"]),
+    mode: registrationModeSchema,
     separateQrByPlace: z.boolean().optional(),
     requireLocation: z.boolean().optional(),
     locationName: z.string().optional(),
@@ -58,7 +69,11 @@ export const eventSchema = z
           id: z.string().optional(),
           name: z.string().trim().min(1, "Place name is required."),
           description: z.string().nullable().optional(),
+          requireLocation: z.boolean().optional(),
           locationName: z.string().nullable().optional(),
+          latitude: coordinateValueSchema,
+          longitude: coordinateValueSchema,
+          radiusMeters: z.number().min(0).max(5000).optional(),
         }),
       )
       .optional(),
@@ -122,7 +137,7 @@ export const meetingSchema = z
   .object({
     name: z.string().trim().min(1, "Meeting name is required."),
     description: z.string().optional(),
-    mode: z.enum(["PRE_REGISTERED", "OPEN_REGISTRATION"]),
+    mode: registrationModeSchema,
     separateQrByPlace: z.boolean().optional(),
     requireLocation: z.boolean().optional(),
     locationName: z.string().optional(),
@@ -140,7 +155,11 @@ export const meetingSchema = z
           id: z.string().optional(),
           name: z.string().trim().min(1, "Place name is required."),
           description: z.string().nullable().optional(),
+          requireLocation: z.boolean().optional(),
           locationName: z.string().nullable().optional(),
+          latitude: coordinateValueSchema,
+          longitude: coordinateValueSchema,
+          radiusMeters: z.number().min(0).max(5000).optional(),
         }),
       )
       .optional(),

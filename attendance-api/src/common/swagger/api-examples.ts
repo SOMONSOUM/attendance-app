@@ -44,7 +44,7 @@ export const eventExample = {
   id: "clxevent001",
   name: "Khmer Tech Summit 2026",
   description: "Annual product and engineering attendance event.",
-  mode: "PRE_REGISTERED",
+  mode: "BULK_REGISTRATION",
   locationName: "Not required",
   latitude: "0.0000000",
   longitude: "0.0000000",

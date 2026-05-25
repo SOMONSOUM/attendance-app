@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { Download, ListFilter, Users } from "lucide-react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import {
   AdminShell,
   EmptyState,
-  SectionToolbar,
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
@@ -24,6 +23,8 @@ import {
 } from "@/components/ui/table";
 import {
   eventKeys,
+  joinAttendeeByQrCode,
+  joinMeetingParticipantByQrCode,
   listAttendance,
   listEvents,
   listMeetings,
@@ -55,6 +56,8 @@ export default function AttendancePage() {
   const [sourceType, setSourceType] = useState<SourceType>(ALL);
   const [sourceKey, setSourceKey] = useState(ALL);
   const [date, setDate] = useState(todayInputValue);
+  const [scanCode, setScanCode] = useState("");
+  const [scanType, setScanType] = useState<Exclude<SourceType, "ALL">>("EVENT");
   const [page, setPage] = useState(1);
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
@@ -72,6 +75,18 @@ export default function AttendancePage() {
       queryFn: () => listAttendance(event.id, { pageSize: 100 }),
       enabled: Boolean(event.id),
     })),
+  });
+  const scanMutation = useMutation<unknown, Error>({
+    mutationFn: () =>
+      scanType === "EVENT"
+        ? joinAttendeeByQrCode(scanCode.trim())
+        : joinMeetingParticipantByQrCode(scanCode.trim()),
+    onSuccess: () => {
+      setScanCode("");
+      eventsQuery.refetch();
+      meetingsQuery.refetch();
+      attendanceQueries.forEach((query) => query.refetch());
+    },
   });
 
   const eventLogs = useMemo(
@@ -173,50 +188,91 @@ export default function AttendancePage() {
         </div>
 
         <TableShell>
-        <SectionToolbar title="Live attendance logs">
+        <div className="grid gap-4 border-b border-border bg-card p-4">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-semibold">Live attendance logs</h2>
+              <p className="mt-1 text-sm text-muted-fg">
+                Filter check-ins by date, type, and source.
+              </p>
+            </div>
+            <Button variant="outline" className="h-9 w-fit">
+              <Users size={14} />
+              {filteredLogs.length} checked in
+            </Button>
+          </div>
+          <div className="grid gap-2 md:grid-cols-[160px_150px_minmax(240px,1fr)]">
+            <Input
+              className="h-9"
+              type="date"
+              value={date}
+              onChange={(event) => {
+                setDate(event.target.value);
+                setPage(1);
+              }}
+            />
+            <Select
+              className="h-9"
+              value={sourceType}
+              onChange={(event) => changeSourceType(event.target.value as SourceType)}
+            >
+              <option value={ALL}>All types</option>
+              <option value="EVENT">Events</option>
+              <option value="MEETING">Meetings</option>
+            </Select>
+            <Select
+              className="h-9"
+              value={sourceKey}
+              onChange={(event) => {
+                setSourceKey(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value={ALL}>All sources</option>
+              {sourceOptions.map((source) => (
+                <option key={source.key} value={source.key}>
+                  {source.type}: {source.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-sm md:grid-cols-[150px_minmax(260px,1fr)_auto]">
+          <Select
+            className="h-10"
+            value={scanType}
+            onChange={(event) =>
+              setScanType(event.target.value as Exclude<SourceType, "ALL">)
+            }
+          >
+            <option value="EVENT">Event QR</option>
+            <option value="MEETING">Meeting QR</option>
+          </Select>
           <Input
-            className="h-8 w-40"
-            type="date"
-            value={date}
-            onChange={(event) => {
-              setDate(event.target.value);
-              setPage(1);
-            }}
+            className="h-10"
+            value={scanCode}
+            placeholder="Paste personal QR code after scanning"
+            onChange={(event) => setScanCode(event.target.value)}
           />
-          <Select
-            className="h-8 w-36"
-            value={sourceType}
-            onChange={(event) => changeSourceType(event.target.value as SourceType)}
+          <Button
+            className="h-10"
+            disabled={!scanCode.trim() || scanMutation.isPending}
+            onClick={() => scanMutation.mutate()}
           >
-            <option value={ALL}>All types</option>
-            <option value="EVENT">Events</option>
-            <option value="MEETING">Meetings</option>
-          </Select>
-          <Select
-            className="h-8 min-w-60"
-            value={sourceKey}
-            onChange={(event) => {
-              setSourceKey(event.target.value);
-              setPage(1);
-            }}
-          >
-            <option value={ALL}>All sources</option>
-            {sourceOptions.map((source) => (
-              <option key={source.key} value={source.key}>
-                {source.type}: {source.label}
-              </option>
-            ))}
-          </Select>
-          <Button variant="outline" className="h-8">
-            <Users size={14} />
-            {filteredLogs.length} checked in
+            {scanMutation.isPending ? "Checking..." : "Mark joined"}
           </Button>
-        </SectionToolbar>
+          {scanMutation.error ? (
+            <p className="text-sm text-destructive md:col-span-3">
+              {scanMutation.error.message}
+            </p>
+          ) : null}
+        </div>
         {isLoading ? (
           <div className="p-5 text-sm text-muted-fg">Loading attendance...</div>
         ) : filteredLogs.length ? (
           <>
-          <Table className="min-w-245">
+          <Table>
             <TableHeader>
               <TableRow className="border-t-0">
                 <TableHead>Attendee</TableHead>

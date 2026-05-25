@@ -72,6 +72,28 @@ export class MeetingPlaceDto {
   @IsOptional()
   @IsString()
   locationName?: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  requireLocation?: boolean;
+
+  @ApiPropertyOptional({ example: 11.5564 })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 104.9282 })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 100, minimum: 0, maximum: 5000 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(5000)
+  radiusMeters?: number;
 }
 
 export class MeetingParticipantDto {
@@ -128,7 +150,7 @@ export class CreateMeetingDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ enum: EventMode, example: EventMode.PRE_REGISTERED })
+  @ApiProperty({ enum: EventMode, example: EventMode.BULK_REGISTRATION })
   @IsEnum(EventMode)
   mode!: EventMode;
 

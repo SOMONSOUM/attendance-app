@@ -35,6 +35,7 @@ export class MeetingsService {
   async create(tenantId: string | null, userId: string, dto: CreateMeetingDto) {
     this.assertChairpersons(dto.chairpersons);
     const separateQrByPlace = Boolean(dto.separateQrByPlace);
+    const allowLocation = dto.mode !== EventMode.PRE_REGISTRATION;
     const code = this.toQrCode();
 
     return this.prisma.$transaction(async (tx) => {
@@ -46,11 +47,11 @@ export class MeetingsService {
           description: dto.description,
           mode: dto.mode,
           separateQrByPlace,
-          requireLocation: Boolean(dto.requireLocation),
+          requireLocation: allowLocation && Boolean(dto.requireLocation),
           locationName: dto.locationName?.trim() || "Not required",
-          latitude: dto.requireLocation ? dto.latitude ?? 0 : 0,
-          longitude: dto.requireLocation ? dto.longitude ?? 0 : 0,
-          radiusMeters: dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
+          latitude: allowLocation && dto.requireLocation ? dto.latitude ?? 0 : 0,
+          longitude: allowLocation && dto.requireLocation ? dto.longitude ?? 0 : 0,
+          radiusMeters: allowLocation && dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
           chairpersons: {
@@ -63,14 +64,21 @@ export class MeetingsService {
                   dto.places?.map((place) => ({
                     name: place.name,
                     description: place.description,
+                    requireLocation: allowLocation && Boolean(place.requireLocation),
                     locationName: place.locationName?.trim() || place.name,
+                    latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+                    longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+                    radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
                   })) ?? [],
               }
             : undefined,
           participants: {
             create:
-              dto.mode === EventMode.PRE_REGISTERED
-                ? dto.participants?.map((participant) => ({ ...participant })) ?? []
+              dto.mode !== EventMode.OPEN_REGISTRATION
+                ? dto.participants?.map((participant) => ({
+                    ...participant,
+                    checkInCode: this.toQrCode(),
+                  })) ?? []
                 : [],
           },
         },
@@ -131,6 +139,8 @@ export class MeetingsService {
 
       const separateQrByPlace =
         dto.separateQrByPlace ?? existing.separateQrByPlace;
+      const allowLocation =
+        (dto.mode ?? existing.mode) !== EventMode.PRE_REGISTRATION;
       const meeting = await tx.meeting.update({
         where: { id: meetingId },
         data: {
@@ -138,22 +148,22 @@ export class MeetingsService {
           description: dto.description,
           mode: dto.mode,
           separateQrByPlace: dto.separateQrByPlace,
-          requireLocation: dto.requireLocation,
+          requireLocation: allowLocation ? dto.requireLocation : false,
           locationName: dto.locationName?.trim() || undefined,
           latitude:
-            dto.requireLocation === false
+            !allowLocation || dto.requireLocation === false
               ? 0
               : dto.latitude !== undefined
                 ? dto.latitude
                 : undefined,
           longitude:
-            dto.requireLocation === false
+            !allowLocation || dto.requireLocation === false
               ? 0
               : dto.longitude !== undefined
                 ? dto.longitude
                 : undefined,
           radiusMeters:
-            dto.requireLocation === false
+            !allowLocation || dto.requireLocation === false
               ? 0
               : dto.radiusMeters !== undefined
                 ? dto.radiusMeters
@@ -173,7 +183,11 @@ export class MeetingsService {
                   ? dto.places.map((place) => ({
                       name: place.name,
                       description: place.description,
+                      requireLocation: allowLocation && Boolean(place.requireLocation),
                       locationName: place.locationName?.trim() || place.name,
+                      latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+                      longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+                      radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
                     }))
                   : [],
               }
@@ -182,6 +196,7 @@ export class MeetingsService {
             ? {
                 create: dto.participants.map((participant) => ({
                   ...participant,
+                  checkInCode: this.toQrCode(),
                 })),
               }
             : undefined,
@@ -270,6 +285,7 @@ export class MeetingsService {
         position: row.Position?.trim(),
         department: row.Department?.trim(),
         email: row.Email?.trim(),
+        checkInCode: this.toQrCode(),
         source: "UPLOAD",
       }));
 
@@ -301,6 +317,7 @@ export class MeetingsService {
         gender: row.gender,
         position: row.position,
         department: row.department,
+        checkInCode: this.toQrCode(),
         source: `IMPORT:${importId}`,
       })),
     });
@@ -340,9 +357,9 @@ export class MeetingsService {
 
   async joinByCode(code: string, dto: JoinMeetingDto) {
     const meeting = await this.getPublicByCode(code);
-    const distanceMeters = this.assertLocation(meeting, dto);
 
-    if (meeting.mode === EventMode.PRE_REGISTERED) {
+    if (meeting.mode === EventMode.BULK_REGISTRATION) {
+      const distanceMeters = this.assertLocation(meeting.scanPlace ?? meeting, dto);
       if (!dto.participantId) {
         throw new BadRequestException("Please choose a registered participant.");
       }
@@ -375,18 +392,50 @@ export class MeetingsService {
       });
     }
 
-    return this.prisma.meetingParticipant.create({
+    const checkInCode = this.toQrCode();
+    const participant = await this.prisma.meetingParticipant.create({
       data: {
         meetingId: meeting.id,
         placeId: meeting.scanPlace?.id,
         fullNameEn: dto.fullNameEn,
         fullNameKm: dto.fullNameKm,
+        status: "INVITED",
+        checkInCode,
+        source:
+          meeting.mode === EventMode.OPEN_REGISTRATION
+            ? "OPEN_REGISTRATION"
+            : "PRE_REGISTRATION",
+      },
+    });
+
+    return {
+      ...participant,
+      qrImage: await this.toParticipantQrImage(checkInCode),
+    };
+  }
+
+  async joinParticipantByCode(tenantId: string | null, checkInCode: string) {
+    const participant = await this.prisma.meetingParticipant.findUnique({
+      where: { checkInCode },
+      include: { meeting: true },
+    });
+
+    if (!participant || participant.meeting.tenantId !== tenantId) {
+      throw new NotFoundException("Participant QR code not found");
+    }
+    if (participant.status === "JOINED") {
+      throw new BadRequestException({
+        error: "Already Joined",
+        message: "This participant already joined the meeting.",
+      });
+    }
+
+    return this.prisma.meetingParticipant.update({
+      where: { id: participant.id },
+      data: {
         status: "JOINED",
         joinedAt: new Date(),
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        distanceMeters,
-        source: "OPEN_REGISTRATION",
+        distanceMeters: 0,
       },
     });
   }
@@ -397,6 +446,7 @@ export class MeetingsService {
       latitude: unknown;
       longitude: unknown;
       radiusMeters: number;
+      locationName?: string | null;
     },
     dto: JoinMeetingDto,
   ) {
@@ -419,7 +469,7 @@ export class MeetingsService {
     if (distanceMeters > meeting.radiusMeters) {
       throw new BadRequestException({
         error: "Outside Check In Range",
-        message: `You are ${distanceMeters}m from the venue. Check-in is allowed within ${meeting.radiusMeters}m.`,
+        message: `You are ${distanceMeters}m from ${meeting.locationName ?? "the venue"}. Check-in is allowed within ${meeting.radiusMeters}m.`,
       });
     }
 
@@ -474,6 +524,12 @@ export class MeetingsService {
   private toQrImage(code: string) {
     return QRCode.toDataURL(
       `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/meeting-scan/${code}`,
+    );
+  }
+
+  private toParticipantQrImage(code: string) {
+    return QRCode.toDataURL(
+      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/participant-qr/${code}`,
     );
   }
 

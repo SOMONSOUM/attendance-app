@@ -51,7 +51,11 @@ type PlaceSeed = {
   id: string;
   name: string;
   description: string;
+  requireLocation: boolean;
   locationName: string;
+  latitude: string;
+  longitude: string;
+  radiusMeters: number;
   code: string;
   registrations: RegistrationSeed[];
 };
@@ -233,7 +237,7 @@ const sampleEvent = {
   name: "Khmer Tech Summit 2026",
   description:
     "Demo event with QR check-in, registrations, attendance, and theme data.",
-  mode: EventMode.PRE_REGISTERED,
+  mode: EventMode.BULK_REGISTRATION,
   separateQrByPlace: false,
   requireLocation: true,
   locationName: "Phnom Penh Convention Center",
@@ -250,7 +254,7 @@ const placeEvent = {
   tenantId: "default-tenant",
   name: "Product Expo 2026",
   description: "Demo event with separate QR codes for each hall and room.",
-  mode: EventMode.PRE_REGISTERED,
+  mode: EventMode.BULK_REGISTRATION,
   separateQrByPlace: true,
   requireLocation: true,
   locationName: "Phnom Penh Exhibition Center",
@@ -277,6 +281,24 @@ const openEvent = {
   radiusMeters: 180,
   startsAt: new Date("2026-06-03T01:30:00.000Z"),
   endsAt: new Date("2026-06-03T10:30:00.000Z"),
+  createdById: "seed-user-admin",
+};
+
+const preRegistrationEvent = {
+  id: "seed-event-developer-clinic-2026",
+  tenantId: "default-tenant",
+  name: "Developer Clinic 2026",
+  description:
+    "Demo pre-registration event where attendees register before arrival.",
+  mode: EventMode.PRE_REGISTRATION,
+  separateQrByPlace: false,
+  requireLocation: false,
+  locationName: "Online pre-registration desk",
+  latitude: "0.0000000",
+  longitude: "0.0000000",
+  radiusMeters: 0,
+  startsAt: new Date("2026-06-07T01:30:00.000Z"),
+  endsAt: new Date("2026-06-07T05:30:00.000Z"),
   createdById: "seed-user-admin",
 };
 
@@ -307,6 +329,16 @@ const openEventTheme = {
   fontFamily: "Inter",
   fontSize: 16,
   radius: 10,
+  appearance: ThemeAppearance.system,
+};
+
+const preRegistrationEventTheme = {
+  primaryColor: "#be123c",
+  backgroundColor: "#fff8fa",
+  backgroundImageUrl: null,
+  fontFamily: "Inter",
+  fontSize: 16,
+  radius: 8,
   appearance: ThemeAppearance.system,
 };
 
@@ -408,7 +440,11 @@ const placeSeeds: PlaceSeed[] = [
     id: "seed-place-expo-main-hall",
     name: "Main Hall",
     description: "Main product showcase and partner booths.",
+    requireLocation: true,
     locationName: "Hall A",
+    latitude: "11.5622100",
+    longitude: "104.9160500",
+    radiusMeters: 120,
     code: "DEMO-EXPO-MAIN-HALL",
     registrations: [
       {
@@ -433,7 +469,11 @@ const placeSeeds: PlaceSeed[] = [
     id: "seed-place-expo-workshop-room",
     name: "Workshop Room",
     description: "Hands-on product demos and customer workshops.",
+    requireLocation: false,
     locationName: "Room 204",
+    latitude: "0.0000000",
+    longitude: "0.0000000",
+    radiusMeters: 0,
     code: "DEMO-EXPO-WORKSHOP",
     registrations: [
       {
@@ -462,7 +502,7 @@ const boardMeeting = {
   name: "Board Briefing 2026",
   description:
     "Demo pre-registration meeting with chairpersons and invited participants.",
-  mode: EventMode.PRE_REGISTERED,
+  mode: EventMode.BULK_REGISTRATION,
   separateQrByPlace: false,
   requireLocation: true,
   locationName: "Executive Meeting Room",
@@ -512,7 +552,7 @@ const placeMeeting = {
   tenantId: "default-tenant",
   name: "Committee Workshops 2026",
   description: "Demo meeting with separate QR codes for each workshop room.",
-  mode: EventMode.PRE_REGISTERED,
+  mode: EventMode.BULK_REGISTRATION,
   separateQrByPlace: true,
   requireLocation: false,
   locationName: "Administration Building",
@@ -543,7 +583,11 @@ const meetingPlaceSeeds = [
     id: "seed-meeting-place-policy-room",
     name: "Policy Room",
     description: "Policy review and planning discussion.",
+    requireLocation: true,
     locationName: "Room 301",
+    latitude: "11.5564300",
+    longitude: "104.9282400",
+    radiusMeters: 80,
     code: "DEMO-MEETING-POLICY-ROOM",
     participants: [
       {
@@ -568,7 +612,11 @@ const meetingPlaceSeeds = [
     id: "seed-meeting-place-budget-room",
     name: "Budget Room",
     description: "Budget planning and procurement discussion.",
+    requireLocation: false,
     locationName: "Room 302",
+    latitude: "0.0000000",
+    longitude: "0.0000000",
+    radiusMeters: 0,
     code: "DEMO-MEETING-BUDGET-ROOM",
     participants: [
       {
@@ -608,6 +656,38 @@ const openMeeting = {
   endsAt: new Date("2026-06-06T05:00:00.000Z"),
   createdById: "seed-user-admin",
 };
+
+const preRegistrationMeeting = {
+  id: "seed-meeting-research-roundtable-2026",
+  tenantId: "default-tenant",
+  name: "Research Roundtable 2026",
+  description:
+    "Demo pre-registration meeting where participants sign up before arrival.",
+  mode: EventMode.PRE_REGISTRATION,
+  separateQrByPlace: false,
+  requireLocation: false,
+  locationName: "Roundtable registration desk",
+  latitude: "0.0000000",
+  longitude: "0.0000000",
+  radiusMeters: 0,
+  startsAt: new Date("2026-06-08T02:00:00.000Z"),
+  endsAt: new Date("2026-06-08T04:00:00.000Z"),
+  createdById: "seed-user-admin",
+};
+
+const preRegistrationMeetingChairpersons = [
+  {
+    id: "seed-chairperson-roundtable-sovann",
+    honorificTitleEn: "Ms.",
+    honorificTitleKm: "លោកស្រី",
+    firstNameEn: "Sovann",
+    firstNameKm: "សុវណ្ណ",
+    lastNameEn: "Kim",
+    lastNameKm: "គីម",
+    position: "Research Lead",
+    organization: "Default Tenant",
+  },
+];
 
 const openMeetingChairpersons = [
   {
@@ -951,12 +1031,14 @@ async function seedEvent() {
       update: {
         eventId: event.id,
         ...registrationData,
+        checkInCode: `${registrationId}-qr`,
         source: "SEED",
       },
       create: {
         id: registrationId,
         eventId: event.id,
         ...registrationData,
+        checkInCode: `${registrationId}-qr`,
         source: "SEED",
       },
     });
@@ -1039,14 +1121,22 @@ async function seedPlaceEvent() {
         eventId: event.id,
         name: placeSeed.name,
         description: placeSeed.description,
+        requireLocation: placeSeed.requireLocation,
         locationName: placeSeed.locationName,
+        latitude: placeSeed.requireLocation ? placeSeed.latitude : null,
+        longitude: placeSeed.requireLocation ? placeSeed.longitude : null,
+        radiusMeters: placeSeed.requireLocation ? placeSeed.radiusMeters : 0,
       },
       create: {
         id: placeSeed.id,
         eventId: event.id,
         name: placeSeed.name,
         description: placeSeed.description,
+        requireLocation: placeSeed.requireLocation,
         locationName: placeSeed.locationName,
+        latitude: placeSeed.requireLocation ? placeSeed.latitude : null,
+        longitude: placeSeed.requireLocation ? placeSeed.longitude : null,
+        radiusMeters: placeSeed.requireLocation ? placeSeed.radiusMeters : 0,
       },
     });
 
@@ -1075,6 +1165,7 @@ async function seedPlaceEvent() {
           eventId: event.id,
           placeId: place.id,
           ...registrationData,
+          checkInCode: `${registrationId}-qr`,
           source: "SEED",
         },
         create: {
@@ -1082,6 +1173,7 @@ async function seedPlaceEvent() {
           eventId: event.id,
           placeId: place.id,
           ...registrationData,
+          checkInCode: `${registrationId}-qr`,
           source: "SEED",
         },
       });
@@ -1189,6 +1281,7 @@ async function seedMeetings() {
         meetingId: board.id,
         placeId: null,
         ...participantData,
+        checkInCode: `${participantId}-qr`,
         status: joined
           ? MeetingParticipantStatus.JOINED
           : MeetingParticipantStatus.INVITED,
@@ -1202,6 +1295,7 @@ async function seedMeetings() {
         id: participantId,
         meetingId: board.id,
         ...participantData,
+        checkInCode: `${participantId}-qr`,
         status: joined
           ? MeetingParticipantStatus.JOINED
           : MeetingParticipantStatus.INVITED,
@@ -1249,14 +1343,22 @@ async function seedMeetings() {
         meetingId: committee.id,
         name: placeSeed.name,
         description: placeSeed.description,
+        requireLocation: placeSeed.requireLocation,
         locationName: placeSeed.locationName,
+        latitude: placeSeed.requireLocation ? placeSeed.latitude : null,
+        longitude: placeSeed.requireLocation ? placeSeed.longitude : null,
+        radiusMeters: placeSeed.requireLocation ? placeSeed.radiusMeters : 0,
       },
       create: {
         id: placeSeed.id,
         meetingId: committee.id,
         name: placeSeed.name,
         description: placeSeed.description,
+        requireLocation: placeSeed.requireLocation,
         locationName: placeSeed.locationName,
+        latitude: placeSeed.requireLocation ? placeSeed.latitude : null,
+        longitude: placeSeed.requireLocation ? placeSeed.longitude : null,
+        radiusMeters: placeSeed.requireLocation ? placeSeed.radiusMeters : 0,
       },
     });
 
@@ -1285,6 +1387,7 @@ async function seedMeetings() {
           meetingId: committee.id,
           placeId: place.id,
           ...participantData,
+          checkInCode: `${participantId}-qr`,
           status: MeetingParticipantStatus.INVITED,
           source: "SEED",
         },
@@ -1293,6 +1396,7 @@ async function seedMeetings() {
           meetingId: committee.id,
           placeId: place.id,
           ...participantData,
+          checkInCode: `${participantId}-qr`,
           status: MeetingParticipantStatus.INVITED,
           source: "SEED",
         },
@@ -1352,6 +1456,7 @@ async function seedMeetings() {
         meetingId: townhall.id,
         placeId: null,
         ...participantData,
+        checkInCode: `${participantId}-qr`,
         status: MeetingParticipantStatus.JOINED,
         joinedAt: new Date("2026-06-06T02:30:00.000Z"),
         source: "OPEN_REGISTRATION",
@@ -1360,6 +1465,7 @@ async function seedMeetings() {
         id: participantId,
         meetingId: townhall.id,
         ...participantData,
+        checkInCode: `${participantId}-qr`,
         status: MeetingParticipantStatus.JOINED,
         joinedAt: new Date("2026-06-06T02:30:00.000Z"),
         source: "OPEN_REGISTRATION",
@@ -1417,10 +1523,37 @@ async function seedOpenEvent() {
   }
 
   for (const attendanceSeed of openEventAttendances) {
+    const registrationId = `${attendanceSeed.id}-registration`;
+    await prisma.eventRegistration.upsert({
+      where: { id: registrationId },
+      update: {
+        eventId: event.id,
+        fullNameEn: attendanceSeed.fullNameEn,
+        fullNameKm: attendanceSeed.fullNameKm,
+        gender: attendanceSeed.gender,
+        position: attendanceSeed.position,
+        department: attendanceSeed.department,
+        checkInCode: `${registrationId}-qr`,
+        source: "OPEN_REGISTRATION",
+      },
+      create: {
+        id: registrationId,
+        eventId: event.id,
+        fullNameEn: attendanceSeed.fullNameEn,
+        fullNameKm: attendanceSeed.fullNameKm,
+        gender: attendanceSeed.gender,
+        position: attendanceSeed.position,
+        department: attendanceSeed.department,
+        checkInCode: `${registrationId}-qr`,
+        source: "OPEN_REGISTRATION",
+      },
+    });
+
     await prisma.attendance.upsert({
       where: { id: attendanceSeed.id },
       update: {
         shiftId: attendanceSeed.shiftId,
+        registrationId,
         fullNameEn: attendanceSeed.fullNameEn,
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
@@ -1435,6 +1568,7 @@ async function seedOpenEvent() {
         id: attendanceSeed.id,
         eventId: event.id,
         shiftId: attendanceSeed.shiftId,
+        registrationId,
         userId: "seed-user-operator",
         fullNameEn: attendanceSeed.fullNameEn,
         fullNameKm: attendanceSeed.fullNameKm,
@@ -1448,6 +1582,136 @@ async function seedOpenEvent() {
       },
     });
   }
+}
+
+async function seedPreRegistrationEvent() {
+  const { id: eventId, ...eventData } = preRegistrationEvent;
+  const event = await prisma.event.upsert({
+    where: { id: eventId },
+    update: eventData,
+    create: preRegistrationEvent,
+  });
+
+  await prisma.eventQrCode.upsert({
+    where: { code: "DEMO-DEVELOPER-CLINIC-2026" },
+    update: {
+      eventId: event.id,
+      placeId: null,
+      active: true,
+      expiresAt: null,
+    },
+    create: {
+      code: "DEMO-DEVELOPER-CLINIC-2026",
+      eventId: event.id,
+      active: true,
+    },
+  });
+
+  await prisma.eventTheme.upsert({
+    where: { eventId: event.id },
+    update: preRegistrationEventTheme,
+    create: {
+      eventId: event.id,
+      ...preRegistrationEventTheme,
+    },
+  });
+
+  await prisma.eventRegistration.upsert({
+    where: { id: "seed-registration-developer-clinic-sopheary" },
+    update: {
+      eventId: event.id,
+      fullNameEn: "Sopheary Ngin",
+      fullNameKm: null,
+      gender: Gender.FEMALE,
+      position: "Frontend Developer",
+      department: "Engineering",
+      checkInCode: "seed-registration-developer-clinic-sopheary-qr",
+      source: "PRE_REGISTRATION",
+    },
+    create: {
+      id: "seed-registration-developer-clinic-sopheary",
+      eventId: event.id,
+      fullNameEn: "Sopheary Ngin",
+      fullNameKm: null,
+      gender: Gender.FEMALE,
+      position: "Frontend Developer",
+      department: "Engineering",
+      checkInCode: "seed-registration-developer-clinic-sopheary-qr",
+      source: "PRE_REGISTRATION",
+    },
+  });
+}
+
+async function seedPreRegistrationMeeting() {
+  const { id: meetingId, ...meetingData } = preRegistrationMeeting;
+  const meeting = await prisma.meeting.upsert({
+    where: { id: meetingId },
+    update: meetingData,
+    create: preRegistrationMeeting,
+  });
+
+  for (const chairpersonSeed of preRegistrationMeetingChairpersons) {
+    await prisma.meetingChairperson.upsert({
+      where: { id: chairpersonSeed.id },
+      update: {
+        meetingId: meeting.id,
+        honorificTitleEn: chairpersonSeed.honorificTitleEn,
+        honorificTitleKm: chairpersonSeed.honorificTitleKm,
+        firstNameEn: chairpersonSeed.firstNameEn,
+        firstNameKm: chairpersonSeed.firstNameKm,
+        lastNameEn: chairpersonSeed.lastNameEn,
+        lastNameKm: chairpersonSeed.lastNameKm,
+        position: chairpersonSeed.position,
+        organization: chairpersonSeed.organization,
+      },
+      create: {
+        ...chairpersonSeed,
+        meetingId: meeting.id,
+      },
+    });
+  }
+
+  await prisma.meetingQrCode.upsert({
+    where: { code: "DEMO-RESEARCH-ROUNDTABLE-2026" },
+    update: {
+      meetingId: meeting.id,
+      placeId: null,
+      active: true,
+      expiresAt: null,
+    },
+    create: {
+      code: "DEMO-RESEARCH-ROUNDTABLE-2026",
+      meetingId: meeting.id,
+      active: true,
+    },
+  });
+
+  await prisma.meetingParticipant.upsert({
+    where: { id: "seed-meeting-participant-roundtable-nara" },
+    update: {
+      meetingId: meeting.id,
+      fullNameEn: "Nara Vong",
+      fullNameKm: null,
+      gender: Gender.MALE,
+      position: "Researcher",
+      department: "Innovation",
+      status: MeetingParticipantStatus.INVITED,
+      checkInCode: "seed-meeting-participant-roundtable-nara-qr",
+      source: "PRE_REGISTRATION",
+    },
+    create: {
+      id: "seed-meeting-participant-roundtable-nara",
+      meetingId: meeting.id,
+      fullNameEn: "Nara Vong",
+      fullNameKm: null,
+      gender: Gender.MALE,
+      position: "Researcher",
+      department: "Innovation",
+      status: MeetingParticipantStatus.INVITED,
+      checkInCode: "seed-meeting-participant-roundtable-nara-qr",
+      source: "PRE_REGISTRATION",
+    },
+  });
 }
 
 async function main() {
@@ -1472,6 +1736,8 @@ async function main() {
   await seedPlaceEvent();
   await seedMeetings();
   await seedOpenEvent();
+  await seedPreRegistrationEvent();
+  await seedPreRegistrationMeeting();
 
   console.log("Seed complete.");
   console.table(
@@ -1487,11 +1753,15 @@ async function main() {
   console.log("Demo QR code: DEMO-TECH-SUMMIT-2026");
   console.log("Demo place QR codes: DEMO-EXPO-MAIN-HALL, DEMO-EXPO-WORKSHOP");
   console.log("Demo open-registration QR code: DEMO-COMMUNITY-OPEN-DAY-2026");
+  console.log("Demo pre-registration QR code: DEMO-DEVELOPER-CLINIC-2026");
   console.log("Demo meeting QR code: DEMO-BOARD-BRIEFING-2026");
   console.log(
     "Demo meeting place QR codes: DEMO-MEETING-POLICY-ROOM, DEMO-MEETING-BUDGET-ROOM",
   );
   console.log("Demo open meeting QR code: DEMO-PUBLIC-TOWNHALL-2026");
+  console.log(
+    "Demo pre-registration meeting QR code: DEMO-RESEARCH-ROUNDTABLE-2026",
+  );
 }
 
 main()

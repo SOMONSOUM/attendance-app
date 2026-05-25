@@ -17,23 +17,23 @@ model Tenant {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  tenantId      String?        @map("tenant_id")
-  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ownedTenant   Tenant?        @relation("TenantOwner")
-  email         String?        @unique
-  passwordHash  String?        @map("password_hash")
-  fullNameEn    String         @map("full_name_en")
-  fullNameKm    String?        @map("full_name_km")
-  gender        Gender?        @map("gender")
-  position      String?        @map("position")
-  department    String?        @map("department")
-  roles         UserRole[]
-  attendances   Attendance[]
+  id                  String               @id @default(cuid())
+  tenantId            String?              @map("tenant_id")
+  tenant              Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownedTenant         Tenant?              @relation("TenantOwner")
+  email               String?              @unique
+  passwordHash        String?              @map("password_hash")
+  fullNameEn          String               @map("full_name_en")
+  fullNameKm          String?              @map("full_name_km")
+  gender              Gender?              @map("gender")
+  position            String?              @map("position")
+  department          String?              @map("department")
+  roles               UserRole[]
+  attendances         Attendance[]
   registrationImports RegistrationImport[]
-  refreshTokens RefreshToken[]
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  refreshTokens       RefreshToken[]
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@map("users")

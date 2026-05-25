@@ -13,7 +13,8 @@ enum Gender {
 }
 
 enum EventMode {
-  PRE_REGISTERED
+  BULK_REGISTRATION
+  PRE_REGISTRATION
   OPEN_REGISTRATION
 }
 

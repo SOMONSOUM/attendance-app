@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import { PrismaService } from "../prisma/prisma.service";
 import { JoinEventDto } from "./dto";
 import {
@@ -20,12 +22,12 @@ export class AttendanceService {
   async joinByCode(code: string, dto: JoinEventDto) {
     const qr = await this.prisma.eventQrCode.findUnique({
       where: { code },
-      include: { event: { include: { shifts: true } } },
+      include: { place: true, event: { include: { shifts: true } } },
     });
     if (!qr?.active)
       throw new NotFoundException("QR code was not found or is inactive");
     const activeShift = this.assertScanWindow(qr.event);
-    const distanceMeters = this.assertLocation(qr.event, dto);
+    const distanceMeters = this.assertLocation(qr.place ?? qr.event, dto);
     const registration = dto.registrationId
       ? await this.prisma.eventRegistration.findFirst({
           where: {
@@ -83,6 +85,38 @@ export class AttendanceService {
 
       throw error;
     }
+  }
+
+  async registerByCode(code: string, dto: JoinEventDto) {
+    const qr = await this.prisma.eventQrCode.findUnique({
+      where: { code },
+      include: { event: true },
+    });
+    if (!qr?.active)
+      throw new NotFoundException("QR code was not found or is inactive");
+
+    const checkInCode = this.toQrCode();
+    const registration = await this.prisma.eventRegistration.create({
+      data: {
+        eventId: qr.eventId,
+        placeId: qr.placeId,
+        fullNameEn: dto.fullNameEn,
+        fullNameKm: dto.fullNameKm,
+        gender: dto.gender,
+        position: dto.position,
+        department: dto.department,
+        checkInCode,
+        source:
+          qr.event.mode === "OPEN_REGISTRATION"
+            ? "OPEN_REGISTRATION"
+            : "PRE_REGISTRATION",
+      },
+    });
+
+    return {
+      ...registration,
+      qrImage: await this.toAttendeeQrImage(checkInCode),
+    };
   }
 
   async list(
@@ -230,6 +264,46 @@ export class AttendanceService {
     });
   }
 
+  async joinRegistrationByCode(tenantId: string | null, checkInCode: string) {
+    const registration = await this.prisma.eventRegistration.findUnique({
+      where: { checkInCode },
+      include: { event: { include: { shifts: true } } },
+    });
+
+    if (!registration || registration.event.tenantId !== tenantId) {
+      throw new NotFoundException("Registration QR code not found");
+    }
+
+    const activeShift = this.assertScanWindow(registration.event);
+    const existingAttendance = await this.prisma.attendance.findUnique({
+      where: {
+        eventId_registrationId: {
+          eventId: registration.eventId,
+          registrationId: registration.id,
+        },
+      },
+    });
+
+    if (existingAttendance) throw this.alreadyJoinedException();
+
+    return this.prisma.attendance.create({
+      data: {
+        eventId: registration.eventId,
+        placeId: registration.placeId,
+        shiftId: activeShift?.id,
+        registrationId: registration.id,
+        fullNameEn: registration.fullNameEn,
+        fullNameKm: registration.fullNameKm,
+        gender: registration.gender,
+        position: registration.position,
+        department: registration.department,
+        latitude: 0,
+        longitude: 0,
+        distanceMeters: 0,
+      },
+    });
+  }
+
   async cancel(tenantId: string | null, attendanceId: string) {
     const attendance = await this.prisma.attendance.findFirst({
       where: { id: attendanceId, event: { tenantId } },
@@ -246,12 +320,23 @@ export class AttendanceService {
     });
   }
 
+  private toAttendeeQrImage(code: string) {
+    return QRCode.toDataURL(
+      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/attendee-qr/${code}`,
+    );
+  }
+
+  private toQrCode() {
+    return randomBytes(18).toString("base64url");
+  }
+
   private assertLocation(
     event: {
       requireLocation: boolean;
       latitude: unknown;
       longitude: unknown;
       radiusMeters: number;
+      locationName?: string | null;
     },
     dto: JoinEventDto,
   ) {
@@ -274,7 +359,7 @@ export class AttendanceService {
     if (distanceMeters > event.radiusMeters) {
       throw new BadRequestException({
         error: "Outside Check In Range",
-        message: `You are ${distanceMeters}m from the venue. Check-in is allowed within ${event.radiusMeters}m.`,
+        message: `You are ${distanceMeters}m from ${event.locationName ?? "the venue"}. Check-in is allowed within ${event.radiusMeters}m.`,
       });
     }
 

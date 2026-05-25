@@ -1,10 +1,15 @@
 import { api } from "@/lib/api";
 
+export type RegistrationMode =
+  | "BULK_REGISTRATION"
+  | "OPEN_REGISTRATION"
+  | "PRE_REGISTRATION";
+
 export type EventRecord = {
   id: string;
   name: string;
   description?: string | null;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode: RegistrationMode;
   locationName: string;
   requireLocation?: boolean;
   latitude?: string | number;
@@ -51,16 +56,18 @@ export type EventPlace = {
   id?: string;
   name: string;
   description?: string | null;
+  requireLocation?: boolean;
   locationName?: string | null;
   latitude?: string | number | null;
   longitude?: string | number | null;
+  radiusMeters?: number;
   qrCodes?: { id: string; code: string; active: boolean }[];
 };
 
 export type EventForm = {
   name: string;
   description?: string;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode: RegistrationMode;
   separateQrByPlace?: boolean;
   requireLocation?: boolean;
   locationName?: string;
@@ -90,9 +97,11 @@ export type MeetingPlace = {
   id?: string;
   name: string;
   description?: string | null;
+  requireLocation?: boolean;
   locationName?: string | null;
   latitude?: string | number | null;
   longitude?: string | number | null;
+  radiusMeters?: number;
   qrCodes?: { id: string; code: string; active: boolean }[];
 };
 
@@ -113,7 +122,7 @@ export type MeetingRecord = {
   id: string;
   name: string;
   description?: string | null;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode: RegistrationMode;
   separateQrByPlace?: boolean;
   locationName: string;
   requireLocation?: boolean;
@@ -132,7 +141,7 @@ export type MeetingRecord = {
 export type MeetingForm = {
   name: string;
   description?: string;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode: RegistrationMode;
   separateQrByPlace?: boolean;
   locationName?: string;
   requireLocation?: boolean;
@@ -544,6 +553,20 @@ export function joinRegisteredAttendee(
 ) {
   return api<AttendanceRecord>(
     `/attendance/events/${eventId}/registrations/${registrationId}/join`,
+    { method: "POST" },
+  );
+}
+
+export function joinAttendeeByQrCode(checkInCode: string) {
+  return api<AttendanceRecord>(
+    `/attendance/registrations/qr/${checkInCode}/join`,
+    { method: "POST" },
+  );
+}
+
+export function joinMeetingParticipantByQrCode(checkInCode: string) {
+  return api<MeetingParticipant>(
+    `/meetings/participants/qr/${checkInCode}/join`,
     { method: "POST" },
   );
 }

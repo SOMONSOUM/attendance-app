@@ -456,17 +456,20 @@ function SidebarContent({
       >
         <div
           className={cn(
-            "rounded-md bg-muted p-3",
-            collapsed && "grid place-items-center p-2",
+            "rounded-lg border border-border bg-background p-3 shadow-sm",
+            collapsed && "grid place-items-center rounded-full border-0 bg-transparent p-0 shadow-none",
           )}
         >
           <div className="flex items-center gap-3">
-            <div className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-sm ring-2 ring-primary/15">
               {currentUser?.fullNameEn?.charAt(0) ?? "A"}
             </div>
             <Button
               variant="ghost"
-              className={cn("ml-auto size-8 px-0", collapsed && "hidden")}
+              className={cn(
+                "ml-auto size-8 rounded-full px-0 text-muted-fg hover:text-foreground",
+                collapsed && "hidden",
+              )}
               onClick={logout}
               disabled={isPending}
               aria-label="Logout"
@@ -474,7 +477,7 @@ function SidebarContent({
               <LogOut size={16} />
             </Button>
           </div>
-          <div className={cn("mt-2 min-w-0", collapsed && "hidden")}>
+          <div className={cn("mt-3 min-w-0", collapsed && "hidden")}>
             <p className="truncate text-sm font-medium">
               {currentUser?.fullNameEn ?? "Admin"}
             </p>

@@ -21,6 +21,10 @@ export function MeetingScanClient({
   const [fullNameKm, setFullNameKm] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Ready to check in");
+  const [participantQr, setParticipantQr] = useState<{
+    fullNameEn: string;
+    qrImage: string;
+  } | null>(null);
   const selected = meeting.participants.find((item) => item.id === selectedId);
   const availableParticipants = useMemo(
     () =>
@@ -40,11 +44,22 @@ export function MeetingScanClient({
 
   async function join() {
     setBusy(true);
-    setStatus(meeting.requireLocation ? "Requesting your current location..." : "Checking in...");
+    setStatus(
+      meeting.mode === "BULK_REGISTRATION" && meeting.requireLocation
+        ? "Requesting your current location..."
+        : meeting.mode === "BULK_REGISTRATION"
+          ? "Checking in..."
+          : "Registering participant...",
+    );
 
     try {
-      const position = meeting.requireLocation ? await getCurrentLocation() : null;
-      await api(`/meetings/qr/${code}/join`, {
+      const position =
+        meeting.mode === "BULK_REGISTRATION" && meeting.requireLocation
+          ? await getCurrentLocation()
+          : null;
+      const response = await api<{ fullNameEn: string; qrImage?: string }>(
+        `/meetings/qr/${code}/join`,
+        {
         method: "POST",
         body: JSON.stringify({
           participantId: selected?.id,
@@ -57,8 +72,17 @@ export function MeetingScanClient({
               }
             : {}),
         }),
-      });
-      setStatus("Check-in confirmed");
+        },
+      );
+      if (response.qrImage) {
+        setParticipantQr({
+          fullNameEn: response.fullNameEn,
+          qrImage: response.qrImage,
+        });
+        setStatus("Registration complete. Show this QR to admin at arrival.");
+      } else {
+        setStatus("Check-in confirmed");
+      }
     } catch (error) {
       if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
         setStatus("This participant already joined.");
@@ -106,7 +130,21 @@ export function MeetingScanClient({
         </section>
 
         <Card className="space-y-4 p-4 sm:p-5">
-          {meeting.mode === "PRE_REGISTERED" ? (
+          {participantQr ? (
+            <div className="grid gap-3 text-center">
+              <p className="text-sm font-medium text-muted-fg">
+                Personal check-in QR for
+              </p>
+              <p className="text-lg font-semibold">
+                {participantQr.fullNameEn}
+              </p>
+              <img
+                src={participantQr.qrImage}
+                alt="Personal check-in QR"
+                className="mx-auto size-56 rounded-md border border-border bg-white p-3"
+              />
+            </div>
+          ) : isRegisteredListMode(meeting.mode) ? (
             <>
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Input
@@ -162,7 +200,8 @@ export function MeetingScanClient({
           <Button
             disabled={
               busy ||
-              (meeting.mode === "PRE_REGISTERED"
+              Boolean(participantQr) ||
+              (isRegisteredListMode(meeting.mode)
                 ? !selected
                 : !fullNameEn.trim())
             }
@@ -191,4 +230,8 @@ function getCurrentLocation() {
       timeout: 15_000,
     });
   });
+}
+
+function isRegisteredListMode(mode: PublicMeeting["mode"]) {
+  return mode === "BULK_REGISTRATION";
 }

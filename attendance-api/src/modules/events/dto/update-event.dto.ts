@@ -27,7 +27,7 @@ export class UpdateEventDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ enum: EventMode, example: EventMode.PRE_REGISTERED })
+  @ApiPropertyOptional({ enum: EventMode, example: EventMode.BULK_REGISTRATION })
   @IsOptional()
   @IsEnum(EventMode)
   mode?: EventMode;

@@ -47,7 +47,10 @@ type Event = {
   id: string;
   name: string;
   description?: string | null;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode:
+    | "BULK_REGISTRATION"
+    | "PRE_REGISTRATION"
+    | "OPEN_REGISTRATION";
   locationName?: string;
   requireLocation?: boolean;
   latitude?: string | number;
@@ -119,6 +122,10 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   });
   const form = watch();
   const [status, setStatus] = useState<string>(t("readyStatus"));
+  const [attendeeQr, setAttendeeQr] = useState<{
+    fullNameEn: string;
+    qrImage: string;
+  } | null>(null);
   const [warning, setWarning] = useState<WarningKey | null>(null);
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [mounted, setMounted] = useState(false);
@@ -168,7 +175,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   }
 
   useEffect(() => {
-    if (event.mode !== "PRE_REGISTERED") return;
+    if (!isRegisteredListMode(event.mode)) return;
 
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
@@ -208,15 +215,24 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       return;
     }
 
-    if (event.mode === "OPEN_REGISTRATION" && !(await trigger())) {
+    if (!isRegisteredListMode(event.mode) && !(await trigger())) {
       return;
     }
 
     setBusy(true);
-    setStatus(event.requireLocation ? "Requesting your current location..." : t("checkingLocation"));
+    setStatus(
+      event.mode === "BULK_REGISTRATION" && event.requireLocation
+        ? "Requesting your current location..."
+        : event.mode === "BULK_REGISTRATION"
+          ? t("checkingLocation")
+          : "Registering attendee...",
+    );
 
     try {
-      const position = event.requireLocation ? await getCurrentLocation() : null;
+      const position =
+        event.mode === "BULK_REGISTRATION" && event.requireLocation
+          ? await getCurrentLocation()
+          : null;
       const payload = {
         ...(selected ?? getValues()),
         registrationId: selected?.id,
@@ -228,11 +244,24 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           : {}),
       };
 
-      await api(`/attendance/qr/${code}/join`, {
+      const response = await api<{ fullNameEn: string; qrImage?: string }>(
+        event.mode === "BULK_REGISTRATION"
+          ? `/attendance/qr/${code}/join`
+          : `/attendance/qr/${code}/register`,
+        {
         method: "POST",
         body: JSON.stringify(payload),
-      });
-      setStatus(t("confirmedStatus"));
+        },
+      );
+      if (response.qrImage) {
+        setAttendeeQr({
+          fullNameEn: response.fullNameEn,
+          qrImage: response.qrImage,
+        });
+        setStatus("Registration complete. Show this QR to admin at arrival.");
+      } else {
+        setStatus(t("confirmedStatus"));
+      }
     } catch (error) {
       if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
         setAlreadyJoinedOpen(true);
@@ -308,9 +337,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
               <QrCode size={22} />
             </div>
             <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-primary">
-              {event.mode === "PRE_REGISTERED"
-                ? t("preRegistered")
-                : t("openRegistration")}
+              {registrationModeLabel(event.mode, t)}
             </span>
           </div>
           <p className="text-sm font-medium text-muted-fg">
@@ -336,7 +363,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
         </section>
 
         <Card className="space-y-4 p-4 sm:p-5">
-          {event.mode === "PRE_REGISTERED" ? (
+          {isRegisteredListMode(event.mode) ? (
             <>
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Input
@@ -403,7 +430,19 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
             </>
           ) : null}
 
-          {event.mode === "OPEN_REGISTRATION" ? (
+          {attendeeQr ? (
+            <div className="grid gap-3 text-center">
+              <p className="text-sm font-medium text-muted-fg">
+                Personal check-in QR for
+              </p>
+              <p className="text-lg font-semibold">{attendeeQr.fullNameEn}</p>
+              <img
+                src={attendeeQr.qrImage}
+                alt="Personal check-in QR"
+                className="mx-auto size-56 rounded-md border border-border bg-white p-3"
+              />
+            </div>
+          ) : !isRegisteredListMode(event.mode) ? (
             <div className="grid gap-3">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <UserRoundPlus size={16} className="text-primary" />
@@ -455,8 +494,9 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           <Button
             disabled={
               busy ||
+              Boolean(attendeeQr) ||
               Boolean(scanBlockReason) ||
-              (event.mode === "PRE_REGISTERED"
+              (isRegisteredListMode(event.mode)
                 ? !selected
                 : !form.fullNameEn.trim())
             }
@@ -589,9 +629,11 @@ function getScanBlockReason(event: Event): WarningKey | null {
   const startsAt = new Date(event.startsAt);
   const endsAt = new Date(event.endsAt);
 
-  if (now < startOfDay(startsAt)) return "eventNotStarted";
+  if (now < startOfDay(startsAt) && event.mode === "BULK_REGISTRATION") {
+    return "eventNotStarted";
+  }
   if (now > endOfDay(endsAt)) return "eventEnded";
-  if (!event.shifts.length) return null;
+  if (event.mode !== "BULK_REGISTRATION" || !event.shifts.length) return null;
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const activeShift = event.shifts.some((shift) =>
@@ -632,6 +674,19 @@ function endOfDay(date: Date) {
   const end = new Date(date);
   end.setHours(23, 59, 59, 999);
   return end;
+}
+
+function isRegisteredListMode(mode: Event["mode"]) {
+  return mode === "BULK_REGISTRATION";
+}
+
+function registrationModeLabel(
+  mode: Event["mode"],
+  t: ReturnType<typeof useTranslations<"scan">>,
+) {
+  if (mode === "OPEN_REGISTRATION") return t("openRegistration");
+  if (mode === "PRE_REGISTRATION") return "Pre-registration";
+  return "Bulk registration";
 }
 
 function getCurrentLocation() {

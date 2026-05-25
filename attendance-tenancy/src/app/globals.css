@@ -1,16 +1,53 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Koh+Santepheap:wght@400;700&display=swap");
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: Inter, "Koh Santepheap", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
 
 :root {
+  --radius: 0.625rem;
   --background: #fbfafc;
   --foreground: #17131f;
   --card: #ffffff;
   --card-foreground: #17131f;
+  --popover: #ffffff;
+  --popover-foreground: #17131f;
   --primary: #5b3fd5;
   --primary-foreground: #ffffff;
   --secondary: #f3f0fb;
   --secondary-foreground: #2d2544;
   --muted: #f5f3f8;
+  --muted-foreground: color-mix(in srgb, var(--foreground) 62%, transparent);
+  --accent: #f3f0fb;
+  --accent-foreground: #2d2544;
+  --destructive: #dc2626;
   --border: #e7e3ee;
   --input: #ded8eb;
   --ring: #5b3fd5;
@@ -21,69 +58,36 @@
   --foreground: #f7f4ff;
   --card: #191724;
   --card-foreground: #f7f4ff;
+  --popover: #191724;
+  --popover-foreground: #f7f4ff;
   --primary: #9b8cff;
   --primary-foreground: #161222;
   --secondary: #262138;
   --secondary-foreground: #f7f4ff;
   --muted: #211e2d;
+  --muted-foreground: color-mix(in srgb, var(--foreground) 62%, transparent);
+  --accent: #262138;
+  --accent-foreground: #f7f4ff;
+  --destructive: #ef4444;
   --border: #343047;
   --input: #403a55;
   --ring: #9b8cff;
 }
 
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Inter, "Koh Santepheap", system-ui, sans-serif;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
-
-.bg-background {
-  background-color: var(--background);
-}
-.bg-card {
-  background-color: var(--card);
-}
-.bg-primary {
-  background-color: var(--primary);
-}
-.bg-secondary {
-  background-color: var(--secondary);
-}
-.bg-muted {
-  background-color: var(--muted);
-}
-.text-foreground {
-  color: var(--foreground);
-}
-.text-card-foreground {
-  color: var(--card-foreground);
-}
-.text-primary {
-  color: var(--primary);
-}
-.text-primary-foreground {
-  color: var(--primary-foreground);
-}
-.text-secondary-foreground {
-  color: var(--secondary-foreground);
-}
 .text-muted-fg {
-  color: color-mix(in srgb, var(--foreground) 62%, transparent);
-}
-.border-border {
-  border-color: var(--border);
-}
-.border-primary {
-  border-color: var(--primary);
-}
-.border-input {
-  border-color: var(--input);
-}
-.ring-ring {
-  --tw-ring-color: var(--ring);
+  color: var(--muted-foreground);
 }

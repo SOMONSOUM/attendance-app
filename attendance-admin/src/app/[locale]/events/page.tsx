@@ -7,6 +7,7 @@ import {
   CalendarPlus,
   Edit3,
   FileSpreadsheet,
+  Plus,
   QrCode,
   Trash2,
   Upload,
@@ -57,7 +58,7 @@ import { eventSchema } from "@/lib/validation";
 const initialForm: EventForm = {
   name: "",
   description: "",
-  mode: "PRE_REGISTERED",
+  mode: "BULK_REGISTRATION",
   separateQrByPlace: false,
   requireLocation: false,
   locationName: "",
@@ -77,6 +78,16 @@ const initialForm: EventForm = {
     radius: 8,
     appearance: "system",
   },
+};
+
+const emptyPlace: NonNullable<EventForm["places"]>[number] = {
+  name: "",
+  description: "",
+  requireLocation: false,
+  locationName: "",
+  latitude: 11.5564,
+  longitude: 104.9282,
+  radiusMeters: 100,
 };
 
 const wizardSteps = [
@@ -140,7 +151,7 @@ export default function EventsPage() {
         ? await updateEvent(editing.id, normalizeForm(form))
         : await createEvent(normalizeForm(form));
 
-      if (form.mode === "PRE_REGISTERED") {
+      if (isBulkRegistrationMode(form.mode)) {
         if (!form.separateQrByPlace && sourceImportId) {
           await copyRegistrationImport(savedEvent.id, sourceImportId);
         }
@@ -219,7 +230,11 @@ export default function EventsPage() {
           id: place.id,
           name: place.name,
           description: place.description ?? "",
+          requireLocation: Boolean(place.requireLocation),
           locationName: place.locationName ?? "",
+          latitude: toNumber(place.latitude, initialForm.latitude),
+          longitude: toNumber(place.longitude, initialForm.longitude),
+          radiusMeters: place.radiusMeters ?? initialForm.radiusMeters,
         })) ?? [],
       startsAt: toDateInput(event.startsAt),
       endsAt: toDateInput(event.endsAt),
@@ -272,6 +287,16 @@ export default function EventsPage() {
     });
   }
 
+  function changeMode(mode: EventForm["mode"]) {
+    setForm({ ...form, mode });
+    if (!isBulkRegistrationMode(mode)) {
+      setRegistrationFile(null);
+      setPlaceRegistrationFiles({});
+      setSourceImportId("");
+      setPlaceRegistrationImportIds({});
+    }
+  }
+
   return (
     <AdminShell
       active="Events"
@@ -298,7 +323,7 @@ export default function EventsPage() {
             <div className="p-5 text-sm text-muted-fg">Loading events...</div>
           ) : events.length ? (
             <>
-              <Table className="min-w-180">
+              <Table>
                 <TableHeader>
                   <TableRow className="border-t-0">
                     <TableHead>Name</TableHead>
@@ -324,7 +349,7 @@ export default function EventsPage() {
                         <span className="hover:text-primary">{event.name}</span>
                       </TableCell>
                       <TableCell className="text-muted-fg">
-                        {event.mode.replace("_", " ")}
+                        {registrationModeLabel(event.mode)}
                       </TableCell>
                       <TableCell>
                         <StatusPill
@@ -449,18 +474,21 @@ export default function EventsPage() {
                         <Select
                           value={form.mode}
                           onChange={(event) =>
-                            setForm({
-                              ...form,
-                              mode: event.target.value as EventForm["mode"],
-                            })
+                            changeMode(event.target.value as EventForm["mode"])
                           }
                         >
-                          <option value="PRE_REGISTERED">Pre-registered</option>
+                          <option value="BULK_REGISTRATION">
+                            Bulk registration
+                          </option>
                           <option value="OPEN_REGISTRATION">
                             Open registration
                           </option>
+                          <option value="PRE_REGISTRATION">
+                            Pre-registration
+                          </option>
                         </Select>
                       </div>
+                      <RegistrationModeGuide mode={form.mode} noun="attendees" />
                       <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                         <div>
                           <h3 className="text-sm font-semibold">
@@ -487,8 +515,8 @@ export default function EventsPage() {
                                   !form.places?.length
                                     ? [
                                         {
+                                          ...emptyPlace,
                                           name: "Main hall",
-                                          description: "",
                                           locationName: "Main hall",
                                         },
                                       ]
@@ -511,30 +539,30 @@ export default function EventsPage() {
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="h-8"
+                                className="h-8 px-3"
                                 onClick={() =>
                                   setForm({
                                     ...form,
                                     places: [
                                       ...(form.places ?? []),
                                       {
+                                        ...emptyPlace,
                                         name: `Place ${(form.places?.length ?? 0) + 1}`,
-                                        description: "",
-                                        locationName: "",
                                       },
                                     ],
                                   })
                                 }
                               >
-                                Add place
+                                <Plus size={14} />
+                                Add
                               </Button>
                             </div>
                             {form.places?.map((place, index) => (
                               <div
-                                className="grid gap-3 rounded-md border border-border bg-card p-3"
+                                className="grid gap-3 rounded-md border border-border p-3"
                                 key={index}
                               >
-                                <div className="flex items-end gap-2">
+                                <div className="flex items-center gap-2">
                                   <Field
                                     label="Place name"
                                     value={place.name}
@@ -544,8 +572,9 @@ export default function EventsPage() {
                                   />
                                   <Button
                                     type="button"
-                                    variant="outline"
-                                    className="mb-0 h-10"
+                                    variant="ghost"
+                                    className="mt-7 size-9 px-0"
+                                    aria-label="Remove place"
                                     onClick={() =>
                                       setForm({
                                         ...form,
@@ -556,11 +585,11 @@ export default function EventsPage() {
                                       })
                                     }
                                   >
-                                    Remove
+                                    <Trash2 size={15} />
                                   </Button>
                                 </div>
                                 <Field
-                                  label="Location / hall / room"
+                                  label="Location name"
                                   value={place.locationName ?? ""}
                                   onChange={(value) =>
                                     updatePlace(index, { locationName: value })
@@ -574,7 +603,36 @@ export default function EventsPage() {
                                     updatePlace(index, { description: value })
                                   }
                                 />
-                                {form.mode === "PRE_REGISTERED" ? (
+                                {form.mode !== "PRE_REGISTRATION" ? (
+                                  <LocationPicker
+                                    value={{
+                                      requireLocation: place.requireLocation,
+                                      locationName: place.locationName ?? "",
+                                      latitude: toNumber(
+                                        place.latitude,
+                                        form.latitude,
+                                      ),
+                                      longitude: toNumber(
+                                        place.longitude,
+                                        form.longitude,
+                                      ),
+                                      radiusMeters:
+                                        place.radiusMeters ??
+                                        form.radiusMeters,
+                                    }}
+                                    onChange={(value) =>
+                                      updatePlace(index, {
+                                        requireLocation: value.requireLocation,
+                                        locationName: value.locationName,
+                                        latitude: value.latitude,
+                                        longitude: value.longitude,
+                                        radiusMeters: value.radiusMeters,
+                                      })
+                                    }
+                                    title={`${place.name || `Place ${index + 1}`} location check-in`}
+                                  />
+                                ) : null}
+                                {isBulkRegistrationMode(form.mode) ? (
                                   <div className="grid gap-3">
                                     <div className="grid gap-2">
                                       <Label>Saved attendee import</Label>
@@ -647,6 +705,20 @@ export default function EventsPage() {
                           </div>
                         ) : null}
                       </div>
+                      {!form.separateQrByPlace &&
+                      form.mode !== "PRE_REGISTRATION" ? (
+                        <LocationPicker
+                          value={{
+                            requireLocation: form.requireLocation,
+                            locationName: form.locationName,
+                            latitude: form.latitude,
+                            longitude: form.longitude,
+                            radiusMeters: form.radiusMeters,
+                          }}
+                          onChange={(value) => setForm({ ...form, ...value })}
+                          title="Event location check-in"
+                        />
+                      ) : null}
                     </>
                   ) : null}
                   {step === 2 ? (
@@ -669,17 +741,6 @@ export default function EventsPage() {
                           }
                         />
                       </div>
-                      <LocationPicker
-                        value={{
-                          requireLocation: form.requireLocation,
-                          locationName: form.locationName,
-                          latitude: form.latitude,
-                          longitude: form.longitude,
-                          radiusMeters: form.radiusMeters,
-                        }}
-                        onChange={(value) => setForm({ ...form, ...value })}
-                        title="Event location check-in"
-                      />
                       <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                         <div className="flex items-center justify-between gap-3">
                           <div>
@@ -768,7 +829,7 @@ export default function EventsPage() {
                           </p>
                         )}
                       </div>
-                      {form.mode === "PRE_REGISTERED" &&
+                      {isBulkRegistrationMode(form.mode) &&
                       !form.separateQrByPlace ? (
                         <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                           <div className="flex items-center gap-2">
@@ -778,11 +839,12 @@ export default function EventsPage() {
                             />
                             <div>
                               <h3 className="text-sm font-semibold">
-                                Pre-registration users
+                                Bulk attendee list
                               </h3>
                               <p className="mt-1 text-xs text-muted-fg">
                                 Select a saved attendee import or upload an
-                                Excel file after saving.
+                                Excel file. These invited attendees can scan the
+                                event QR when attendance starts.
                               </p>
                             </div>
                           </div>
@@ -833,6 +895,14 @@ export default function EventsPage() {
                             Columns: Fullname English, Fullname Khmer, Gender,
                             Position, Department.
                           </p>
+                        </div>
+                      ) : null}
+                      {form.mode === "PRE_REGISTRATION" ? (
+                        <div className="rounded-md border border-dashed border-border bg-background p-3 text-sm text-muted-fg">
+                          Attendees register before the event starts. After
+                          they submit their information, the system issues a
+                          unique QR code for that attendee, and admins scan that
+                          QR at arrival to mark attendance.
                         </div>
                       ) : null}
                       <div className="grid gap-3 rounded-md border border-border bg-background p-3">
@@ -1152,7 +1222,8 @@ function TimeField({
 }
 
 function normalizeForm(form: EventForm): EventForm {
-  const requireLocation = Boolean(form.requireLocation);
+  const requireLocation =
+    form.mode !== "PRE_REGISTRATION" && Boolean(form.requireLocation);
   return {
     ...form,
     requireLocation,
@@ -1174,7 +1245,22 @@ function normalizeForm(form: EventForm): EventForm {
           id: place.id,
           name: place.name,
           description: place.description?.trim() || null,
+          requireLocation:
+            form.mode !== "PRE_REGISTRATION" &&
+            Boolean(place.requireLocation),
           locationName: place.locationName?.trim() || place.name,
+          latitude:
+            form.mode !== "PRE_REGISTRATION" && place.requireLocation
+              ? (place.latitude ?? 0)
+              : null,
+          longitude:
+            form.mode !== "PRE_REGISTRATION" && place.requireLocation
+              ? (place.longitude ?? 0)
+              : null,
+          radiusMeters:
+            form.mode !== "PRE_REGISTRATION" && place.requireLocation
+            ? clamp(place.radiusMeters ?? 100, 10, 5000)
+            : 0,
         }))
       : [],
     theme: {
@@ -1188,12 +1274,61 @@ function normalizeForm(form: EventForm): EventForm {
   };
 }
 
+function isBulkRegistrationMode(mode: EventForm["mode"]) {
+  return mode === "BULK_REGISTRATION";
+}
+
+function registrationModeLabel(mode: EventForm["mode"]) {
+  if (isBulkRegistrationMode(mode)) return "Bulk registration";
+  if (mode === "PRE_REGISTRATION") return "Pre-registration";
+  return "Open registration";
+}
+
+function RegistrationModeGuide({
+  mode,
+  noun,
+}: {
+  mode: EventForm["mode"];
+  noun: string;
+}) {
+  const content = isBulkRegistrationMode(mode)
+    ? {
+        title: "Bulk registration",
+        text: `Admin uploads invited ${noun}. When the event starts, each attendee scans the event QR and checks in from the uploaded list.`,
+        icon: FileSpreadsheet,
+      }
+    : mode === "PRE_REGISTRATION"
+      ? {
+          title: "Pre-registration",
+          text: `Attendees register before the event starts. The system creates a unique QR for each attendee for admin check-in at arrival.`,
+          icon: QrCode,
+        }
+      : {
+          title: "Open registration",
+          text: `Attendees register from the event QR and receive a personal QR. Admin scans that personal QR at arrival to mark attendance.`,
+          icon: Upload,
+        };
+  const Icon = content.icon;
+
+  return (
+    <div className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+        <Icon size={18} />
+      </span>
+      <div>
+        <p className="text-sm font-semibold">{content.title}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-fg">{content.text}</p>
+      </div>
+    </div>
+  );
+}
+
 function clamp(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return min;
   return Math.min(Math.max(value, min), max);
 }
 
-function toNumber(value: string | number | undefined, fallback?: number) {
+function toNumber(value: string | number | null | undefined, fallback?: number) {
   const parsed = Number(value ?? fallback ?? 0);
   return Number.isFinite(parsed) ? parsed : (fallback ?? 0);
 }

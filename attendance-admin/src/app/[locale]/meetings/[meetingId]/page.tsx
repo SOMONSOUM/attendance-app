@@ -128,7 +128,7 @@ export default function MeetingDetailPage() {
         meeting
           ? selectedPlace
             ? `${meeting.name}, ${selectedPlace.locationName || meeting.locationName}`
-            : `${meeting.mode.replace("_", " ")} meeting, ${formatDateRange(
+            : `${registrationModeLabel(meeting.mode)} meeting, ${formatDateRange(
                 meeting.startsAt,
                 meeting.endsAt,
               )}`
@@ -199,7 +199,11 @@ export default function MeetingDetailPage() {
               name={selectedPlace?.name ?? meeting.name}
               description={meeting.description}
               locationName={selectedPlace?.locationName || meeting.locationName}
-              requireLocation={meeting.requireLocation}
+              requireLocation={
+                selectedPlace
+                  ? selectedPlace.requireLocation
+                  : meeting.requireLocation
+              }
               coordinates={detailCoordinates}
               chairpersons={meeting.chairpersons}
             />
@@ -239,7 +243,7 @@ export default function MeetingDetailPage() {
                         qrImage={place.qr?.qrImage}
                         fileName={`${meeting.name}-${place.name}.png`}
                         href={`/${locale}/meetings/${meeting.id}?placeId=${place.id}`}
-                        requireLocation={meeting.requireLocation}
+                        requireLocation={place.requireLocation}
                         coordinates={place.coordinates}
                         showView={!selectedPlace}
                       />
@@ -265,7 +269,7 @@ export default function MeetingDetailPage() {
               <StatusPill tone="blue">{scopedParticipants.length} total</StatusPill>
             </SectionToolbar>
             {scopedParticipants.length ? (
-              <Table className="min-w-160">
+              <Table>
                 <TableHeader>
                   <TableRow className="border-t-0">
                     <TableHead>Name</TableHead>
@@ -353,6 +357,12 @@ function percentage(value: number, total: number) {
 
 function formatDateRange(startsAt: string, endsAt: string) {
   return `${new Date(startsAt).toLocaleString()} - ${new Date(endsAt).toLocaleString()}`;
+}
+
+function registrationModeLabel(mode: string) {
+  if (mode === "OPEN_REGISTRATION") return "Open registration";
+  if (mode === "PRE_REGISTRATION") return "Pre-registration";
+  return "Bulk registration";
 }
 
 function meetingStatus(meeting: { startsAt: string; endsAt: string }) {

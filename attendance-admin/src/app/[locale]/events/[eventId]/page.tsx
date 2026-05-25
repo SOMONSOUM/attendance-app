@@ -183,7 +183,7 @@ export default function EventDetailPage() {
         event
           ? selectedPlace
             ? `${event.name}, ${selectedPlace.locationName || event.locationName}`
-            : `${event.mode.replace("_", " ")} event, ${formatDateRange(event.startsAt, event.endsAt)}`
+            : `${registrationModeLabel(event.mode)} event, ${formatDateRange(event.startsAt, event.endsAt)}`
           : "Event attendance overview and check-in breakdown."
       }
       action={
@@ -246,7 +246,9 @@ export default function EventDetailPage() {
               name={selectedPlace?.name ?? event.name}
               description={event.description}
               locationName={selectedPlace?.locationName || event.locationName}
-              requireLocation={event.requireLocation}
+              requireLocation={
+                selectedPlace ? selectedPlace.requireLocation : event.requireLocation
+              }
               coordinates={detailCoordinates}
               startsAt={event.startsAt}
               endsAt={event.endsAt}
@@ -288,7 +290,7 @@ export default function EventDetailPage() {
                           qrImage={place.qr?.qrImage}
                           fileName={`${event.name}-${place.name}.png`}
                           href={`/${locale}/events/${event.id}?placeId=${place.id}`}
-                          requireLocation={event.requireLocation}
+                          requireLocation={place.requireLocation}
                           coordinates={place.coordinates}
                           showView={!selectedPlace}
                         />
@@ -386,7 +388,7 @@ export default function EventDetailPage() {
             </SectionToolbar>
             {pageRows.length ? (
               <>
-                <Table className="min-w-230">
+                <Table>
                   <TableHeader>
                     <TableRow className="border-t-0">
                       <TableHead>User</TableHead>
@@ -583,6 +585,12 @@ function refreshEventData(
 
 function formatDateRange(startsAt: string, endsAt: string) {
   return `${new Date(startsAt).toLocaleString()} - ${new Date(endsAt).toLocaleString()}`;
+}
+
+function registrationModeLabel(mode: string) {
+  if (mode === "OPEN_REGISTRATION") return "Open registration";
+  if (mode === "PRE_REGISTRATION") return "Pre-registration";
+  return "Bulk registration";
 }
 
 function eventStatus(event: { startsAt: string; endsAt: string }) {

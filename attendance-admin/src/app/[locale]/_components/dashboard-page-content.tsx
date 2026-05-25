@@ -228,7 +228,7 @@ export function DashboardPageContent() {
               Export
             </Button>
           </SectionToolbar>
-          <Table className="min-w-190">
+          <Table>
             <TableHeader>
               <TableRow className="border-t-0">
                 <TableHead>Event name</TableHead>
@@ -243,7 +243,7 @@ export function DashboardPageContent() {
                 <TableRow key={event.id}>
                   <TableCell className="font-medium">{event.name}</TableCell>
                   <TableCell className="text-muted-fg">
-                    {event.mode.replace("_", " ")}
+                    {registrationModeLabel(event.mode)}
                   </TableCell>
                   <TableCell className="text-muted-fg">
                     {new Date(event.startsAt).toLocaleDateString()}
@@ -278,6 +278,12 @@ function eventTone(event: { startsAt: string; endsAt: string }) {
   if (status === "Live") return "green";
   if (status === "Ready") return "purple";
   return "amber";
+}
+
+function registrationModeLabel(mode: string) {
+  if (mode === "OPEN_REGISTRATION") return "Open registration";
+  if (mode === "PRE_REGISTRATION") return "Pre-registration";
+  return "Bulk registration";
 }
 
 

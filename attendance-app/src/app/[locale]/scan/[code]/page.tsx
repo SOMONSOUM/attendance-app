@@ -16,7 +16,10 @@ type Event = {
   id: string;
   name: string;
   description?: string | null;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode:
+    | "BULK_REGISTRATION"
+    | "PRE_REGISTRATION"
+    | "OPEN_REGISTRATION";
   locationName?: string;
   requireLocation?: boolean;
   latitude?: string | number;

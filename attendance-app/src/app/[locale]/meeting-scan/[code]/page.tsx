@@ -6,7 +6,10 @@ export type PublicMeeting = {
   id: string;
   name: string;
   description?: string | null;
-  mode: "PRE_REGISTERED" | "OPEN_REGISTRATION";
+  mode:
+    | "BULK_REGISTRATION"
+    | "PRE_REGISTRATION"
+    | "OPEN_REGISTRATION";
   requireLocation?: boolean;
   locationName?: string | null;
   latitude?: string | number;

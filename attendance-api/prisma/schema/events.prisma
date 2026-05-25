@@ -1,27 +1,27 @@
 model Event {
-  id            String              @id @default(cuid())
-  tenantId      String?             @map("tenant_id")
-  tenant        Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name          String
-  description   String?             @db.Text
-  mode          EventMode
-  separateQrByPlace Boolean         @default(false) @map("separate_qr_by_place")
-  requireLocation Boolean           @default(false) @map("require_location")
-  locationName  String              @map("location_name") @db.Text
-  latitude      Decimal             @db.Decimal(10, 7)
-  longitude     Decimal             @db.Decimal(10, 7)
-  radiusMeters  Int                 @default(100) @map("radius_meters")
-  startsAt      DateTime            @map("starts_at")
-  endsAt        DateTime            @map("ends_at")
-  places        EventPlace[]
-  qrCodes       EventQrCode[]
-  shifts        EventShift[]
-  registrations EventRegistration[]
-  attendances   Attendance[]
-  theme         EventTheme?
-  createdById   String?             @map("created_by_id")
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
+  id                String              @id @default(cuid())
+  tenantId          String?             @map("tenant_id")
+  tenant            Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?             @db.Text
+  mode              EventMode
+  separateQrByPlace Boolean             @default(false) @map("separate_qr_by_place")
+  requireLocation   Boolean             @default(false) @map("require_location")
+  locationName      String              @map("location_name") @db.Text
+  latitude          Decimal             @db.Decimal(10, 7)
+  longitude         Decimal             @db.Decimal(10, 7)
+  radiusMeters      Int                 @default(100) @map("radius_meters")
+  startsAt          DateTime            @map("starts_at")
+  endsAt            DateTime            @map("ends_at")
+  places            EventPlace[]
+  qrCodes           EventQrCode[]
+  shifts            EventShift[]
+  registrations     EventRegistration[]
+  attendances       Attendance[]
+  theme             EventTheme?
+  createdById       String?             @map("created_by_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@map("events")
@@ -33,7 +33,11 @@ model EventPlace {
   event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   name          String
   description   String?             @db.Text
+  requireLocation Boolean            @default(false) @map("require_location")
   locationName  String?             @map("location_name") @db.Text
+  latitude      Decimal?            @db.Decimal(10, 7)
+  longitude     Decimal?            @db.Decimal(10, 7)
+  radiusMeters  Int                 @default(0) @map("radius_meters")
   qrCodes       EventQrCode[]
   registrations EventRegistration[]
   attendances   Attendance[]
@@ -45,50 +49,51 @@ model EventPlace {
 }
 
 model EventShift {
-  id            String              @id @default(cuid())
-  eventId       String              @map("event_id")
-  event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name          String
-  startTime     DateTime            @map("start_time") @db.Time(0)
-  endTime       DateTime            @map("end_time") @db.Time(0)
-  attendances   Attendance[]
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
+  id          String       @id @default(cuid())
+  eventId     String       @map("event_id")
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name        String
+  startTime   DateTime     @map("start_time") @db.Time(0)
+  endTime     DateTime     @map("end_time") @db.Time(0)
+  attendances Attendance[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
 
   @@index([eventId])
   @@map("event_shifts")
 }
 
 model EventQrCode {
-  id        String    @id @default(cuid())
-  code      String    @unique
-  eventId   String    @map("event_id")
-  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  placeId   String?   @map("place_id")
+  id        String      @id @default(cuid())
+  code      String      @unique
+  eventId   String      @map("event_id")
+  event     Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  placeId   String?     @map("place_id")
   place     EventPlace? @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  active    Boolean   @default(true)
-  expiresAt DateTime? @map("expires_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  active    Boolean     @default(true)
+  expiresAt DateTime?   @map("expires_at")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
 
   @@index([placeId])
   @@map("qr_codes")
 }
 
 model EventRegistration {
-  id         String   @id @default(cuid())
-  eventId    String   @map("event_id")
-  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  placeId    String?  @map("place_id")
+  id         String      @id @default(cuid())
+  eventId    String      @map("event_id")
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  placeId    String?     @map("place_id")
   place      EventPlace? @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  fullNameEn String   @map("full_name_en")
-  fullNameKm String?  @map("full_name_km")
+  fullNameEn String      @map("full_name_en")
+  fullNameKm String?     @map("full_name_km")
   gender     Gender?
   position   String?
   department String?
-  source     String   @default("UPLOAD")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  checkInCode String?     @unique @map("check_in_code")
+  source     String      @default("UPLOAD")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
 
   @@index([eventId, fullNameEn])
   @@index([eventId, fullNameKm])

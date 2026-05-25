@@ -252,7 +252,7 @@ export default function RegistrationsPage() {
             <div className="p-5 text-sm text-muted-fg">Loading imports...</div>
           ) : allImports.length ? (
             <>
-              <Table className="min-w-180">
+              <Table>
                 <TableHeader>
                   <TableRow className="border-t-0">
                     <TableHead>File</TableHead>

@@ -175,7 +175,7 @@ export default function PeoplePage() {
             <div className="p-5 text-sm text-muted-fg">Loading people...</div>
           ) : users.length ? (
             <>
-            <Table className="min-w-215">
+            <Table>
               <TableHeader>
                 <TableRow className="border-t-0">
                   <TableHead>Full name</TableHead>
