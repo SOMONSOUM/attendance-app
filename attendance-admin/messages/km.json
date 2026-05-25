@@ -27,6 +27,28 @@
       "settings": "ការកំណត់"
     }
   },
+  "roles": {
+    "title": "តួនាទី និងសិទ្ធិ",
+    "description": "ពិនិត្យការពិពណ៌នាតួនាទី សមាជិកដែលបានកំណត់ និងសិទ្ធិដែលបានផ្ទុកពីមូលដ្ឋានទិន្នន័យ។",
+    "newRole": "តួនាទីថ្មី",
+    "matrix": "តារាង RBAC",
+    "loading": "កំពុងផ្ទុកតួនាទី...",
+    "emptyTitle": "មិនមានតួនាទី",
+    "emptyText": "ដំណើរការ seed ដើម្បីបង្កើតតួនាទី admin, operator និង viewer។",
+    "active": "សកម្ម",
+    "memberCount": "{count} អ្នកប្រើ",
+    "noDescription": "មិនទាន់មានការពិពណ៌នាតួនាទី។",
+    "editRole": "កែតួនាទី",
+    "deleteRole": "លុបតួនាទី",
+    "updateRole": "កែប្រែតួនាទី",
+    "createRole": "បង្កើតតួនាទី",
+    "formDescription": "កំណត់ឈ្មោះតួនាទី និងសិទ្ធិដោយបំបែកជាមួយសញ្ញាក្បៀស។",
+    "roleName": "ឈ្មោះតួនាទី",
+    "roleDescription": "ការពិពណ៌នា",
+    "descriptionPlaceholder": "អាចស្កេនអ្នកចូលរួម",
+    "permissions": "សិទ្ធិ",
+    "cancel": "បោះបង់"
+  },
   "settings": {
     "title": "ការកំណត់",
     "description": "កំណត់លំនាំដើមស្ថាប័ន ភាសា សុវត្ថិភាព និងចំណូលចិត្តប្រព័ន្ធ។",

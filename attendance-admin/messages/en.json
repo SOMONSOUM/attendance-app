@@ -27,6 +27,28 @@
       "settings": "Settings"
     }
   },
+  "roles": {
+    "title": "Roles & permissions",
+    "description": "Review role descriptions, assigned members, and permission actions loaded from the database.",
+    "newRole": "New role",
+    "matrix": "RBAC matrix",
+    "loading": "Loading roles...",
+    "emptyTitle": "No roles",
+    "emptyText": "Run the seed to create admin, operator, and viewer roles.",
+    "active": "Active",
+    "memberCount": "{count, plural, one {# user} other {# users}}",
+    "noDescription": "No role description provided.",
+    "editRole": "Edit role",
+    "deleteRole": "Delete role",
+    "updateRole": "Update role",
+    "createRole": "Create role",
+    "formDescription": "Define the role name and comma-separated permissions.",
+    "roleName": "Role name",
+    "roleDescription": "Description",
+    "descriptionPlaceholder": "Can scan attendees",
+    "permissions": "Permissions",
+    "cancel": "Cancel"
+  },
   "settings": {
     "title": "Settings",
     "description": "Configure organization defaults, localization, security, and system preferences.",

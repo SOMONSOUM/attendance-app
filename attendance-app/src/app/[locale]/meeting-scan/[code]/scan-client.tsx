@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, CheckCircle2, MapPin, QrCode, Search, UserRoundPlus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,12 +16,13 @@ export function MeetingScanClient({
   code: string;
   meeting: PublicMeeting;
 }) {
+  const t = useTranslations("meetingScan");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [fullNameEn, setFullNameEn] = useState("");
   const [fullNameKm, setFullNameKm] = useState("");
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("Ready to check in");
+  const [status, setStatus] = useState(t("readyStatus"));
   const [participantQr, setParticipantQr] = useState<{
     fullNameEn: string;
     qrImage: string;
@@ -34,22 +36,23 @@ export function MeetingScanClient({
           return false;
         }
         const needle = query.trim().toLowerCase();
-        if (!needle) return true;
+        if (!needle) return false;
         return [participant.fullNameEn, participant.fullNameKm, participant.position]
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(needle));
       }),
     [meeting.participants, meeting.scanPlace?.id, query],
   );
+  const hasSearchTerm = Boolean(query.trim());
 
   async function join() {
     setBusy(true);
     setStatus(
       meeting.mode === "BULK_REGISTRATION" && meeting.requireLocation
-        ? "Requesting your current location..."
+        ? t("requestingLocation")
         : meeting.mode === "BULK_REGISTRATION"
-          ? "Checking in..."
-          : "Registering participant...",
+          ? t("checkingIn")
+          : t("registeringParticipant"),
     );
 
     try {
@@ -79,15 +82,15 @@ export function MeetingScanClient({
           fullNameEn: response.fullNameEn,
           qrImage: response.qrImage,
         });
-        setStatus("Registration complete. Show this QR to admin at arrival.");
+        setStatus(t("registrationComplete"));
       } else {
-        setStatus("Check-in confirmed");
+        setStatus(t("confirmedStatus"));
       }
     } catch (error) {
       if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
-        setStatus("This participant already joined.");
+        setStatus(t("alreadyJoinedStatus"));
       } else {
-        setStatus(error instanceof Error ? error.message : "Could not check in");
+        setStatus(error instanceof Error ? error.message : t("couldNotCheckIn"));
       }
     } finally {
       setBusy(false);
@@ -103,7 +106,7 @@ export function MeetingScanClient({
               <QrCode size={22} />
             </div>
             <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-primary">
-              Meeting
+              {t("meeting")}
             </span>
           </div>
           <p className="text-sm font-medium text-muted-fg">
@@ -123,8 +126,10 @@ export function MeetingScanClient({
           {meeting.requireLocation ? (
             <p className="mt-3 flex gap-2 rounded-md border border-border bg-background p-3 text-sm text-muted-fg">
               <MapPin size={16} className="mt-0.5 text-primary" />
-              Check-in requires your current location within {meeting.radiusMeters ?? 100}m of{" "}
-              {meeting.locationName || "the venue"}.
+              {t("locationRequired", {
+                radius: meeting.radiusMeters ?? 100,
+                venue: meeting.locationName || t("theVenue"),
+              })}
             </p>
           ) : null}
         </section>
@@ -133,14 +138,14 @@ export function MeetingScanClient({
           {participantQr ? (
             <div className="grid gap-3 text-center">
               <p className="text-sm font-medium text-muted-fg">
-                Personal check-in QR for
+                {t("personalQrFor")}
               </p>
               <p className="text-lg font-semibold">
                 {participantQr.fullNameEn}
               </p>
               <img
                 src={participantQr.qrImage}
-                alt="Personal check-in QR"
+                alt={t("personalQrAlt")}
                 className="mx-auto size-56 rounded-md border border-border bg-white p-3"
               />
             </div>
@@ -149,48 +154,91 @@ export function MeetingScanClient({
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 <Input
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search your name"
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setSelectedId("");
+                  }}
+                  placeholder={t("searchPlaceholder")}
                 />
-                <Button type="button" aria-label="Search">
+                <Button type="button" aria-label={t("searchButton")}>
                   <Search size={18} />
+                  <span className="sm:hidden">{t("searchButton")}</span>
                 </Button>
               </div>
               <div className="grid gap-2">
-                {availableParticipants.slice(0, 8).map((participant) => (
-                  <button
-                    key={participant.id}
-                    type="button"
-                    className={`rounded-md border p-3 text-left ${
-                      selectedId === participant.id
-                        ? "border-primary bg-secondary"
-                        : "border-border"
-                    }`}
-                    onClick={() => setSelectedId(participant.id)}
-                  >
-                    <strong className="block">{participant.fullNameEn}</strong>
-                    <span className="text-sm text-muted-fg">
-                      {[participant.fullNameKm, participant.position, participant.department]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </button>
-                ))}
+                {!hasSearchTerm ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
+                    {t("typeToSearch")}
+                  </p>
+                ) : null}
+                {hasSearchTerm && !selected
+                  ? availableParticipants.slice(0, 8).map((participant) => (
+                      <button
+                        key={participant.id}
+                        type="button"
+                        className={`flex items-center gap-3 rounded-md border p-3 text-left transition hover:bg-muted ${
+                          selectedId === participant.id
+                            ? "border-primary bg-secondary"
+                            : "border-border"
+                        }`}
+                        onClick={() => setSelectedId(participant.id)}
+                      >
+                        <span className="grid size-5 shrink-0 place-items-center rounded border border-border bg-background">
+                          {selectedId === participant.id ? (
+                            <Check size={14} className="text-primary" />
+                          ) : null}
+                        </span>
+                        <span className="min-w-0">
+                          <strong className="block truncate">
+                            {participant.fullNameEn}
+                          </strong>
+                          <span className="block truncate text-sm text-muted-fg">
+                            {[
+                              participant.fullNameKm,
+                              participant.position,
+                              participant.department,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </span>
+                      </button>
+                    ))
+                  : null}
+                {hasSearchTerm && !selected && !availableParticipants.length ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
+                    {t("noMatch")}
+                  </p>
+                ) : null}
               </div>
+              {selected ? (
+                <div className="rounded-md border border-border bg-secondary p-4">
+                  <p className="font-semibold">{selected.fullNameEn}</p>
+                  <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    <Detail label={t("khmerName")} value={selected.fullNameKm} />
+                    <Detail label={t("position")} value={selected.position} />
+                    <Detail label={t("department")} value={selected.department} />
+                    <Detail
+                      label={t("status")}
+                      value={participantStatusLabel(selected.status, t)}
+                    />
+                  </dl>
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="grid gap-3">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <UserRoundPlus size={16} className="text-primary" />
-                Registration details
+                {t("registrationDetails")}
               </div>
               <Input
-                placeholder="Full name English"
+                placeholder={t("fullNameEn")}
                 value={fullNameEn}
                 onChange={(event) => setFullNameEn(event.target.value)}
               />
               <Input
-                placeholder="Full name Khmer"
+                placeholder={t("fullNameKm")}
                 value={fullNameKm}
                 onChange={(event) => setFullNameKm(event.target.value)}
               />
@@ -208,8 +256,12 @@ export function MeetingScanClient({
             onClick={join}
             className="w-full"
           >
-            {status === "Check-in confirmed" ? <CheckCircle2 size={18} /> : <Check size={18} />}
-            Check in
+            {status === t("confirmedStatus") ? (
+              <CheckCircle2 size={18} />
+            ) : (
+              <Check size={18} />
+            )}
+            {t("checkIn")}
           </Button>
           <p className="text-center text-sm text-muted-fg">{status}</p>
         </Card>
@@ -234,4 +286,28 @@ function getCurrentLocation() {
 
 function isRegisteredListMode(mode: PublicMeeting["mode"]) {
   return mode === "BULK_REGISTRATION";
+}
+
+function Detail({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase text-muted-fg">{label}</dt>
+      <dd className="mt-1 font-medium">{value || "-"}</dd>
+    </div>
+  );
+}
+
+function participantStatusLabel(
+  status: PublicMeeting["participants"][number]["status"],
+  t: ReturnType<typeof useTranslations<"meetingScan">>,
+) {
+  if (status === "JOINED") return t("joined");
+  if (status === "CANCELLED") return t("cancelled");
+  return t("invited");
 }

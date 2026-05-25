@@ -578,10 +578,14 @@ export function StatusPill({
     <span
       className={cn(
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-        tone === "green" && "bg-emerald-50 text-emerald-700",
-        tone === "purple" && "bg-violet-50 text-violet-700",
-        tone === "blue" && "bg-sky-50 text-sky-700",
-        tone === "amber" && "bg-amber-50 text-amber-700",
+        tone === "green" &&
+          "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200",
+        tone === "purple" &&
+          "bg-violet-50 text-violet-700 dark:bg-violet-400/15 dark:text-violet-200",
+        tone === "blue" &&
+          "bg-sky-50 text-sky-700 dark:bg-sky-400/15 dark:text-sky-200",
+        tone === "amber" &&
+          "bg-amber-50 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200",
       )}
     >
       {children}
