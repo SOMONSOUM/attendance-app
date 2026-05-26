@@ -334,9 +334,7 @@ export class AttendanceService {
   }
 
   private toAttendeeQrImage(code: string) {
-    return QRCode.toDataURL(
-      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/attendee-qr/${code}`,
-    );
+    return QRCode.toDataURL(code);
   }
 
   private toQrCode() {

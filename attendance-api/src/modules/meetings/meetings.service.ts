@@ -612,9 +612,7 @@ export class MeetingsService {
   }
 
   private toParticipantQrImage(code: string) {
-    return QRCode.toDataURL(
-      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/participant-qr/${code}`,
-    );
+    return QRCode.toDataURL(code);
   }
 
   private toQrCode() {
