@@ -23,6 +23,7 @@ import { LocationPicker } from "@/components/admin/location-picker";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker, TimePicker } from "@/components/ui/date-picker";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,7 @@ import {
   listMeetingRegistrationImports,
   meetingKeys,
   type MeetingChairperson,
+  type EventShift,
   type MeetingForm,
   type MeetingParticipant,
   type MeetingPlace,
@@ -86,6 +88,7 @@ const initialForm: MeetingForm = {
   radiusMeters: 100,
   startsAt: "2026-06-01",
   endsAt: "2026-06-01",
+  shifts: [],
   chairpersons: [{ ...emptyChairperson }],
   places: [],
   participants: [],
@@ -207,6 +210,12 @@ export default function MeetingsPage() {
           longitude: toNumber(place.longitude, initialForm.longitude),
           radiusMeters: place.radiusMeters ?? initialForm.radiusMeters,
         })) ?? [],
+      shifts:
+        meeting.shifts?.map((shift) => ({
+          name: shift.name,
+          startTime: toTimeInput(shift.startTime),
+          endTime: toTimeInput(shift.endTime),
+        })) ?? [],
       participants: meeting.participants.map(stripParticipant),
     });
     setParticipantFile(null);
@@ -231,6 +240,15 @@ export default function MeetingsPage() {
       ...form,
       places: form.places?.map((place, placeIndex) =>
         placeIndex === index ? { ...place, ...patch } : place,
+      ),
+    });
+  }
+
+  function updateShift(index: number, patch: Partial<EventShift>) {
+    setForm({
+      ...form,
+      shifts: form.shifts?.map((shift, shiftIndex) =>
+        shiftIndex === index ? { ...shift, ...patch } : shift,
       ),
     });
   }
@@ -433,23 +451,19 @@ export default function MeetingsPage() {
                     </Field>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Start date">
-                        <Input
-                          type="date"
+                        <DatePicker
                           value={form.startsAt}
-                          onChange={(event) =>
-                            setForm({ ...form, startsAt: event.target.value })
+                          onChange={(value) =>
+                            setForm({ ...form, startsAt: value })
                           }
-                          required
                         />
                       </Field>
                       <Field label="End date">
-                        <Input
-                          type="date"
+                        <DatePicker
                           value={form.endsAt}
-                          onChange={(event) =>
-                            setForm({ ...form, endsAt: event.target.value })
+                          onChange={(value) =>
+                            setForm({ ...form, endsAt: value })
                           }
-                          required
                         />
                       </Field>
                     </div>
@@ -760,6 +774,102 @@ export default function MeetingsPage() {
 
                 {step === 2 ? (
                   <div className="grid gap-3">
+                    <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">
+                            Meeting shifts
+                          </h3>
+                          <p className="mt-1 text-xs text-muted-fg">
+                            Optional. Add time windows when participants should
+                            attend.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              shifts: [
+                                ...(form.shifts ?? []),
+                                {
+                                  name: `Shift ${(form.shifts?.length ?? 0) + 1}`,
+                                  startTime: "07:00",
+                                  endTime: "12:00",
+                                },
+                              ],
+                            })
+                          }
+                        >
+                          <Plus size={14} />
+                          Add shift
+                        </Button>
+                      </div>
+                      {form.shifts?.length ? (
+                        <div className="grid gap-3">
+                          {form.shifts.map((shift, index) => (
+                            <div
+                              key={index}
+                              className="grid gap-3 rounded-md border border-border bg-card p-3"
+                            >
+                              <div className="flex items-end gap-2">
+                                <Field label="Shift name">
+                                  <Input
+                                    value={shift.name}
+                                    onChange={(event) =>
+                                      updateShift(index, {
+                                        name: event.target.value,
+                                      })
+                                    }
+                                    required
+                                  />
+                                </Field>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-10"
+                                  onClick={() =>
+                                    setForm({
+                                      ...form,
+                                      shifts: form.shifts?.filter(
+                                        (_, shiftIndex) =>
+                                          shiftIndex !== index,
+                                      ),
+                                    })
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <Field label="Shift starts">
+                                  <TimePicker
+                                    value={shift.startTime}
+                                    onChange={(value) =>
+                                      updateShift(index, { startTime: value })
+                                    }
+                                  />
+                                </Field>
+                                <Field label="Shift ends">
+                                  <TimePicker
+                                    value={shift.endTime}
+                                    onChange={(value) =>
+                                      updateShift(index, { endTime: value })
+                                    }
+                                  />
+                                </Field>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-fg">
+                          No shifts configured.
+                        </p>
+                      )}
+                    </div>
                     <h3 className="text-sm font-semibold">Participants</h3>
                     {isBulkRegistrationMode(form.mode) ? (
                       <div className="grid gap-2 rounded-md border border-dashed border-border p-3">
@@ -1040,6 +1150,11 @@ function normalizeForm(form: MeetingForm): MeetingForm {
     participants: (form.participants ?? [])
       .filter((participant) => participant.fullNameEn.trim())
       .map((participant) => cleanObject(participant)),
+    shifts: form.shifts?.map((shift) => ({
+      name: shift.name,
+      startTime: normalizeTime(shift.startTime),
+      endTime: normalizeTime(shift.endTime),
+    })),
   };
 }
 
@@ -1091,6 +1206,19 @@ function formatChairperson(chairperson?: MeetingChairperson) {
 
 function toDateInput(value: string) {
   return new Date(value).toISOString().slice(0, 10);
+}
+
+function toTimeInput(value: string) {
+  if (!value) return "00:00";
+  if (value.includes("T")) {
+    return new Date(value).toISOString().slice(11, 16);
+  }
+
+  return value.slice(0, 5);
+}
+
+function normalizeTime(value: string) {
+  return value.length === 5 ? value : value.slice(0, 5);
 }
 
 function meetingStatus(meeting: { startsAt: string; endsAt: string }) {

@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { EventMode, Gender, MeetingParticipantStatus } from "@prisma/client";
+import { EventShiftDto } from "../../events/dto/create-event.dto";
 
 export class MeetingChairpersonDto {
   @ApiProperty({ example: "H.E." })
@@ -131,6 +132,11 @@ export class MeetingParticipantDto {
   @IsString()
   placeId?: string;
 
+  @ApiPropertyOptional({ example: "clxshift001" })
+  @IsOptional()
+  @IsString()
+  shiftId?: string;
+
   @ApiPropertyOptional({
     enum: MeetingParticipantStatus,
     example: MeetingParticipantStatus.INVITED,
@@ -207,6 +213,13 @@ export class CreateMeetingDto {
   @ValidateNested({ each: true })
   @Type(() => MeetingPlaceDto)
   places?: MeetingPlaceDto[];
+
+  @ApiPropertyOptional({ type: [EventShiftDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventShiftDto)
+  shifts?: EventShiftDto[];
 
   @ApiPropertyOptional({ type: [MeetingParticipantDto] })
   @IsOptional()

@@ -116,6 +116,7 @@ export type MeetingParticipant = {
   status?: "INVITED" | "JOINED" | "CANCELLED";
   joinedAt?: string | null;
   placeId?: string | null;
+  shiftId?: string | null;
 };
 
 export type MeetingRecord = {
@@ -133,6 +134,7 @@ export type MeetingRecord = {
   endsAt: string;
   chairpersons: MeetingChairperson[];
   places?: MeetingPlace[];
+  shifts?: EventShift[];
   qrCodes?: { id: string; code: string; active: boolean }[];
   participants: MeetingParticipant[];
   _count?: { chairpersons: number; participants: number };
@@ -152,6 +154,7 @@ export type MeetingForm = {
   endsAt: string;
   chairpersons: MeetingChairperson[];
   places?: MeetingPlace[];
+  shifts?: EventShift[];
   participants?: MeetingParticipant[];
 };
 
@@ -211,8 +214,19 @@ export type AttendanceRecord = {
   position?: string | null;
   department?: string | null;
   distanceMeters?: number;
+  fullNameKm?: string | null;
   status: "JOINED" | "CANCELLED";
   createdAt: string;
+};
+
+export type RegistrationForm = {
+  fullNameEn: string;
+  fullNameKm?: string;
+  gender?: "MALE" | "FEMALE" | "OTHER" | "";
+  position?: string;
+  department?: string;
+  shiftId?: string;
+  placeId?: string;
 };
 
 export type EventRosterRecord = {
@@ -372,6 +386,16 @@ export function joinMeetingParticipant(meetingId: string, participantId: string)
   return api<MeetingParticipant>(
     `/meetings/${meetingId}/participants/${participantId}/join`,
     { method: "POST" },
+  );
+}
+
+export function cancelMeetingParticipant(
+  meetingId: string,
+  participantId: string,
+) {
+  return api<MeetingParticipant>(
+    `/meetings/${meetingId}/participants/${participantId}/join`,
+    { method: "DELETE" },
   );
 }
 
@@ -564,6 +588,42 @@ export function joinAttendeeByQrCode(checkInCode: string) {
   );
 }
 
+export function registerAttendeeByEventQr(
+  code: string,
+  data: RegistrationForm,
+) {
+  return api<EventRosterRecord & { qrImage?: string }>(
+    `/attendance/qr/${code}/register`,
+    {
+      method: "POST",
+      body: JSON.stringify(cleanRegistrationForm(data)),
+    },
+  );
+}
+
+export function registerMeetingParticipantByQr(
+  code: string,
+  data: RegistrationForm,
+) {
+  return api<MeetingParticipant & { qrImage?: string }>(
+    `/meetings/qr/${code}/join`,
+    {
+      method: "POST",
+      body: JSON.stringify(cleanRegistrationForm(data)),
+    },
+  );
+}
+
+export function registerMeetingParticipant(
+  meetingId: string,
+  data: RegistrationForm,
+) {
+  return api<MeetingParticipant>(`/meetings/${meetingId}/participants`, {
+    method: "POST",
+    body: JSON.stringify(cleanRegistrationForm(data)),
+  });
+}
+
 export function joinMeetingParticipantByQrCode(checkInCode: string) {
   return api<MeetingParticipant>(
     `/meetings/participants/qr/${checkInCode}/join`,
@@ -593,4 +653,16 @@ function paginationQuery(
   if (params?.target) search.set("target", params.target);
   const query = search.toString();
   return query ? `?${query}` : "";
+}
+
+function cleanRegistrationForm(data: RegistrationForm) {
+  return {
+    fullNameEn: data.fullNameEn.trim(),
+    fullNameKm: data.fullNameKm?.trim() || undefined,
+    gender: data.gender || undefined,
+    position: data.position?.trim() || undefined,
+    department: data.department?.trim() || undefined,
+    shiftId: data.shiftId || undefined,
+    placeId: data.placeId || undefined,
+  };
 }

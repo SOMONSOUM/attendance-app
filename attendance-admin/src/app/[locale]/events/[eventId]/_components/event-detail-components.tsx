@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { Download, ExternalLink, MapPin, QrCode, type LucideIcon } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { EmptyState, StatusPill } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { formatDate, formatDateRange, formatShiftRange } from "@/lib/format";
 
 export type Coordinates = {
   latitude: number;
@@ -40,12 +44,17 @@ export function MetricCard({
 
 export function LocationRequirementBadge({
   required,
+  labels = {
+    required: "Location required",
+    notRequired: "Location not required",
+  },
 }: {
   required?: boolean;
+  labels?: { required: string; notRequired: string };
 }) {
   return (
     <StatusPill tone={required ? "green" : "amber"}>
-      {required ? "Location required" : "Location not required"}
+      {required ? labels.required : labels.notRequired}
     </StatusPill>
   );
 }
@@ -59,6 +68,7 @@ export function EventDetailsCard({
   startsAt,
   endsAt,
   shifts,
+  labels,
 }: {
   name: string;
   description?: string | null;
@@ -73,38 +83,57 @@ export function EventDetailsCard({
     startTime: string;
     endTime: string;
   }>;
+  labels: {
+    title: string;
+    location: string;
+    description: string;
+    schedule: string;
+    shifts: string;
+    locationRequired: string;
+    locationNotRequired: string;
+    openMap: string;
+  };
 }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Event details</CardTitle>
+        <CardTitle>{labels.title}</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium">Location</p>
-            <LocationRequirementBadge required={requireLocation} />
+            <p className="text-sm font-medium">{labels.location}</p>
+            <LocationRequirementBadge
+              required={requireLocation}
+              labels={{
+                required: labels.locationRequired,
+                notRequired: labels.locationNotRequired,
+              }}
+            />
           </div>
           <p className="mt-1 flex items-center gap-1 text-sm text-muted-fg">
             <MapPin size={14} />
             {locationName}
           </p>
           {requireLocation && coordinates ? (
-            <MapPreview coordinates={coordinates} label={name} className="mt-3" />
+            <MapPreview
+              coordinates={coordinates}
+              label={name}
+              className="mt-3"
+              openMapLabel={labels.openMap}
+            />
           ) : null}
         </div>
         {description ? (
           <div>
-            <p className="text-sm font-medium">Description</p>
+            <p className="text-sm font-medium">{labels.description}</p>
             <p className="mt-1 text-sm text-muted-fg">{description}</p>
           </div>
         ) : null}
         <div className="grid gap-3">
-          <p className="text-sm font-medium">Schedule</p>
+          <p className="text-sm font-medium">{labels.schedule}</p>
           <div className="rounded-md border border-border bg-background p-3">
-            <p className="font-medium">
-              {new Date(startsAt).toLocaleDateString()}
-            </p>
+            <p className="font-medium">{formatDate(startsAt)}</p>
             <p className="mt-1 text-sm text-muted-fg">
               {formatDateRange(startsAt, endsAt)}
             </p>
@@ -112,7 +141,7 @@ export function EventDetailsCard({
         </div>
         {shifts?.length ? (
           <div className="grid gap-3">
-            <p className="text-sm font-medium">Shifts</p>
+            <p className="text-sm font-medium">{labels.shifts}</p>
             {shifts.map((eventShift) => (
               <div
                 key={eventShift.id ?? eventShift.name}
@@ -120,7 +149,7 @@ export function EventDetailsCard({
               >
                 <p className="font-medium">{eventShift.name}</p>
                 <p className="mt-1 text-sm text-muted-fg">
-                  {eventShift.startTime} - {eventShift.endTime}
+                  {formatShiftRange(eventShift.startTime, eventShift.endTime)}
                 </p>
               </div>
             ))}
@@ -138,12 +167,14 @@ export function QrPlaceCard({
   total,
   joined,
   rate,
+  code,
   qrImage,
   fileName,
   href,
   requireLocation,
   coordinates,
   showView,
+  labels,
 }: {
   name: string;
   locationName?: string | null;
@@ -151,43 +182,77 @@ export function QrPlaceCard({
   total: number;
   joined: number;
   rate: number;
+  code?: string;
   qrImage?: string;
   fileName: string;
   href: string;
   requireLocation?: boolean;
   coordinates: Coordinates | null;
   showView: boolean;
+  labels: {
+    locationNotSet: string;
+    users: string;
+    joined: string;
+    rate: string;
+    view: string;
+    map: string;
+    qr: string;
+    locationRequired: string;
+    locationNotRequired: string;
+    openMap: string;
+  };
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   return (
-    <div className="grid gap-3 rounded-md border border-border bg-background p-4">
+    <div className="grid min-h-full gap-4 rounded-md border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">{name}</p>
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold">{name}</p>
           <p className="mt-1 flex items-center gap-1 text-xs text-muted-fg">
             <MapPin size={12} />
-            {locationName || "Location not set"}
+            <span className="truncate">{locationName || labels.locationNotSet}</span>
           </p>
         </div>
-        <span className="grid size-8 place-items-center rounded-md border border-border text-muted-fg">
-          <QrCode size={16} />
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <button
+            type="button"
+            className="grid size-8 place-items-center rounded-md border border-border text-muted-fg transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            disabled={!code}
+            onClick={() => setPreviewOpen(true)}
+            aria-label={`View ${name} QR code`}
+          >
+            <QrCode size={16} />
+          </button>
+          <LocationRequirementBadge
+            required={requireLocation}
+            labels={{
+              required: labels.locationRequired,
+              notRequired: labels.locationNotRequired,
+            }}
+          />
+        </div>
       </div>
-      <LocationRequirementBadge required={requireLocation} />
       {description ? (
-        <p className="line-clamp-2 text-sm text-muted-fg">{description}</p>
+        <p className="line-clamp-2 min-h-10 text-sm leading-5 text-muted-fg">{description}</p>
       ) : null}
       {requireLocation && coordinates ? (
-        <MapPreview coordinates={coordinates} label={name} compact />
+        <MapPreview
+          coordinates={coordinates}
+          label={name}
+          compact
+          openMapLabel={labels.openMap}
+        />
       ) : null}
       <div className="grid grid-cols-3 gap-2 text-sm">
-        <Stat label="Users" value={total} />
-        <Stat label="Joined" value={joined} />
-        <Stat label="Rate" value={`${rate}%`} />
+        <Stat label={labels.users} value={total} />
+        <Stat label={labels.joined} value={joined} />
+        <Stat label={labels.rate} value={`${rate}%`} />
       </div>
       <div className="flex flex-wrap gap-2">
         {showView ? (
           <Button asChild className="h-8">
-            <Link href={href}>View</Link>
+            <Link href={href}>{labels.view}</Link>
           </Button>
         ) : null}
         {requireLocation && coordinates ? (
@@ -199,20 +264,29 @@ export function QrPlaceCard({
               aria-label={`Open ${name} in maps`}
             >
               <ExternalLink size={14} />
-              Map
+              {labels.map}
             </a>
           </Button>
         ) : null}
         <Button
           variant="outline"
           className="h-8"
-          disabled={!qrImage}
-          onClick={() => (qrImage ? downloadDataUrl(qrImage, fileName) : undefined)}
+          disabled={!code && !qrImage}
+          onClick={() =>
+            code ? setPreviewOpen(true) : qrImage ? downloadDataUrl(qrImage, fileName) : undefined
+          }
         >
           <Download size={14} />
-          QR
+          {labels.qr}
         </Button>
       </div>
+      <QrPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title={name}
+        code={code}
+        fileName={fileName}
+      />
     </div>
   );
 }
@@ -221,51 +295,143 @@ export function SingleQrCard({
   name,
   code,
   qrImage,
+  labels,
 }: {
   name: string;
   code?: string;
   qrImage?: string;
+  labels: {
+    title: string;
+    generating: string;
+    loading: string;
+    download: string;
+  };
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   return (
     <div className="grid gap-3 rounded-md border border-border bg-background p-4 md:col-span-2">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-semibold">Single event QR</p>
-          <p className="mt-1 text-xs text-muted-fg">{code ?? "Generating QR"}</p>
+          <p className="font-semibold">{labels.title}</p>
+          <p className="mt-1 text-xs text-muted-fg">{code ?? labels.generating}</p>
         </div>
-        <span className="grid size-8 place-items-center rounded-md border border-border text-muted-fg">
+        <button
+          type="button"
+          className="grid size-8 place-items-center rounded-md border border-border text-muted-fg transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          disabled={!code}
+          onClick={() => setPreviewOpen(true)}
+          aria-label={`${name} QR code`}
+        >
           <QrCode size={16} />
-        </span>
+        </button>
       </div>
       {qrImage ? (
-        <img
-          src={qrImage}
-          alt={`${name} QR code`}
-          className="size-48 rounded-md border border-border bg-white p-2"
-        />
+        <button type="button" className="w-fit" onClick={() => setPreviewOpen(true)}>
+          <img
+            src={qrImage}
+            alt={`${name} QR code`}
+            className="size-48 rounded-md border border-border bg-white p-2 transition-shadow hover:shadow-soft"
+          />
+        </button>
       ) : (
         <div className="grid size-48 place-items-center rounded-md border border-dashed border-border text-sm text-muted-fg">
-          Loading QR
+          {labels.loading}
         </div>
       )}
       <Button
         variant="outline"
         className="h-8 justify-self-start"
-        disabled={!qrImage}
-        onClick={() => (qrImage ? downloadDataUrl(qrImage, `${name}.png`) : undefined)}
+        disabled={!code && !qrImage}
+        onClick={() =>
+          code ? setPreviewOpen(true) : qrImage ? downloadDataUrl(qrImage, `${name}.png`) : undefined
+        }
       >
         <Download size={14} />
-        Download QR
+        {labels.download}
       </Button>
+      <QrPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title={name}
+        code={code}
+        fileName={`${name}.png`}
+      />
     </div>
   );
 }
 
-export function PlacesEmptyState() {
+function QrPreviewDialog({
+  open,
+  onOpenChange,
+  title,
+  code,
+  fileName,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  code?: string;
+  fileName: string;
+}) {
+  const qrRef = useRef<HTMLCanvasElement>(null);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`${title} QR`}
+      description={code ?? "QR code is still being generated."}
+    >
+      <div className="grid justify-items-center gap-4">
+        <div className="rounded-md border border-border bg-white p-4">
+          {code ? (
+            <QRCodeCanvas
+              ref={qrRef}
+              value={code}
+              size={240}
+              level="H"
+              includeMargin
+            />
+          ) : (
+            <div className="grid size-60 place-items-center text-sm text-muted-fg">
+              Loading QR
+            </div>
+          )}
+        </div>
+        <DialogFooter className="w-full">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+          <Button
+            type="button"
+            disabled={!code}
+            onClick={() => downloadCanvas(qrRef.current, fileName)}
+          >
+            <Download size={14} />
+            Download
+          </Button>
+        </DialogFooter>
+      </div>
+    </Dialog>
+  );
+}
+
+export function PlacesEmptyState({
+  title = "No places configured",
+  text = "Add places to this event to generate room-specific QR codes.",
+}: {
+  title?: string;
+  text?: string;
+}) {
   return (
     <EmptyState
-      title="No places configured"
-      text="Add places to this event to generate room-specific QR codes."
+      title={title}
+      text={text}
     />
   );
 }
@@ -275,21 +441,27 @@ function MapPreview({
   label,
   compact = false,
   className,
+  openMapLabel = "Open map",
 }: {
   coordinates: Coordinates;
   label: string;
   compact?: boolean;
   className?: string;
+  openMapLabel?: string;
 }) {
   return (
-    <div className={`overflow-hidden rounded-md border border-border ${className ?? ""}`}>
-      <iframe
-        title={`${label} map`}
-        src={mapEmbedUrl(coordinates)}
-        className={compact ? "h-28 w-full" : "h-40 w-full"}
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-      />
+    <div
+      className={`overflow-hidden rounded-md border border-border bg-background ${className ?? ""}`}
+    >
+      <div className={compact ? "h-44" : "h-80"}>
+        <iframe
+          title={`${label} map`}
+          src={mapEmbedUrl(coordinates)}
+          className="block h-full w-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+      </div>
       <div className="flex items-center justify-between gap-2 border-t border-border bg-muted px-3 py-2 text-xs text-muted-fg">
         <span className="truncate">{formatCoordinates(coordinates)}</span>
         <a
@@ -298,7 +470,7 @@ function MapPreview({
           rel="noreferrer"
           className="inline-flex shrink-0 items-center gap-1 font-medium text-foreground"
         >
-          Open map
+          {openMapLabel}
           <ExternalLink size={12} />
         </a>
       </div>
@@ -308,7 +480,7 @@ function MapPreview({
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-md bg-muted p-2">
+    <div className="min-w-0 rounded-md bg-muted p-2">
       <p className="text-xs text-muted-fg">{label}</p>
       <p className="mt-1 font-semibold">{value}</p>
     </div>
@@ -340,13 +512,14 @@ function formatCoordinates(coordinates: Coordinates) {
   return `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`;
 }
 
-function formatDateRange(startsAt: string, endsAt: string) {
-  return `${new Date(startsAt).toLocaleString()} - ${new Date(endsAt).toLocaleString()}`;
-}
-
 function downloadDataUrl(dataUrl: string, filename: string) {
   const link = document.createElement("a");
   link.href = dataUrl;
   link.download = filename.replace(/[^\w.-]+/g, "-").toLowerCase();
   link.click();
+}
+
+function downloadCanvas(canvas: HTMLCanvasElement | null, filename: string) {
+  if (!canvas) return;
+  downloadDataUrl(canvas.toDataURL("image/png"), filename);
 }

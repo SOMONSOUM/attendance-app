@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   BarChart3,
   Clock,
   RotateCcw,
   UserCheck,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +23,9 @@ import {
 } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import {
   Table,
@@ -37,8 +42,12 @@ import {
   joinRegisteredAttendee,
   listEventRoster,
   listEvents,
+  registerAttendeeByEventQr,
+  type EventShift,
   type EventRosterRecord,
+  type RegistrationForm,
 } from "@/lib/admin-data";
+import { formatDateRange, formatDateTime, formatTime } from "@/lib/format";
 import {
   EventDetailsCard,
   LocationRequirementBadge,
@@ -53,6 +62,8 @@ const ALL = "all";
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function EventDetailPage() {
+  const t = useTranslations("details");
+  const common = useTranslations("common");
   const params = useParams<{ locale: string; eventId: string }>();
   const searchParams = useSearchParams();
   const locale = params.locale ?? "en";
@@ -64,8 +75,12 @@ export default function EventDetailPage() {
   const [gender, setGender] = useState(ALL);
   const [shift, setShift] = useState(ALL);
   const [joinStatus, setJoinStatus] = useState(ALL);
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registrationForm, setRegistrationForm] =
+    useState<RegistrationForm>(emptyRegistrationForm);
 
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
@@ -89,6 +104,21 @@ export default function EventDetailPage() {
   const cancelMutation = useMutation({
     mutationFn: cancelAttendance,
     onSuccess: () => refreshEventData(queryClient, eventId),
+  });
+  const registerMutation = useMutation({
+    mutationFn: (data: RegistrationForm) => {
+      const code = selectedPlace
+        ? qrQuery.data?.qrCodes?.find((item) => item.placeId === selectedPlace.id)
+            ?.code
+        : qrQuery.data?.code;
+      if (!code) throw new Error("QR code is not ready yet.");
+      return registerAttendeeByEventQr(code, data);
+    },
+    onSuccess: () => {
+      refreshEventData(queryClient, eventId);
+      setRegistrationForm(emptyRegistrationForm);
+      setRegisterOpen(false);
+    },
   });
 
   const event = eventsQuery.data?.items.find((item) => item.id === eventId);
@@ -118,9 +148,10 @@ export default function EventDetailPage() {
           matchesFilter(row.position, position) &&
           matchesFilter(row.gender, gender) &&
           matchesFilter(row.shiftName, shift) &&
-          matchesJoinStatus(row, joinStatus),
+          matchesJoinStatus(row, joinStatus) &&
+          matchesSearch(row, search),
       ),
-    [scopedRows, department, position, gender, shift, joinStatus],
+    [scopedRows, department, position, gender, shift, joinStatus, search],
   );
   const totalPages = Math.max(Math.ceil(filteredRows.length / pageSize), 1);
   const currentPage = Math.min(page, totalPages);
@@ -131,7 +162,7 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [department, position, gender, shift, joinStatus, pageSize, selectedPlaceId]);
+  }, [department, position, gender, shift, joinStatus, pageSize, selectedPlaceId, search]);
 
   const departmentOptions = useMemo(
     () => uniqueValues(scopedRows.map((row) => row.department)),
@@ -170,6 +201,8 @@ export default function EventDetailPage() {
       }),
     [event?.places, event?.latitude, event?.longitude, roster, qrQuery.data?.qrCodes],
   );
+  const canRegisterInCurrentScope =
+    !event?.separateQrByPlace || Boolean(selectedPlace);
 
   return (
     <AdminShell
@@ -177,66 +210,72 @@ export default function EventDetailPage() {
       title={
         selectedPlace
           ? `${selectedPlace.name} overview`
-          : event?.name ?? "Event overview"
+          : event?.name ?? t("eventOverview")
       }
       description={
         event
           ? selectedPlace
             ? `${event.name}, ${selectedPlace.locationName || event.locationName}`
-            : `${registrationModeLabel(event.mode)} event, ${formatDateRange(event.startsAt, event.endsAt)}`
-          : "Event attendance overview and check-in breakdown."
+            : `${registrationModeLabel(event.mode, common)} ${common("event").toLowerCase()}, ${formatDateRange(event.startsAt, event.endsAt)}`
+          : t("eventDescription")
       }
       action={
         <Button asChild variant="outline">
           <Link href={`/${locale}/events`}>
             <ArrowLeft size={16} />
-            Back to events
+            {t("backToEvents")}
           </Link>
         </Button>
       }
     >
       {eventsQuery.isLoading || rosterQuery.isLoading ? (
         <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-fg">
-          Loading event overview...
+          {t("loadingEvent")}
         </div>
       ) : !event ? (
         <EmptyState
-          title="Event not found"
-          text="This event may have been deleted or you may not have access."
+          title={t("eventNotFound")}
+          text={t("eventNotFoundText")}
         />
       ) : (
         <div className="space-y-5">
           <div className="flex flex-wrap gap-2">
             <StatusPill tone={event.separateQrByPlace ? "purple" : "blue"}>
-              {event.separateQrByPlace ? "By place" : "Single QR"}
+              {event.separateQrByPlace ? t("byPlace") : t("singleQr")}
             </StatusPill>
-            <StatusPill tone={eventTone(event)}>{eventStatus(event)}</StatusPill>
-            <LocationRequirementBadge required={event.requireLocation} />
+            <StatusPill tone={eventTone(event)}>{eventStatus(event, common)}</StatusPill>
+            <LocationRequirementBadge
+              required={event.requireLocation}
+              labels={{
+                required: t("locationRequired"),
+                notRequired: t("locationNotRequired"),
+              }}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label={selectedPlace ? "Place users" : "All users"}
+              label={selectedPlace ? t("placeUsers") : t("allUsers")}
               value={String(scopedRows.length)}
-              sub={`${notYetRows.length} not yet joined`}
+              sub={t("notYetJoinedCount", { count: notYetRows.length })}
               icon={Users}
             />
             <MetricCard
-              label="Joined"
+              label={common("joined")}
               value={String(joinedRows.length)}
-              sub={`${joinRate}% coverage`}
+              sub={t("coverage", { rate: joinRate })}
               icon={UserCheck}
             />
             <MetricCard
-              label="Filtered users"
+              label={t("filteredUsers")}
               value={String(filteredRows.length)}
-              sub="Matching the current table"
+              sub={t("matchingTable")}
               icon={BarChart3}
             />
             <MetricCard
-              label="Latest join"
+              label={t("latestJoin")}
               value={latestJoinTime(joinedRows)}
-              sub="Most recent check-in"
+              sub={t("mostRecentCheckIn")}
               icon={Clock}
             />
           </div>
@@ -253,6 +292,16 @@ export default function EventDetailPage() {
               startsAt={event.startsAt}
               endsAt={event.endsAt}
               shifts={event.shifts}
+              labels={{
+                title: t("eventDetails"),
+                location: common("location"),
+                description: common("description"),
+                schedule: t("schedule"),
+                shifts: t("shifts"),
+                locationRequired: t("locationRequired"),
+                locationNotRequired: t("locationNotRequired"),
+                openMap: t("openMap"),
+              }}
             />
 
             <Card>
@@ -260,14 +309,14 @@ export default function EventDetailPage() {
                 title={
                   event.separateQrByPlace
                     ? selectedPlace
-                      ? `${selectedPlace.name} QR and stats`
-                      : "Places and QR codes"
-                    : "Event QR"
+                      ? t("qrAndStats", { name: selectedPlace.name })
+                      : t("placesAndQr")
+                    : t("eventQr")
                 }
               >
                 {selectedPlace ? (
                   <Button asChild variant="outline" className="h-8">
-                    <Link href={`/${locale}/events/${event.id}`}>All places</Link>
+                    <Link href={`/${locale}/events/${event.id}`}>{t("allPlaces")}</Link>
                   </Button>
                 ) : null}
               </SectionToolbar>
@@ -287,22 +336,28 @@ export default function EventDetailPage() {
                           total={place.total}
                           joined={place.joined}
                           rate={place.rate}
+                          code={place.qr?.code}
                           qrImage={place.qr?.qrImage}
                           fileName={`${event.name}-${place.name}.png`}
                           href={`/${locale}/events/${event.id}?placeId=${place.id}`}
                           requireLocation={place.requireLocation}
                           coordinates={place.coordinates}
                           showView={!selectedPlace}
+                          labels={placeCardLabels(t)}
                         />
                       ))
                   ) : (
-                    <PlacesEmptyState />
+                    <PlacesEmptyState
+                      title={t("noPlacesConfigured")}
+                      text={t("noEventPlacesText")}
+                    />
                   )
                 ) : (
                   <SingleQrCard
                     name={event.name}
                     code={qrQuery.data?.code}
                     qrImage={qrQuery.data?.qrImage}
+                    labels={singleQrLabels(t, "event")}
                   />
                 )}
               </CardContent>
@@ -312,38 +367,51 @@ export default function EventDetailPage() {
           <Card>
             <CardContent className="grid gap-3 p-4 xl:grid-cols-6">
               <FilterSelect
-                label="Department"
+                label={common("department")}
                 value={department}
                 values={departmentOptions}
                 onChange={setDepartment}
+                allLabel={t("allDepartments")}
               />
               <FilterSelect
-                label="Position"
+                label={common("position")}
                 value={position}
                 values={positionOptions}
                 onChange={setPosition}
+                allLabel={t("allPositions")}
               />
               <FilterSelect
-                label="Gender"
+                label={common("gender")}
                 value={gender}
                 values={genderOptions}
                 onChange={setGender}
+                allLabel={t("allGenders")}
               />
               <FilterSelect
-                label="Shift"
+                label={t("shift")}
                 value={shift}
                 values={shiftOptions}
                 onChange={setShift}
+                allLabel={t("allShifts")}
               />
+              <label className="grid gap-2 text-sm font-medium xl:col-span-2">
+                {t("searchAttendee")}
+                <input
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={search}
+                  placeholder={t("searchAttendeePlaceholder")}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
               <label className="grid gap-2 text-sm font-medium">
-                Joined status
+                {t("joinedStatus")}
                 <Select
                   value={joinStatus}
                   onChange={(event) => setJoinStatus(event.target.value)}
                 >
-                  <option value={ALL}>All statuses</option>
-                  <option value="joined">Joined</option>
-                  <option value="not-yet">Not yet</option>
+                  <option value={ALL}>{t("allStatuses")}</option>
+                  <option value="joined">{common("joined")}</option>
+                  <option value="not-yet">{t("notYet")}</option>
                 </Select>
               </label>
               <div className="flex items-end">
@@ -356,10 +424,11 @@ export default function EventDetailPage() {
                     setGender(ALL);
                     setShift(ALL);
                     setJoinStatus(ALL);
+                    setSearch("");
                   }}
                 >
                   <RotateCcw size={14} />
-                  Reset
+                  {common("reset")}
                 </Button>
               </div>
             </CardContent>
@@ -368,21 +437,29 @@ export default function EventDetailPage() {
           <TableShell>
             <SectionToolbar
               title={
-                selectedPlace ? `${selectedPlace.name} users` : "All users in this event"
+                selectedPlace ? t("placeUsersTitle", { name: selectedPlace.name }) : t("allUsersInEvent")
               }
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-fg">
-                  {filteredRows.length} users
+                  {t("userCount", { count: filteredRows.length })}
                 </span>
+                <Button
+                  className="h-8"
+                  onClick={() => setRegisterOpen(true)}
+                  disabled={qrQuery.isLoading || !canRegisterInCurrentScope}
+                >
+                  <UserPlus size={14} />
+                  {t("register")}
+                </Button>
                 <Select
                   className="h-8 w-28"
                   value={String(pageSize)}
                   onChange={(event) => setPageSize(Number(event.target.value))}
                 >
-                  <option value="10">10 / page</option>
-                  <option value="20">20 / page</option>
-                  <option value="50">50 / page</option>
+                  <option value="10">{t("perPage", { count: 10 })}</option>
+                  <option value="20">{t("perPage", { count: 20 })}</option>
+                  <option value="50">{t("perPage", { count: 50 })}</option>
                 </Select>
               </div>
             </SectionToolbar>
@@ -391,15 +468,15 @@ export default function EventDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-t-0">
-                      <TableHead>User</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Position</TableHead>
-                      <TableHead>Gender</TableHead>
-                      {event.separateQrByPlace ? <TableHead>Place</TableHead> : null}
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead>Joined time</TableHead>
-                      <TableHead>Action</TableHead>
+                      <TableHead>{common("user")}</TableHead>
+                      <TableHead>{common("department")}</TableHead>
+                      <TableHead>{common("position")}</TableHead>
+                      <TableHead>{common("gender")}</TableHead>
+                      {event.separateQrByPlace ? <TableHead>{common("place")}</TableHead> : null}
+                      <TableHead>{t("shift")}</TableHead>
+                      <TableHead>{common("joined")}</TableHead>
+                      <TableHead>{t("joinedTime")}</TableHead>
+                      <TableHead>{common("action")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -434,12 +511,12 @@ export default function EventDetailPage() {
                         </TableCell>
                         <TableCell>
                           <StatusPill tone={row.joined ? "green" : "amber"}>
-                            {row.joined ? "Joined" : "Not yet"}
+                            {row.joined ? common("joined") : t("notYet")}
                           </StatusPill>
                         </TableCell>
                         <TableCell className="text-muted-fg">
                           {row.joinedAt
-                            ? new Date(row.joinedAt).toLocaleString()
+                            ? formatDateTime(row.joinedAt)
                             : "-"}
                         </TableCell>
                         <TableCell>
@@ -452,7 +529,7 @@ export default function EventDetailPage() {
                                 cancelMutation.mutate(row.attendanceId!)
                               }
                             >
-                              Cancel join
+                              {t("cancelJoin")}
                             </Button>
                           ) : row.registrationId ? (
                             <Button
@@ -462,7 +539,7 @@ export default function EventDetailPage() {
                                 joinMutation.mutate(row.registrationId!)
                               }
                             >
-                              Join event
+                              {t("joinEvent")}
                             </Button>
                           ) : (
                             <span className="text-sm text-muted-fg">-</span>
@@ -474,7 +551,7 @@ export default function EventDetailPage() {
                 </Table>
                 <div className="flex flex-col justify-between gap-3 border-t border-border p-4 sm:flex-row sm:items-center">
                   <p className="text-sm text-muted-fg">
-                    Page {currentPage} of {totalPages}
+                    {t("pageOf", { page: currentPage, total: totalPages })}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -483,7 +560,7 @@ export default function EventDetailPage() {
                       disabled={currentPage <= 1}
                       onClick={() => setPage((value) => Math.max(value - 1, 1))}
                     >
-                      Previous
+                      {common("previous")}
                     </Button>
                     <Button
                       variant="outline"
@@ -493,18 +570,29 @@ export default function EventDetailPage() {
                         setPage((value) => Math.min(value + 1, totalPages))
                       }
                     >
-                      Next
+                      {common("next")}
                     </Button>
                   </div>
                 </div>
               </>
             ) : (
               <EmptyState
-                title="No users match"
-                text="Change the filters or add registrations for this event."
+                title={t("noUsersMatch")}
+                text={t("noEventUsersText")}
               />
             )}
           </TableShell>
+          <RegistrationDialog
+            open={registerOpen}
+            labels={registrationDialogLabels(t, "attendee")}
+            values={registrationForm}
+            shifts={event.shifts ?? []}
+            isPending={registerMutation.isPending}
+            error={registerMutation.error?.message}
+            onOpenChange={setRegisterOpen}
+            onChange={setRegistrationForm}
+            onSubmit={() => registerMutation.mutate(registrationForm)}
+          />
         </div>
       )}
     </AdminShell>
@@ -516,17 +604,19 @@ function FilterSelect({
   value,
   values,
   onChange,
+  allLabel,
 }: {
   label: string;
   value: string;
   values: string[];
   onChange: (value: string) => void;
+  allLabel: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-medium">
       {label}
       <Select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value={ALL}>All {label.toLowerCase()}</option>
+        <option value={ALL}>{allLabel}</option>
         {values.map((item) => (
           <option key={item} value={item}>
             {item}
@@ -567,12 +657,198 @@ function latestJoinTime(rows: EventRosterRecord[]) {
       (a, b) => new Date(b!).getTime() - new Date(a!).getTime(),
     )[0];
 
-  return latest
-    ? new Date(latest).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+  return latest ? formatTime(latest) : "-";
+}
+
+const emptyRegistrationForm: RegistrationForm = {
+  fullNameEn: "",
+  fullNameKm: "",
+  gender: "",
+  position: "",
+  department: "",
+  shiftId: "",
+};
+
+function RegistrationDialog({
+  open,
+  labels,
+  values,
+  isPending,
+  error,
+  shifts,
+  onOpenChange,
+  onChange,
+  onSubmit,
+}: {
+  open: boolean;
+  labels: RegistrationDialogLabels;
+  values: RegistrationForm;
+  shifts: EventShift[];
+  isPending: boolean;
+  error?: string;
+  onOpenChange: (open: boolean) => void;
+  onChange: (values: RegistrationForm) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={labels.title}
+      description={labels.description}
+    >
+      <form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField label={labels.fullNameEn} className="sm:col-span-2">
+            <Input
+              value={values.fullNameEn}
+              onChange={(event) =>
+                onChange({ ...values, fullNameEn: event.target.value })
+              }
+              required
+            />
+          </FormField>
+          <FormField label={labels.fullNameKm} className="sm:col-span-2">
+            <Input
+              value={values.fullNameKm ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, fullNameKm: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label={labels.gender}>
+            <Select
+              value={values.gender ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  gender: event.target.value as RegistrationForm["gender"],
+                })
+              }
+            >
+              <option value="">{labels.notSpecified}</option>
+              <option value="MALE">{labels.male}</option>
+              <option value="FEMALE">{labels.female}</option>
+              <option value="OTHER">{labels.other}</option>
+            </Select>
+          </FormField>
+          {shifts.length ? (
+            <FormField label={labels.shift} className="sm:col-span-2">
+              <Select
+                value={values.shiftId ?? ""}
+                onChange={(event) =>
+                  onChange({ ...values, shiftId: event.target.value })
+                }
+              >
+                <option value="">{labels.noShift}</option>
+                {shifts.map((shift) => (
+                  <option key={shift.id ?? shift.name} value={shift.id ?? ""}>
+                    {shift.name}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          ) : null}
+          <FormField label={labels.position}>
+            <Input
+              value={values.position ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, position: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label={labels.department} className="sm:col-span-2">
+            <Input
+              value={values.department ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, department: event.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {labels.cancel}
+          </Button>
+          <Button type="submit" disabled={isPending || !values.fullNameEn.trim()}>
+            <UserPlus size={14} />
+            {isPending ? labels.registering : labels.register}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
+  );
+}
+
+type RegistrationDialogLabels = {
+  title: string;
+  description: string;
+  fullNameEn: string;
+  fullNameKm: string;
+  gender: string;
+  notSpecified: string;
+  male: string;
+  female: string;
+  other: string;
+  shift: string;
+  noShift: string;
+  position: string;
+  department: string;
+  cancel: string;
+  register: string;
+  registering: string;
+};
+
+function registrationDialogLabels(
+  t: ReturnType<typeof useTranslations<"details">>,
+  noun: "attendee" | "participant",
+): RegistrationDialogLabels {
+  return {
+    title: t(noun === "attendee" ? "registerAttendee" : "registerParticipant"),
+    description: t(
+      noun === "attendee"
+        ? "registerAttendeeDescription"
+        : "registerParticipantDescription",
+    ),
+    fullNameEn: t("fullNameEn"),
+    fullNameKm: t("fullNameKm"),
+    gender: t("gender"),
+    notSpecified: t("notSpecified"),
+    male: t("male"),
+    female: t("female"),
+    other: t("other"),
+    shift: t("shift"),
+    noShift: t("noShiftSelected"),
+    position: t("position"),
+    department: t("department"),
+    cancel: t("cancel"),
+    register: t("register"),
+    registering: t("registering"),
+  };
+}
+
+function FormField({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`grid gap-2 text-sm font-medium ${className ?? ""}`}>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
 }
 
 function refreshEventData(
@@ -583,26 +859,63 @@ function refreshEventData(
   queryClient.invalidateQueries({ queryKey: eventKeys.all });
 }
 
-function formatDateRange(startsAt: string, endsAt: string) {
-  return `${new Date(startsAt).toLocaleString()} - ${new Date(endsAt).toLocaleString()}`;
+function registrationModeLabel(
+  mode: string,
+  t: ReturnType<typeof useTranslations<"common">>,
+) {
+  if (mode === "OPEN_REGISTRATION") return t("openRegistration");
+  if (mode === "PRE_REGISTRATION") return t("preRegistration");
+  return t("bulkRegistration");
 }
 
-function registrationModeLabel(mode: string) {
-  if (mode === "OPEN_REGISTRATION") return "Open registration";
-  if (mode === "PRE_REGISTRATION") return "Pre-registration";
-  return "Bulk registration";
+function matchesSearch(row: EventRosterRecord, search: string) {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  return [row.fullNameEn, row.fullNameKm]
+    .filter(Boolean)
+    .some((value) => value!.toLowerCase().includes(needle));
 }
 
-function eventStatus(event: { startsAt: string; endsAt: string }) {
+function eventStatus(
+  event: { startsAt: string; endsAt: string },
+  t: ReturnType<typeof useTranslations<"common">>,
+) {
   const now = Date.now();
-  if (new Date(event.startsAt).getTime() > now) return "Ready";
-  if (new Date(event.endsAt).getTime() < now) return "Closed";
-  return "Live";
+  if (new Date(event.startsAt).getTime() > now) return t("ready");
+  if (new Date(event.endsAt).getTime() < now) return t("closed");
+  return t("live");
 }
 
 function eventTone(event: { startsAt: string; endsAt: string }) {
-  const status = eventStatus(event);
-  if (status === "Live") return "green";
-  if (status === "Ready") return "purple";
+  const now = Date.now();
+  if (new Date(event.startsAt).getTime() <= now && new Date(event.endsAt).getTime() >= now) return "green";
+  if (new Date(event.startsAt).getTime() > now) return "purple";
   return "amber";
+}
+
+function placeCardLabels(t: ReturnType<typeof useTranslations<"details">>) {
+  return {
+    locationNotSet: t("locationNotSet"),
+    users: t("users"),
+    joined: t("joinedShort"),
+    rate: t("rate"),
+    view: t("view"),
+    map: t("map"),
+    qr: t("qr"),
+    locationRequired: t("locationRequired"),
+    locationNotRequired: t("locationNotRequired"),
+    openMap: t("openMap"),
+  };
+}
+
+function singleQrLabels(
+  t: ReturnType<typeof useTranslations<"details">>,
+  type: "event" | "meeting",
+) {
+  return {
+    title: type === "event" ? t("singleEventQr") : t("singleMeetingQr"),
+    generating: t("generatingQr"),
+    loading: t("loadingQr"),
+    download: t("downloadQr"),
+  };
 }

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Download, ListFilter, Users } from "lucide-react";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import {
   AdminShell,
   EmptyState,
@@ -23,6 +24,8 @@ import {
 } from "@/components/ui/table";
 import {
   eventKeys,
+  cancelAttendance,
+  cancelMeetingParticipant,
   joinAttendeeByQrCode,
   joinMeetingParticipantByQrCode,
   listAttendance,
@@ -33,6 +36,7 @@ import {
   type MeetingParticipant,
   type MeetingPlace,
 } from "@/lib/admin-data";
+import { formatDateTime } from "@/lib/format";
 
 type SourceType = "ALL" | "EVENT" | "MEETING";
 
@@ -43,6 +47,7 @@ type AttendanceLog = {
   sourceName: string;
   placeName: string;
   fullNameEn: string;
+  fullNameKm?: string | null;
   department?: string | null;
   checkInAt: string;
   status: "JOINED" | "CANCELLED";
@@ -53,10 +58,14 @@ const PAGE_SIZE = 10;
 const todayInputValue = toDateInput(new Date());
 
 export default function AttendancePage() {
+  const common = useTranslations("common");
+  const t = useTranslations("attendance");
+  const queryClient = useQueryClient();
   const [sourceType, setSourceType] = useState<SourceType>(ALL);
   const [sourceKey, setSourceKey] = useState(ALL);
   const [date, setDate] = useState(todayInputValue);
   const [scanCode, setScanCode] = useState("");
+  const [search, setSearch] = useState("");
   const [scanType, setScanType] = useState<Exclude<SourceType, "ALL">>("EVENT");
   const [page, setPage] = useState(1);
   const eventsQuery = useQuery({
@@ -88,6 +97,17 @@ export default function AttendancePage() {
       attendanceQueries.forEach((query) => query.refetch());
     },
   });
+  const cancelMutation = useMutation<unknown, Error, AttendanceLog>({
+    mutationFn: (row: AttendanceLog) =>
+      row.sourceType === "EVENT"
+        ? cancelAttendance(row.id)
+        : cancelMeetingParticipant(row.sourceKey.replace("MEETING:", ""), row.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      queryClient.invalidateQueries({ queryKey: meetingKeys.all });
+      attendanceQueries.forEach((query) => query.refetch());
+    },
+  });
 
   const eventLogs = useMemo(
     () =>
@@ -99,6 +119,7 @@ export default function AttendancePage() {
           sourceName: event.name,
           placeName: row.placeName ?? placeName(event.places, row.placeId),
           fullNameEn: row.fullNameEn,
+          fullNameKm: row.fullNameKm,
           department: row.department,
           checkInAt: row.createdAt,
           status: row.status,
@@ -152,7 +173,8 @@ export default function AttendancePage() {
     (row) =>
       (sourceType === ALL || row.sourceType === sourceType) &&
       (sourceKey === ALL || row.sourceKey === sourceKey) &&
-      sameInputDate(row.checkInAt, date),
+      sameInputDate(row.checkInAt, date) &&
+      matchesAttendanceSearch(row, search),
   );
   const isLoading =
     eventsQuery.isLoading ||
@@ -171,37 +193,37 @@ export default function AttendancePage() {
   return (
     <AdminShell
       active="Attendance"
-      title="Attendance"
-      description="Audit event and meeting check-ins, scan time, and attendee status."
+      title={t("title")}
+      description={t("description")}
       action={
         <Button>
           <Download size={16} />
-          Export logs
+          {t("exportLogs")}
         </Button>
       }
     >
       <div className="space-y-5 pt-4">
         <div className="grid gap-4 sm:grid-cols-3">
-          <MetricCard label="Total check-ins" value={filteredLogs.length} />
-          <MetricCard label="Event check-ins" value={eventCount} />
-          <MetricCard label="Meeting check-ins" value={meetingCount} />
+          <MetricCard label={t("totalCheckIns")} value={filteredLogs.length} />
+          <MetricCard label={t("eventCheckIns")} value={eventCount} />
+          <MetricCard label={t("meetingCheckIns")} value={meetingCount} />
         </div>
 
         <TableShell>
         <div className="grid gap-4 border-b border-border bg-card p-4">
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
             <div>
-              <h2 className="font-semibold">Live attendance logs</h2>
+              <h2 className="font-semibold">{t("liveLogs")}</h2>
               <p className="mt-1 text-sm text-muted-fg">
-                Filter check-ins by date, type, and source.
+                {t("filterHint")}
               </p>
             </div>
             <Button variant="outline" className="h-9 w-fit">
               <Users size={14} />
-              {filteredLogs.length} checked in
+              {t("checkedInCount", { count: filteredLogs.length })}
             </Button>
           </div>
-          <div className="grid gap-2 md:grid-cols-[160px_150px_minmax(240px,1fr)]">
+          <div className="grid gap-2 md:grid-cols-[160px_150px_minmax(240px,1fr)_minmax(220px,1fr)]">
             <Input
               className="h-9"
               type="date"
@@ -216,9 +238,9 @@ export default function AttendancePage() {
               value={sourceType}
               onChange={(event) => changeSourceType(event.target.value as SourceType)}
             >
-              <option value={ALL}>All types</option>
-              <option value="EVENT">Events</option>
-              <option value="MEETING">Meetings</option>
+              <option value={ALL}>{t("allTypes")}</option>
+              <option value="EVENT">{common("events")}</option>
+              <option value="MEETING">{common("meetings")}</option>
             </Select>
             <Select
               className="h-9"
@@ -228,13 +250,22 @@ export default function AttendancePage() {
                 setPage(1);
               }}
             >
-              <option value={ALL}>All sources</option>
+              <option value={ALL}>{t("allSources")}</option>
               {sourceOptions.map((source) => (
                 <option key={source.key} value={source.key}>
-                  {source.type}: {source.label}
+                  {source.type === "Event" ? common("event") : common("meeting")}: {source.label}
                 </option>
               ))}
             </Select>
+            <Input
+              className="h-9"
+              value={search}
+              placeholder={t("searchPlaceholder")}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
           </div>
         </div>
 
@@ -246,13 +277,13 @@ export default function AttendancePage() {
               setScanType(event.target.value as Exclude<SourceType, "ALL">)
             }
           >
-            <option value="EVENT">Event QR</option>
-            <option value="MEETING">Meeting QR</option>
+            <option value="EVENT">{t("eventQr")}</option>
+            <option value="MEETING">{t("meetingQr")}</option>
           </Select>
           <Input
             className="h-10"
             value={scanCode}
-            placeholder="Paste personal QR code after scanning"
+            placeholder={t("scanPlaceholder")}
             onChange={(event) => setScanCode(event.target.value)}
           />
           <Button
@@ -260,7 +291,7 @@ export default function AttendancePage() {
             disabled={!scanCode.trim() || scanMutation.isPending}
             onClick={() => scanMutation.mutate()}
           >
-            {scanMutation.isPending ? "Checking..." : "Mark joined"}
+            {scanMutation.isPending ? t("checking") : t("markJoined")}
           </Button>
           {scanMutation.error ? (
             <p className="text-sm text-destructive md:col-span-3">
@@ -269,28 +300,34 @@ export default function AttendancePage() {
           ) : null}
         </div>
         {isLoading ? (
-          <div className="p-5 text-sm text-muted-fg">Loading attendance...</div>
+          <div className="p-5 text-sm text-muted-fg">{t("loading")}</div>
         ) : filteredLogs.length ? (
           <>
           <Table>
             <TableHeader>
               <TableRow className="border-t-0">
-                <TableHead>Attendee</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Place</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Check-in time</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t("attendee")}</TableHead>
+                <TableHead>{common("type")}</TableHead>
+                <TableHead>{t("source")}</TableHead>
+                <TableHead>{common("place")}</TableHead>
+                <TableHead>{common("department")}</TableHead>
+                <TableHead>{t("checkInTime")}</TableHead>
+                <TableHead>{common("status")}</TableHead>
+                <TableHead>{common("actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pageLogs.map((row) => (
                 <TableRow key={`${row.sourceType}-${row.id}`}>
-                  <TableCell className="font-medium">{row.fullNameEn}</TableCell>
+                  <TableCell className="font-medium">
+                    <p>{row.fullNameEn}</p>
+                    {row.fullNameKm ? (
+                      <p className="text-xs text-muted-fg">{row.fullNameKm}</p>
+                    ) : null}
+                  </TableCell>
                   <TableCell>
                     <StatusPill tone={row.sourceType === "MEETING" ? "purple" : "blue"}>
-                      {row.sourceType === "MEETING" ? "Meeting" : "Event"}
+                      {row.sourceType === "MEETING" ? common("meeting") : common("event")}
                     </StatusPill>
                   </TableCell>
                   <TableCell>{row.sourceName}</TableCell>
@@ -299,14 +336,24 @@ export default function AttendancePage() {
                     {row.department ?? "-"}
                   </TableCell>
                   <TableCell className="text-muted-fg">
-                    {new Date(row.checkInAt).toLocaleString()}
+                    {formatDateTime(row.checkInAt)}
                   </TableCell>
                   <TableCell>
                     <StatusPill
                       tone={row.status === "JOINED" ? "green" : "amber"}
                     >
-                      {row.status}
+                      {row.status === "JOINED" ? common("joined") : common("cancelled")}
                     </StatusPill>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      className="h-8"
+                      disabled={cancelMutation.isPending}
+                      onClick={() => cancelMutation.mutate(row)}
+                    >
+                      {t("cancelJoin")}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -321,8 +368,8 @@ export default function AttendancePage() {
           </>
         ) : (
           <EmptyState
-            title="No attendance yet"
-            text="Check-ins for the selected date, event, or meeting will appear here."
+            title={t("emptyTitle")}
+            text={t("emptyText")}
           />
         )}
         </TableShell>
@@ -358,6 +405,7 @@ function meetingLogFromParticipant(
     sourceName: meetingName,
     placeName: placeName(places, participant.placeId),
     fullNameEn: participant.fullNameEn,
+    fullNameKm: participant.fullNameKm,
     department: participant.department,
     checkInAt: participant.joinedAt!,
     status: participant.status === "CANCELLED" ? "CANCELLED" : "JOINED",
@@ -385,4 +433,12 @@ function placeName(
 ) {
   if (!placeId) return "All places";
   return places?.find((place) => place.id === placeId)?.name ?? "Unknown place";
+}
+
+function matchesAttendanceSearch(row: AttendanceLog, search: string) {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  return [row.fullNameEn, row.fullNameKm]
+    .filter(Boolean)
+    .some((value) => value!.toLowerCase().includes(needle));
 }

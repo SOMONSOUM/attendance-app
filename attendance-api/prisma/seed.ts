@@ -547,6 +547,15 @@ const boardMeetingParticipants: RegistrationSeed[] = [
   },
 ];
 
+const boardMeetingShifts: ShiftSeed[] = [
+  {
+    id: "seed-meeting-shift-board-session",
+    name: "Board session",
+    startTime: new Date("1970-01-01T09:00:00.000Z"),
+    endTime: new Date("1970-01-01T11:30:00.000Z"),
+  },
+];
+
 const placeMeeting = {
   id: "seed-meeting-committee-workshops-2026",
   tenantId: "default-tenant",
@@ -639,6 +648,21 @@ const meetingPlaceSeeds = [
   },
 ];
 
+const committeeMeetingShifts: ShiftSeed[] = [
+  {
+    id: "seed-meeting-shift-policy-workshop",
+    name: "Policy workshop",
+    startTime: new Date("1970-01-01T09:00:00.000Z"),
+    endTime: new Date("1970-01-01T11:30:00.000Z"),
+  },
+  {
+    id: "seed-meeting-shift-budget-workshop",
+    name: "Budget workshop",
+    startTime: new Date("1970-01-01T13:00:00.000Z"),
+    endTime: new Date("1970-01-01T15:30:00.000Z"),
+  },
+];
+
 const openMeeting = {
   id: "seed-meeting-public-townhall-2026",
   tenantId: "default-tenant",
@@ -717,12 +741,31 @@ const openMeetingParticipants = [
   },
 ];
 
+const openMeetingShifts: ShiftSeed[] = [
+  {
+    id: "seed-meeting-shift-townhall-main",
+    name: "Townhall session",
+    startTime: new Date("1970-01-01T09:00:00.000Z"),
+    endTime: new Date("1970-01-01T12:00:00.000Z"),
+  },
+];
+
+const preRegistrationMeetingShifts: ShiftSeed[] = [
+  {
+    id: "seed-meeting-shift-roundtable-main",
+    name: "Roundtable session",
+    startTime: new Date("1970-01-01T09:00:00.000Z"),
+    endTime: new Date("1970-01-01T11:00:00.000Z"),
+  },
+];
+
 async function resetDatabase() {
   await prisma.attendance.deleteMany();
   await prisma.eventRegistration.deleteMany();
   await prisma.meetingParticipant.deleteMany();
   await prisma.meetingQrCode.deleteMany();
   await prisma.meetingChairperson.deleteMany();
+  await prisma.meetingShift.deleteMany();
   await prisma.meetingPlace.deleteMany();
   await prisma.meeting.deleteMany();
   await prisma.registrationImportRow.deleteMany();
@@ -1023,13 +1066,15 @@ async function seedEvent() {
     });
   }
 
-  for (const registrationSeed of registrations) {
+  for (const [index, registrationSeed] of registrations.entries()) {
     const { id: registrationId, ...registrationData } = registrationSeed;
+    const shiftId = sampleShifts[index % sampleShifts.length].id;
 
     await prisma.eventRegistration.upsert({
       where: { id: registrationId },
       update: {
         eventId: event.id,
+        shiftId,
         ...registrationData,
         checkInCode: `${registrationId}-qr`,
         source: "SEED",
@@ -1037,6 +1082,7 @@ async function seedEvent() {
       create: {
         id: registrationId,
         eventId: event.id,
+        shiftId,
         ...registrationData,
         checkInCode: `${registrationId}-qr`,
         source: "SEED",
@@ -1054,6 +1100,7 @@ async function seedEvent() {
       },
     },
     update: {
+      shiftId: sampleShifts[0].id,
       fullNameEn: checkedInRegistration.fullNameEn,
       fullNameKm: "សុខ ដារ៉ា",
       gender: checkedInRegistration.gender,
@@ -1067,6 +1114,7 @@ async function seedEvent() {
     create: {
       eventId: event.id,
       registrationId: checkedInRegistration.id,
+      shiftId: sampleShifts[0].id,
       userId: "seed-user-admin",
       fullNameEn: checkedInRegistration.fullNameEn,
       fullNameKm: "សុខ ដារ៉ា",
@@ -1156,14 +1204,16 @@ async function seedPlaceEvent() {
       },
     });
 
-    for (const registrationSeed of placeSeed.registrations) {
+    for (const [index, registrationSeed] of placeSeed.registrations.entries()) {
       const { id: registrationId, ...registrationData } = registrationSeed;
+      const shiftId = placeEventShifts[index % placeEventShifts.length].id;
 
       await prisma.eventRegistration.upsert({
         where: { id: registrationId },
         update: {
           eventId: event.id,
           placeId: place.id,
+          shiftId,
           ...registrationData,
           checkInCode: `${registrationId}-qr`,
           source: "SEED",
@@ -1172,6 +1222,7 @@ async function seedPlaceEvent() {
           id: registrationId,
           eventId: event.id,
           placeId: place.id,
+          shiftId,
           ...registrationData,
           checkInCode: `${registrationId}-qr`,
           source: "SEED",
@@ -1271,6 +1322,22 @@ async function seedMeetings() {
     },
   });
 
+  for (const shiftSeed of boardMeetingShifts) {
+    await prisma.meetingShift.upsert({
+      where: { id: shiftSeed.id },
+      update: {
+        meetingId: board.id,
+        name: shiftSeed.name,
+        startTime: shiftSeed.startTime,
+        endTime: shiftSeed.endTime,
+      },
+      create: {
+        ...shiftSeed,
+        meetingId: board.id,
+      },
+    });
+  }
+
   for (const participantSeed of boardMeetingParticipants) {
     const { id: participantId, ...participantData } = participantSeed;
     const joined = participantId === "seed-meeting-participant-board-sopheak";
@@ -1280,6 +1347,7 @@ async function seedMeetings() {
       update: {
         meetingId: board.id,
         placeId: null,
+        shiftId: boardMeetingShifts[0].id,
         ...participantData,
         checkInCode: `${participantId}-qr`,
         status: joined
@@ -1294,6 +1362,7 @@ async function seedMeetings() {
       create: {
         id: participantId,
         meetingId: board.id,
+        shiftId: boardMeetingShifts[0].id,
         ...participantData,
         checkInCode: `${participantId}-qr`,
         status: joined
@@ -1331,6 +1400,22 @@ async function seedMeetings() {
       },
       create: {
         ...chairpersonSeed,
+        meetingId: committee.id,
+      },
+    });
+  }
+
+  for (const shiftSeed of committeeMeetingShifts) {
+    await prisma.meetingShift.upsert({
+      where: { id: shiftSeed.id },
+      update: {
+        meetingId: committee.id,
+        name: shiftSeed.name,
+        startTime: shiftSeed.startTime,
+        endTime: shiftSeed.endTime,
+      },
+      create: {
+        ...shiftSeed,
         meetingId: committee.id,
       },
     });
@@ -1380,12 +1465,17 @@ async function seedMeetings() {
 
     for (const participantSeed of placeSeed.participants) {
       const { id: participantId, ...participantData } = participantSeed;
+      const shiftId =
+        placeSeed.id === "seed-meeting-place-policy-room"
+          ? committeeMeetingShifts[0].id
+          : committeeMeetingShifts[1].id;
 
       await prisma.meetingParticipant.upsert({
         where: { id: participantId },
         update: {
           meetingId: committee.id,
           placeId: place.id,
+          shiftId,
           ...participantData,
           checkInCode: `${participantId}-qr`,
           status: MeetingParticipantStatus.INVITED,
@@ -1395,6 +1485,7 @@ async function seedMeetings() {
           id: participantId,
           meetingId: committee.id,
           placeId: place.id,
+          shiftId,
           ...participantData,
           checkInCode: `${participantId}-qr`,
           status: MeetingParticipantStatus.INVITED,
@@ -1447,6 +1538,22 @@ async function seedMeetings() {
     },
   });
 
+  for (const shiftSeed of openMeetingShifts) {
+    await prisma.meetingShift.upsert({
+      where: { id: shiftSeed.id },
+      update: {
+        meetingId: townhall.id,
+        name: shiftSeed.name,
+        startTime: shiftSeed.startTime,
+        endTime: shiftSeed.endTime,
+      },
+      create: {
+        ...shiftSeed,
+        meetingId: townhall.id,
+      },
+    });
+  }
+
   for (const participantSeed of openMeetingParticipants) {
     const { id: participantId, ...participantData } = participantSeed;
 
@@ -1455,6 +1562,7 @@ async function seedMeetings() {
       update: {
         meetingId: townhall.id,
         placeId: null,
+        shiftId: openMeetingShifts[0].id,
         ...participantData,
         checkInCode: `${participantId}-qr`,
         status: MeetingParticipantStatus.JOINED,
@@ -1464,6 +1572,7 @@ async function seedMeetings() {
       create: {
         id: participantId,
         meetingId: townhall.id,
+        shiftId: openMeetingShifts[0].id,
         ...participantData,
         checkInCode: `${participantId}-qr`,
         status: MeetingParticipantStatus.JOINED,
@@ -1528,6 +1637,7 @@ async function seedOpenEvent() {
       where: { id: registrationId },
       update: {
         eventId: event.id,
+        shiftId: attendanceSeed.shiftId,
         fullNameEn: attendanceSeed.fullNameEn,
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
@@ -1539,6 +1649,7 @@ async function seedOpenEvent() {
       create: {
         id: registrationId,
         eventId: event.id,
+        shiftId: attendanceSeed.shiftId,
         fullNameEn: attendanceSeed.fullNameEn,
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
@@ -1671,6 +1782,22 @@ async function seedPreRegistrationMeeting() {
     });
   }
 
+  for (const shiftSeed of preRegistrationMeetingShifts) {
+    await prisma.meetingShift.upsert({
+      where: { id: shiftSeed.id },
+      update: {
+        meetingId: meeting.id,
+        name: shiftSeed.name,
+        startTime: shiftSeed.startTime,
+        endTime: shiftSeed.endTime,
+      },
+      create: {
+        ...shiftSeed,
+        meetingId: meeting.id,
+      },
+    });
+  }
+
   await prisma.meetingQrCode.upsert({
     where: { code: "DEMO-RESEARCH-ROUNDTABLE-2026" },
     update: {
@@ -1690,6 +1817,7 @@ async function seedPreRegistrationMeeting() {
     where: { id: "seed-meeting-participant-roundtable-nara" },
     update: {
       meetingId: meeting.id,
+      shiftId: preRegistrationMeetingShifts[0].id,
       fullNameEn: "Nara Vong",
       fullNameKm: null,
       gender: Gender.MALE,
@@ -1702,6 +1830,7 @@ async function seedPreRegistrationMeeting() {
     create: {
       id: "seed-meeting-participant-roundtable-nara",
       meetingId: meeting.id,
+      shiftId: preRegistrationMeetingShifts[0].id,
       fullNameEn: "Nara Vong",
       fullNameKm: null,
       gender: Gender.MALE,

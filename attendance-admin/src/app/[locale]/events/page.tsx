@@ -25,6 +25,7 @@ import { LocationPicker } from "@/components/admin/location-picker";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker, TimePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog } from "@/components/ui/dialog";
@@ -1181,18 +1182,10 @@ function DateField({
   onChange: (value: string) => void;
   error?: string;
 }) {
-  const [date] = value.split("T");
-
   return (
     <div className="grid gap-2">
       <Label>{label}</Label>
-      <Input
-        className="h-11"
-        type="date"
-        value={date}
-        onChange={(event) => onChange(event.target.value)}
-        required
-      />
+      <DatePicker value={value.split("T")[0]} onChange={onChange} />
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
@@ -1210,13 +1203,7 @@ function TimeField({
   return (
     <div className="grid gap-2">
       <Label>{label}</Label>
-      <Input
-        className="h-11"
-        type="time"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        required
-      />
+      <TimePicker value={value} onChange={onChange} />
     </div>
   );
 }

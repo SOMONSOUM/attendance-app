@@ -15,6 +15,7 @@ model Meeting {
   endsAt            DateTime             @map("ends_at")
   chairpersons      MeetingChairperson[]
   places            MeetingPlace[]
+  shifts            MeetingShift[]
   qrCodes           MeetingQrCode[]
   participants      MeetingParticipant[]
   createdById       String?              @map("created_by_id")
@@ -23,6 +24,21 @@ model Meeting {
 
   @@index([tenantId])
   @@map("meetings")
+}
+
+model MeetingShift {
+  id           String               @id @default(cuid())
+  meetingId    String               @map("meeting_id")
+  meeting      Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name         String
+  startTime    DateTime             @map("start_time") @db.Time(0)
+  endTime      DateTime             @map("end_time") @db.Time(0)
+  participants MeetingParticipant[]
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  @@index([meetingId])
+  @@map("meeting_shifts")
 }
 
 model MeetingChairperson {
@@ -86,6 +102,8 @@ model MeetingParticipant {
   meeting        Meeting                  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   placeId        String?                  @map("place_id")
   place          MeetingPlace?            @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  shiftId        String?                  @map("shift_id")
+  shift          MeetingShift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   fullNameEn     String                   @map("full_name_en")
   fullNameKm     String?                  @map("full_name_km")
   gender         Gender?
@@ -105,5 +123,6 @@ model MeetingParticipant {
   @@index([meetingId, fullNameEn])
   @@index([meetingId, fullNameKm])
   @@index([placeId])
+  @@index([shiftId])
   @@map("meeting_participants")
 }

@@ -18,6 +18,11 @@ export class JoinEventDto {
   @IsString()
   registrationId?: string;
 
+  @ApiPropertyOptional({ example: "clxshift001" })
+  @IsOptional()
+  @IsString()
+  shiftId?: string;
+
   @ApiProperty({ example: "Sok Dara" })
   @IsString()
   fullNameEn!: string;

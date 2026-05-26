@@ -96,10 +96,14 @@ export class AttendanceService {
       throw new NotFoundException("QR code was not found or is inactive");
 
     const checkInCode = this.toQrCode();
+    const shiftId = dto.shiftId
+      ? (await this.assertShift(qr.eventId, dto.shiftId)).id
+      : undefined;
     const registration = await this.prisma.eventRegistration.create({
       data: {
         eventId: qr.eventId,
         placeId: qr.placeId,
+        shiftId,
         fullNameEn: dto.fullNameEn,
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
@@ -169,9 +173,12 @@ export class AttendanceService {
         attendanceId: attendance?.id ?? null,
         placeId,
         placeName: place?.name ?? null,
-        shiftId: attendance?.shiftId ?? null,
-        shiftName: attendance?.shiftId
-          ? event.shifts.find((shift) => shift.id === attendance.shiftId)
+        shiftId: attendance?.shiftId ?? registration.shiftId ?? null,
+        shiftName: (attendance?.shiftId ?? registration.shiftId)
+          ? event.shifts.find(
+              (shift) =>
+                shift.id === (attendance?.shiftId ?? registration.shiftId),
+            )
               ?.name ?? null
           : null,
         fullNameEn: registration.fullNameEn,
@@ -227,13 +234,16 @@ export class AttendanceService {
     });
 
     if (!event) throw new NotFoundException("Event not found");
-    const activeShift = this.assertScanWindow(event);
 
     const registration = await this.prisma.eventRegistration.findFirst({
       where: { id: registrationId, eventId },
     });
 
     if (!registration) throw new NotFoundException("Registration not found");
+    const activeShift = registration.shiftId
+      ? null
+      : this.assertScanWindow(event);
+    const selectedShiftId = registration.shiftId ?? activeShift?.id;
 
     const existingAttendance = await this.prisma.attendance.findUnique({
       where: {
@@ -250,7 +260,7 @@ export class AttendanceService {
       data: {
         eventId,
         placeId: registration.placeId,
-        shiftId: activeShift?.id,
+        shiftId: selectedShiftId,
         registrationId,
         fullNameEn: registration.fullNameEn,
         fullNameKm: registration.fullNameKm,
@@ -274,7 +284,10 @@ export class AttendanceService {
       throw new NotFoundException("Registration QR code not found");
     }
 
-    const activeShift = this.assertScanWindow(registration.event);
+    const activeShift = registration.shiftId
+      ? null
+      : this.assertScanWindow(registration.event);
+    const selectedShiftId = registration.shiftId ?? activeShift?.id;
     const existingAttendance = await this.prisma.attendance.findUnique({
       where: {
         eventId_registrationId: {
@@ -290,7 +303,7 @@ export class AttendanceService {
       data: {
         eventId: registration.eventId,
         placeId: registration.placeId,
-        shiftId: activeShift?.id,
+        shiftId: selectedShiftId,
         registrationId: registration.id,
         fullNameEn: registration.fullNameEn,
         fullNameKm: registration.fullNameKm,
@@ -328,6 +341,14 @@ export class AttendanceService {
 
   private toQrCode() {
     return randomBytes(18).toString("base64url");
+  }
+
+  private async assertShift(eventId: string, shiftId: string) {
+    const shift = await this.prisma.eventShift.findFirst({
+      where: { id: shiftId, eventId },
+    });
+    if (!shift) throw new NotFoundException("Event shift not found");
+    return shift;
   }
 
   private assertLocation(

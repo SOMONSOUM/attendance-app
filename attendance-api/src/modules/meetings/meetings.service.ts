@@ -57,6 +57,14 @@ export class MeetingsService {
           chairpersons: {
             create: dto.chairpersons.map((chairperson) => ({ ...chairperson })),
           },
+          shifts: {
+            create:
+              dto.shifts?.map((shift) => ({
+                name: shift.name,
+                startTime: this.toTimeDate(shift.startTime),
+                endTime: this.toTimeDate(shift.endTime),
+              })) ?? [],
+          },
           qrCodes: separateQrByPlace ? undefined : { create: { code } },
           places: separateQrByPlace
             ? {
@@ -132,6 +140,9 @@ export class MeetingsService {
       if (dto.participants) {
         await tx.meetingParticipant.deleteMany({ where: { meetingId } });
       }
+      if (dto.shifts) {
+        await tx.meetingShift.deleteMany({ where: { meetingId } });
+      }
       if (dto.places) {
         await tx.meetingPlace.deleteMany({ where: { meetingId } });
         await tx.meetingQrCode.deleteMany({ where: { meetingId } });
@@ -174,6 +185,15 @@ export class MeetingsService {
             ? {
                 create: dto.chairpersons.map((chairperson) => ({
                   ...chairperson,
+                })),
+              }
+            : undefined,
+          shifts: dto.shifts
+            ? {
+                create: dto.shifts.map((shift) => ({
+                  name: shift.name,
+                  startTime: this.toTimeDate(shift.startTime),
+                  endTime: this.toTimeDate(shift.endTime),
                 })),
               }
             : undefined,
@@ -325,6 +345,36 @@ export class MeetingsService {
     return { count: rows.length };
   }
 
+  async createParticipant(
+    tenantId: string | null,
+    meetingId: string,
+    dto: JoinMeetingDto,
+  ) {
+    await this.assertMeeting(tenantId, meetingId);
+    if (dto.participantId) {
+      throw new BadRequestException("participantId is not used when creating a participant.");
+    }
+    if (dto.placeId) await this.assertPlace(meetingId, dto.placeId);
+    if (dto.shiftId) await this.assertShift(meetingId, dto.shiftId);
+
+    return this.prisma.meetingParticipant.create({
+      data: {
+        meetingId,
+        placeId: dto.placeId,
+        shiftId: dto.shiftId,
+        fullNameEn: dto.fullNameEn,
+        fullNameKm: dto.fullNameKm,
+        gender: dto.gender,
+        position: dto.position,
+        department: dto.department,
+        email: dto.email,
+        status: "INVITED",
+        checkInCode: this.toQrCode(),
+        source: "MANUAL",
+      },
+    });
+  }
+
   async joinParticipant(
     tenantId: string | null,
     meetingId: string,
@@ -337,6 +387,18 @@ export class MeetingsService {
     });
   }
 
+  async cancelParticipant(
+    tenantId: string | null,
+    meetingId: string,
+    participantId: string,
+  ) {
+    await this.assertMeeting(tenantId, meetingId);
+    return this.prisma.meetingParticipant.update({
+      where: { id: participantId },
+      data: { status: "CANCELLED", joinedAt: null },
+    });
+  }
+
   async getPublicByCode(code: string) {
     const qr = await this.prisma.meetingQrCode.findUnique({
       where: { code },
@@ -346,6 +408,7 @@ export class MeetingsService {
           include: {
             chairpersons: true,
             places: true,
+            shifts: true,
             participants: true,
           },
         },
@@ -393,12 +456,20 @@ export class MeetingsService {
     }
 
     const checkInCode = this.toQrCode();
+    const shiftId = dto.shiftId
+      ? (await this.assertShift(meeting.id, dto.shiftId)).id
+      : undefined;
     const participant = await this.prisma.meetingParticipant.create({
       data: {
         meetingId: meeting.id,
         placeId: meeting.scanPlace?.id,
+        shiftId,
         fullNameEn: dto.fullNameEn,
         fullNameKm: dto.fullNameKm,
+        gender: dto.gender,
+        position: dto.position,
+        department: dto.department,
+        email: dto.email,
         status: "INVITED",
         checkInCode,
         source:
@@ -527,6 +598,19 @@ export class MeetingsService {
     );
   }
 
+  private async assertShift(meetingId: string, shiftId: string) {
+    const shift = await this.prisma.meetingShift.findFirst({
+      where: { id: shiftId, meetingId },
+    });
+    if (!shift) throw new NotFoundException("Meeting shift not found");
+    return shift;
+  }
+
+  private toTimeDate(value: string) {
+    const time = value.length === 5 ? `${value}:00` : value;
+    return new Date(`1970-01-01T${time}.000Z`);
+  }
+
   private toParticipantQrImage(code: string) {
     return QRCode.toDataURL(
       `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/participant-qr/${code}`,
@@ -541,6 +625,7 @@ export class MeetingsService {
     return {
       chairpersons: { orderBy: { createdAt: "asc" as const } },
       places: { include: { qrCodes: true }, orderBy: { createdAt: "asc" as const } },
+      shifts: { orderBy: { createdAt: "asc" as const } },
       qrCodes: true,
       participants: { orderBy: { fullNameEn: "asc" as const } },
       _count: { select: { chairpersons: true, participants: true } },

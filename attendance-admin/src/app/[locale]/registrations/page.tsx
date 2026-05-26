@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Download,
@@ -50,6 +51,8 @@ const ALL = "ALL";
 const PAGE_SIZE = 5;
 
 export default function RegistrationsPage() {
+  const t = useTranslations("registrations");
+  const common = useTranslations("common");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const meetingFileInputRef = useRef<HTMLInputElement>(null);
   const [targetFilter, setTargetFilter] = useState(ALL);
@@ -124,21 +127,21 @@ export default function RegistrationsPage() {
   return (
     <AdminShell
       active="Registrations"
-      title="Registrations"
-      description="Upload reusable Excel files separately for event attendees and meeting participants."
+      title={t("title")}
+      description={t("description")}
       action={
         <div className="flex flex-wrap gap-2">
           <Button variant="outline">
             <ListFilter size={16} />
-            Filter
+            {common("filter")}
           </Button>
           <Button onClick={() => fileInputRef.current?.click()}>
             <Upload size={16} />
-            Event Excel
+            {t("eventExcel")}
           </Button>
           <Button onClick={() => meetingFileInputRef.current?.click()}>
             <Upload size={16} />
-            Meeting Excel
+            {t("meetingExcel")}
           </Button>
           <input
             ref={fileInputRef}
@@ -167,7 +170,7 @@ export default function RegistrationsPage() {
         <div className="grid gap-5">
           <Card>
             <CardHeader>
-              <CardTitle>Excel templates</CardTitle>
+              <CardTitle>{t("excelTemplates")}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
               <div className="flex items-start gap-3 rounded-md border border-border p-3">
@@ -175,10 +178,9 @@ export default function RegistrationsPage() {
                   <FileSpreadsheet size={20} />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">Event attendees</p>
+                  <p className="text-sm font-semibold">{t("eventAttendees")}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-fg">
-                    Fullname English, Fullname Khmer, Gender, Position,
-                    Department.
+                    {t("templateColumns")}
                   </p>
                   <Button
                     className="mt-3 h-8"
@@ -187,7 +189,7 @@ export default function RegistrationsPage() {
                     onClick={() => templateMutation.mutate()}
                   >
                     <Download size={14} />
-                    Event template
+                    {t("eventTemplate")}
                   </Button>
                 </div>
               </div>
@@ -196,10 +198,11 @@ export default function RegistrationsPage() {
                   <FileSpreadsheet size={20} />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">Meeting participants</p>
+                  <p className="text-sm font-semibold">
+                    {t("meetingParticipants")}
+                  </p>
                   <p className="mt-1 text-xs leading-5 text-muted-fg">
-                    Fullname English, Fullname Khmer, Gender, Position,
-                    Department.
+                    {t("templateColumns")}
                   </p>
                   <Button
                     className="mt-3 h-8"
@@ -208,7 +211,7 @@ export default function RegistrationsPage() {
                     onClick={() => templateMutation.mutate()}
                   >
                     <Download size={14} />
-                    Meeting template
+                    {t("meetingTemplate")}
                   </Button>
                 </div>
               </div>
@@ -217,11 +220,11 @@ export default function RegistrationsPage() {
 
           <Card>
             <CardContent className="grid grid-cols-2 gap-3 p-4">
-              <SummaryTile label="Event files" value={imports.length} />
-              <SummaryTile label="Event attendees" value={eventRows} icon={Users} />
-              <SummaryTile label="Meeting files" value={meetingImports.length} />
+              <SummaryTile label={t("eventFiles")} value={imports.length} />
+              <SummaryTile label={t("eventAttendees")} value={eventRows} icon={Users} />
+              <SummaryTile label={t("meetingFiles")} value={meetingImports.length} />
               <SummaryTile
-                label="Meeting participants"
+                label={t("meetingParticipants")}
                 value={meetingRows}
                 icon={Users}
               />
@@ -230,38 +233,38 @@ export default function RegistrationsPage() {
         </div>
 
         <TableShell>
-          <SectionToolbar title="Pre-registration imports">
+          <SectionToolbar title={t("importsTitle")}>
             <div className="flex flex-wrap items-center gap-2">
               <Select
                 className="h-8 w-36"
                 value={targetFilter}
                 onChange={(event) => changeTargetFilter(event.target.value)}
               >
-                <option value={ALL}>All types</option>
-                <option value="EVENT">Events</option>
-                <option value="MEETING">Meetings</option>
+                <option value={ALL}>{t("allTypes")}</option>
+                <option value="EVENT">{common("events")}</option>
+                <option value="MEETING">{common("meetings")}</option>
               </Select>
               <span className="text-sm text-muted-fg">
                 {uploadMutation.isPending || meetingUploadMutation.isPending
-                  ? "Uploading..."
-                  : `${allImports.length} files`}
+                  ? t("uploading")
+                  : t("fileCount", { count: allImports.length })}
               </span>
             </div>
           </SectionToolbar>
           {importsQuery.isLoading ? (
-            <div className="p-5 text-sm text-muted-fg">Loading imports...</div>
+            <div className="p-5 text-sm text-muted-fg">{t("loading")}</div>
           ) : allImports.length ? (
             <>
               <Table>
                 <TableHeader>
                   <TableRow className="border-t-0">
-                    <TableHead>File</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Rows</TableHead>
-                    <TableHead>Uploaded by</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("file")}</TableHead>
+                    <TableHead>{common("type")}</TableHead>
+                    <TableHead>{t("rows")}</TableHead>
+                    <TableHead>{t("uploadedBy")}</TableHead>
+                    <TableHead>{t("uploaded")}</TableHead>
+                    <TableHead>{common("status")}</TableHead>
+                    <TableHead className="text-right">{common("actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -275,12 +278,12 @@ export default function RegistrationsPage() {
                       </TableCell>
                       <TableCell className="py-3">
                         <StatusPill tone={item.target === "MEETING" ? "purple" : "blue"}>
-                          {item.target === "MEETING" ? "Meeting" : "Event"}
+                          {item.target === "MEETING" ? common("meeting") : common("event")}
                         </StatusPill>
                       </TableCell>
                       <TableCell className="py-3">{item.rowCount.toLocaleString()}</TableCell>
                       <TableCell className="py-3 text-muted-fg">
-                        {item.uploadedBy?.fullNameEn ?? "System"}
+                        {item.uploadedBy?.fullNameEn ?? common("system")}
                       </TableCell>
                       <TableCell className="py-3 text-muted-fg">
                         {new Date(item.createdAt).toLocaleString()}
@@ -289,7 +292,9 @@ export default function RegistrationsPage() {
                         <StatusPill
                           tone={item.status === "IMPORTED" ? "green" : "blue"}
                         >
-                          {titleCase(item.status)}
+                          {item.status === "IMPORTED"
+                            ? t("imported")
+                            : titleCase(item.status)}
                         </StatusPill>
                       </TableCell>
                       <TableCell className="py-3">
@@ -297,7 +302,7 @@ export default function RegistrationsPage() {
                           <Button
                             variant="outline"
                             className="size-8 px-0"
-                            aria-label="Download import"
+                            aria-label={t("downloadImport")}
                             disabled={downloadMutation.isPending}
                             onClick={() => downloadMutation.mutate(item.id)}
                           >
@@ -306,7 +311,7 @@ export default function RegistrationsPage() {
                           <Button
                             variant="outline"
                             className="size-8 px-0"
-                            aria-label="Delete import"
+                            aria-label={t("deleteImport")}
                             disabled={deleteMutation.isPending}
                             onClick={() => setDeleteTarget(item)}
                           >
@@ -327,18 +332,18 @@ export default function RegistrationsPage() {
             </>
           ) : (
             <EmptyState
-              title="No Excel imports yet"
-              text="Upload event attendee or meeting participant files and they will be available in the matching creation wizard."
+              title={t("emptyTitle")}
+              text={t("emptyText")}
             />
           )}
         </TableShell>
       </div>
       <Dialog
         open={Boolean(deleteTarget)}
-        title="Delete import"
+        title={t("deleteTitle")}
         description={
           deleteTarget
-            ? `This will delete ${deleteTarget.originalName} and its saved rows.`
+            ? t("deleteDescription", { name: deleteTarget.originalName })
             : undefined
         }
         onOpenChange={(open) => !open && setDeleteTarget(null)}
@@ -349,14 +354,14 @@ export default function RegistrationsPage() {
             variant="outline"
             onClick={() => setDeleteTarget(null)}
           >
-            Cancel
+            {common("cancel")}
           </Button>
           <Button
             type="button"
             disabled={!deleteTarget || deleteMutation.isPending}
             onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
           >
-            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            {deleteMutation.isPending ? t("deleting") : common("delete")}
           </Button>
         </div>
       </Dialog>

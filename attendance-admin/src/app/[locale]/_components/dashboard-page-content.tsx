@@ -1,6 +1,8 @@
 "use client";
 
 import { CalendarPlus, Clock, Download, QrCode, RefreshCw, Users } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
   AdminShell,
@@ -19,8 +21,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { eventKeys, listEvents, listUsers } from "@/lib/admin-data";
+import { formatDate, formatTime } from "@/lib/format";
 
 export function DashboardPageContent() {
+  const t = useTranslations("dashboard");
+  const common = useTranslations("common");
+  const params = useParams<{ locale: string }>();
+  const locale = params.locale ?? "en";
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
     queryFn: () => listEvents({ pageSize: 100 }),
@@ -39,8 +46,8 @@ export function DashboardPageContent() {
     (sum, event) => sum + (event.summary?.checkedIn ?? 0),
     0,
   );
-  const activeEvents = events.filter((event) => eventStatus(event) === "Live");
-  const upcomingEvents = events.filter((event) => eventStatus(event) === "Ready");
+  const activeEvents = events.filter((event) => eventPhase(event) === "live");
+  const upcomingEvents = events.filter((event) => eventPhase(event) === "ready");
   const averageJoinRate = events.length
     ? Math.round(
         events.reduce((sum, event) => sum + (event.summary?.joinRate ?? 0), 0) /
@@ -48,7 +55,7 @@ export function DashboardPageContent() {
       )
     : 0;
   const needsAttention = events
-    .filter((event) => eventStatus(event) === "Live" && (event.summary?.checkedIn ?? 0) === 0)
+    .filter((event) => eventPhase(event) === "live" && (event.summary?.checkedIn ?? 0) === 0)
     .length;
   const recentAttendances = events
     .flatMap((event) =>
@@ -65,27 +72,29 @@ export function DashboardPageContent() {
 
   const metrics = [
     {
-      label: "Live events",
+      label: t("liveEvents"),
       value: String(activeEvents.length),
-      sub: `${upcomingEvents.length} upcoming`,
+      sub: t("upcomingCount", { count: upcomingEvents.length }),
       icon: Clock,
     },
     {
-      label: "Expected people",
+      label: t("expectedPeople"),
       value: String(totalUsers),
-      sub: "Registered or joined",
+      sub: t("registeredOrJoined"),
       icon: Users,
     },
     {
-      label: "Recent check-ins",
+      label: t("recentCheckIns"),
       value: String(recentAttendances.length),
-      sub: `${checkedIn} all-time check-ins`,
+      sub: t("allTimeCheckIns", { count: checkedIn }),
       icon: QrCode,
     },
     {
-      label: "Avg join rate",
+      label: t("averageJoinRate"),
       value: `${averageJoinRate}%`,
-      sub: needsAttention ? `${needsAttention} live event needs activity` : "All live events active",
+      sub: needsAttention
+        ? t("needsActivity", { count: needsAttention })
+        : t("allLiveActive"),
       icon: RefreshCw,
     },
   ];
@@ -93,13 +102,13 @@ export function DashboardPageContent() {
   return (
     <AdminShell
       active="Dashboard"
-      title="Good morning, Admin"
-      description="Operational overview for live events, check-ins, and attendee progress."
+      title={t("title")}
+      description={t("description")}
       action={
         <Button asChild>
-          <a href="/en/events">
+          <a href={`/${locale}/events`}>
             <CalendarPlus size={16} />
-            Create event
+            {t("createEvent")}
           </a>
         </Button>
       }
@@ -130,10 +139,10 @@ export function DashboardPageContent() {
         <div className="grid gap-5 xl:grid-cols-[1.45fr_0.9fr]">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Attendance coverage</CardTitle>
+              <CardTitle>{t("attendanceCoverage")}</CardTitle>
               <Button variant="outline" className="h-8">
                 <RefreshCw size={14} />
-                Live
+                {t("live")}
               </Button>
             </CardHeader>
             <CardContent>
@@ -170,17 +179,17 @@ export function DashboardPageContent() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Operations mix</CardTitle>
+              <CardTitle>{t("operationsMix")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <MixRow
-                label="Events with QR"
+                label={t("eventsWithQr")}
                 value={events.filter((event) => event.qrCodes?.length).length}
               />
-              <MixRow label="Expected people" value={totalUsers} />
-              <MixRow label="Checked in" value={checkedIn} />
+              <MixRow label={t("expectedPeople")} value={totalUsers} />
+              <MixRow label={t("checkedIn")} value={checkedIn} />
               <MixRow
-                label="Admin users"
+                label={t("adminUsers")}
                 value={
                   users.filter((user) =>
                     user.roles.some((item) => item.role.name === "admin"),
@@ -193,7 +202,7 @@ export function DashboardPageContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent check-ins</CardTitle>
+            <CardTitle>{t("recentCheckIns")}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
             {recentAttendances.length ? (
@@ -209,33 +218,33 @@ export function DashboardPageContent() {
                     </p>
                   </div>
                   <span className="shrink-0 text-xs text-muted-fg">
-                    {new Date(attendance.createdAt).toLocaleTimeString()}
+                    {formatTime(attendance.createdAt)}
                   </span>
                 </div>
               ))
             ) : (
               <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-fg">
-                No recent check-ins yet.
+                {t("noRecentCheckIns")}
               </p>
             )}
           </CardContent>
         </Card>
 
         <TableShell>
-          <SectionToolbar title="Recent events">
+          <SectionToolbar title={t("recentEvents")}>
             <Button variant="outline" className="h-8">
               <Download size={14} />
-              Export
+              {common("export")}
             </Button>
           </SectionToolbar>
           <Table>
             <TableHeader>
               <TableRow className="border-t-0">
-                <TableHead>Event name</TableHead>
-                <TableHead>Registration mode</TableHead>
-                <TableHead>Schedule</TableHead>
-                <TableHead>Attendance</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t("eventName")}</TableHead>
+                <TableHead>{t("registrationMode")}</TableHead>
+                <TableHead>{t("schedule")}</TableHead>
+                <TableHead>{t("attendance")}</TableHead>
+                <TableHead>{common("status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -243,17 +252,17 @@ export function DashboardPageContent() {
                 <TableRow key={event.id}>
                   <TableCell className="font-medium">{event.name}</TableCell>
                   <TableCell className="text-muted-fg">
-                    {registrationModeLabel(event.mode)}
+                    {registrationModeLabel(event.mode, common)}
                   </TableCell>
                   <TableCell className="text-muted-fg">
-                    {new Date(event.startsAt).toLocaleDateString()}
+                    {formatDate(event.startsAt)}
                   </TableCell>
                   <TableCell className="text-muted-fg">
                     {event.summary?.checkedIn ?? 0}/{event.summary?.totalUsers ?? 0}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={eventTone(event)}>
-                      {eventStatus(event)}
+                      {eventStatus(event, common)}
                     </StatusPill>
                   </TableCell>
                 </TableRow>
@@ -266,24 +275,37 @@ export function DashboardPageContent() {
   );
 }
 
-function eventStatus(event: { startsAt: string; endsAt: string }) {
+function eventStatus(
+  event: { startsAt: string; endsAt: string },
+  t: ReturnType<typeof useTranslations<"common">>,
+) {
   const now = Date.now();
-  if (new Date(event.startsAt).getTime() > now) return "Ready";
-  if (new Date(event.endsAt).getTime() < now) return "Closed";
-  return "Live";
+  if (new Date(event.startsAt).getTime() > now) return t("ready");
+  if (new Date(event.endsAt).getTime() < now) return t("closed");
+  return t("live");
 }
 
 function eventTone(event: { startsAt: string; endsAt: string }) {
-  const status = eventStatus(event);
-  if (status === "Live") return "green";
-  if (status === "Ready") return "purple";
+  const status = eventPhase(event);
+  if (status === "live") return "green";
+  if (status === "ready") return "purple";
   return "amber";
 }
 
-function registrationModeLabel(mode: string) {
-  if (mode === "OPEN_REGISTRATION") return "Open registration";
-  if (mode === "PRE_REGISTRATION") return "Pre-registration";
-  return "Bulk registration";
+function eventPhase(event: { startsAt: string; endsAt: string }) {
+  const now = Date.now();
+  if (new Date(event.startsAt).getTime() > now) return "ready";
+  if (new Date(event.endsAt).getTime() < now) return "closed";
+  return "live";
+}
+
+function registrationModeLabel(
+  mode: string,
+  t: ReturnType<typeof useTranslations<"common">>,
+) {
+  if (mode === "OPEN_REGISTRATION") return t("openRegistration");
+  if (mode === "PRE_REGISTRATION") return t("preRegistration");
+  return t("bulkRegistration");
 }
 
 

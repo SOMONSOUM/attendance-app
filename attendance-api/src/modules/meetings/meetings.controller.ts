@@ -130,6 +130,21 @@ export class MeetingsController {
     );
   }
 
+  @ApiOperation({ summary: "Register one meeting participant manually" })
+  @RequirePermissions("meetings:update")
+  @Post(":meetingId/participants")
+  createParticipant(
+    @Req() request: AuthRequest,
+    @Param("meetingId") meetingId: string,
+    @Body() dto: JoinMeetingDto,
+  ) {
+    return this.meetings.createParticipant(
+      request.user.tenantId,
+      meetingId,
+      dto,
+    );
+  }
+
   @ApiOperation({ summary: "Mark a meeting participant as joined" })
   @RequirePermissions("meetings:update")
   @Post(":meetingId/participants/:participantId/join")
@@ -139,6 +154,21 @@ export class MeetingsController {
     @Param("participantId") participantId: string,
   ) {
     return this.meetings.joinParticipant(
+      request.user.tenantId,
+      meetingId,
+      participantId,
+    );
+  }
+
+  @ApiOperation({ summary: "Cancel a meeting participant check-in" })
+  @RequirePermissions("meetings:update")
+  @Delete(":meetingId/participants/:participantId/join")
+  cancelParticipant(
+    @Req() request: AuthRequest,
+    @Param("meetingId") meetingId: string,
+    @Param("participantId") participantId: string,
+  ) {
+    return this.meetings.cancelParticipant(
       request.user.tenantId,
       meetingId,
       participantId,
