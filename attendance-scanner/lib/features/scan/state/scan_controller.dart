@@ -63,7 +63,6 @@ class ScanController extends Notifier<ScanState> {
       final person = await ref.read(checkInRepositoryProvider).checkIn(trimmed);
       state = state.copyWith(
         lastPerson: person,
-        recentPeople: [person, ...state.recentPeople].take(5).toList(),
         isCheckingIn: false,
         successCount: state.successCount + 1,
         clearError: true,
@@ -78,5 +77,9 @@ class ScanController extends Notifier<ScanState> {
 
   void clearResult() {
     state = state.copyWith(clearPerson: true, clearError: true);
+  }
+
+  void clearSession() {
+    state = const ScanState();
   }
 }

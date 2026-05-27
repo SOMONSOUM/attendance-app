@@ -1,7 +1,9 @@
+import 'package:country_flags/country_flags.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../l10n/app_localizations.dart';
 import '../settings/app_settings.dart';
 
 class AppSettingsActions extends ConsumerWidget {
@@ -9,7 +11,6 @@ class AppSettingsActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
     final settings = ref
         .watch(appSettingsProvider)
         .maybeWhen(data: (value) => value, orElse: () => const AppSettings());
@@ -17,18 +18,26 @@ class AppSettingsActions extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PopupMenuButton<Locale>(
-          tooltip: l10n.language,
-          icon: const Icon(Icons.language_rounded),
-          initialValue: settings.locale,
-          onSelected: ref.read(appSettingsProvider.notifier).setLocale,
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: Locale('en'), child: Text('English')),
-            PopupMenuItem(value: Locale('km'), child: Text('ភាសាខ្មែរ')),
-          ],
+        IconButton(
+          tooltip: 'language'.tr(),
+          onPressed: () async {
+            final locale = settings.locale.languageCode == 'km'
+                ? const Locale('en')
+                : const Locale('km');
+            await context.setLocale(locale);
+            await ref.read(appSettingsProvider.notifier).setLocale(locale);
+          },
+          icon: SizedBox(
+            width: 24,
+            height: 18,
+            child: CountryFlag.fromCountryCode(
+              settings.locale.languageCode == 'km' ? 'KH' : 'US',
+              theme: const ImageTheme(shape: RoundedRectangle(3)),
+            ),
+          ),
         ),
         IconButton(
-          tooltip: l10n.theme,
+          tooltip: 'theme'.tr(),
           onPressed: () {
             final next = settings.themeMode == ThemeMode.dark
                 ? ThemeMode.light
@@ -37,8 +46,8 @@ class AppSettingsActions extends ConsumerWidget {
           },
           icon: Icon(
             settings.themeMode == ThemeMode.dark
-                ? Icons.dark_mode_rounded
-                : Icons.light_mode_rounded,
+                ? LucideIcons.moon
+                : LucideIcons.sun,
           ),
         ),
       ],

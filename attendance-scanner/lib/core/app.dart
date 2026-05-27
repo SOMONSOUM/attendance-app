@@ -1,8 +1,7 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../l10n/app_localizations.dart';
 import 'router.dart';
 import 'settings/app_settings.dart';
 import 'theme/app_theme.dart';
@@ -20,18 +19,21 @@ class AttendanceScannerApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Attendance Scanner',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(settings),
+      darkTheme: AppTheme.dark(settings),
       themeMode: settings.themeMode,
       locale: settings.locale,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
       routerConfig: router,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(settings.textScale)),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

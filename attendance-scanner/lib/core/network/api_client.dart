@@ -13,7 +13,7 @@ final dioProvider = Provider<Dio>((ref) {
   final storage = ref.watch(secureStorageProvider);
   final dio = Dio(
     BaseOptions(
-      baseUrl: defaultApiBaseUrl.replaceAll(RegExp(r'/+$'), ''),
+      baseUrl: apiBaseUrl.replaceAll(RegExp(r'/+$'), ''),
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 20),
       headers: {'Content-Type': 'application/json'},
