@@ -67,6 +67,7 @@ export const eventSchema = z
       .array(
         z.object({
           id: z.string().optional(),
+          catalogPlaceId: z.string().nullable().optional(),
           name: z.string().trim().min(1, "Place name is required."),
           description: z.string().nullable().optional(),
           requireLocation: z.boolean().optional(),
@@ -106,6 +107,7 @@ export const eventSchema = z
 
 const meetingHostSchema = z.object({
   id: z.string().optional(),
+  catalogChairpersonId: z.string().nullable().optional(),
   honorificTitleEn: z.string().trim().min(1, "English honorific is required."),
   honorificTitleKm: z.string().trim().min(1, "Khmer honorific is required."),
   firstNameEn: z.string().trim().min(1, "English first name is required."),
@@ -153,6 +155,7 @@ export const meetingSchema = z
       .array(
         z.object({
           id: z.string().optional(),
+          catalogPlaceId: z.string().nullable().optional(),
           name: z.string().trim().min(1, "Place name is required."),
           description: z.string().nullable().optional(),
           requireLocation: z.boolean().optional(),

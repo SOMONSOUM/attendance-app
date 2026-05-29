@@ -8,6 +8,7 @@ import {
 import type { AuthSession } from "@/lib/auth/tokens";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_VERSION = "v1";
 const handleI18n = createMiddleware({
   locales: ["en", "km"],
   defaultLocale: "en",
@@ -89,7 +90,7 @@ function redirectToLogin(request: NextRequest) {
 }
 
 async function refreshSession(refreshToken: string) {
-  const response = await fetch(`${API_URL}/api/auth/refresh`, {
+  const response = await fetch(`${API_URL}/api/${API_VERSION}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),
@@ -102,7 +103,7 @@ async function refreshSession(refreshToken: string) {
 }
 
 async function canManageTenants(accessToken: string) {
-  const response = await fetch(`${API_URL}/api/auth/me`, {
+  const response = await fetch(`${API_URL}/api/${API_VERSION}/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });

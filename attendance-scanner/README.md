@@ -54,19 +54,19 @@ screen does not allow runtime endpoint editing.
 Default base URL in development:
 
 ```text
-http://localhost:3001/api
+http://localhost:3001/api/v1
 ```
 
 For Android emulator use:
 
 ```text
-http://10.0.2.2:3001/api
+http://10.0.2.2:3001/api/v1
 ```
 
 Windows example:
 
 ```bash
-flutter run -d windows --dart-define=API_BASE_URL=http://localhost:3001/api
+flutter run -d windows --dart-define=API_BASE_URL=http://localhost:3001/api/v1
 ```
 
 Seeded admin account:
@@ -80,13 +80,13 @@ admin@example.com / password123
 Windows:
 
 ```bash
-flutter run -d windows --dart-define=API_BASE_URL=http://localhost:3001/api
+flutter run -d windows --dart-define=API_BASE_URL=http://localhost:3001/api/v1
 ```
 
 Android:
 
 ```bash
-flutter run -d android --dart-define=API_BASE_URL=http://10.0.2.2:3001/api
+flutter run -d android --dart-define=API_BASE_URL=http://10.0.2.2:3001/api/v1
 ```
 
 iOS:

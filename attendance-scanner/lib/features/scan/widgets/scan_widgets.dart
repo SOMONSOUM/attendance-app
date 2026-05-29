@@ -248,6 +248,9 @@ class _MobileScannerView extends StatelessWidget {
     final l10n = _L10n();
 
     return ListView(
+      padding: EdgeInsets.only(
+        bottom: 20 + MediaQuery.of(context).padding.bottom,
+      ),
       children: [
         _MobileHeader(
           title: selectedItem?.title ?? l10n.qrScanner,
@@ -298,6 +301,9 @@ class _MobileResultView extends StatelessWidget {
     final l10n = _L10n();
 
     return ListView(
+      padding: EdgeInsets.only(
+        bottom: 20 + MediaQuery.of(context).padding.bottom,
+      ),
       children: [
         _MobileHeader(
           title: l10n.checkInResult,
@@ -363,7 +369,11 @@ class _MobileHeader extends StatelessWidget {
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              Text(subtitle),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -505,13 +515,21 @@ class _CameraFrame extends StatelessWidget {
             MobileScanner(fit: BoxFit.cover, onDetect: onDetect),
             ColoredBox(color: Colors.black.withValues(alpha: 0.22)),
             Center(
-              child: SizedBox.square(
-                dimension: 190,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: colors.primary, width: 3),
-                  ),
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = constraints.biggest.shortestSide.clamp(
+                    128.0,
+                    190.0,
+                  );
+                  return SizedBox.square(
+                    dimension: size,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.primary, width: 3),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             Positioned(
@@ -614,49 +632,45 @@ class _ResultCard extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 360;
+                    final avatar = CircleAvatar(
+                      radius: compact ? 22 : 28,
                       backgroundColor: colors.primary,
                       foregroundColor: colors.onPrimary,
                       child: Text(
                         _initials(person.fullName),
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
+                    );
+                    final details = _ResultHeaderDetails(person: person);
+                    final time = _TimePill(text: checkedTime);
+
+                    if (compact) {
+                      return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                person.fullName,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              _StatusPill(
-                                text: person.status ?? 'Checked in',
-                                compact: true,
-                              ),
-                            ],
-                          ),
-                          Text(
-                            [
-                              person.position,
-                              person.organization,
-                            ].whereType<String>().join(' - '),
-                          ),
+                          Row(children: [avatar, const Spacer(), time]),
+                          const SizedBox(height: 12),
+                          details,
                         ],
-                      ),
-                    ),
-                    _TimePill(text: checkedTime),
-                  ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        avatar,
+                        const SizedBox(width: 14),
+                        Expanded(child: details),
+                        const SizedBox(width: 8),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 110),
+                          child: time,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -704,6 +718,51 @@ class _ResultCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ResultHeaderDetails extends StatelessWidget {
+  const _ResultHeaderDetails({required this.person});
+
+  final CheckInPerson person;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = [
+      person.position,
+      person.organization,
+    ].whereType<String>().where((value) => value.isNotEmpty).join(' - ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                person.fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            _StatusPill(text: person.status ?? 'Checked in', compact: true),
+          ],
+        ),
+        if (subtitle.isNotEmpty)
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+      ],
     );
   }
 }
@@ -896,6 +955,8 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: colors.onPrimary,
           fontSize: compact ? 11 : 12,

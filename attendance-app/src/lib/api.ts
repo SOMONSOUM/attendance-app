@@ -30,7 +30,7 @@ export class ApiRequestError extends Error {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}/api${path}`, {
+  const res = await fetch(`${API_URL}/api/v1${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

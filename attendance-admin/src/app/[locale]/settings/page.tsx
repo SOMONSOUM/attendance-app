@@ -118,7 +118,7 @@ export default function SettingsPage() {
               <span className="text-sm font-medium">{t("database")}</span>
               <DataSourceBadge />
             </div>
-            <Field label={t("apiUrl")} placeholder="http://localhost:3001/api" />
+            <Field label={t("apiUrl")} placeholder="http://localhost:3001/api/v1" />
             <Field
               label={t("attendanceAppUrl")}
               placeholder="http://localhost:3000"

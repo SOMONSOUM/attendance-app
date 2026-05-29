@@ -20,11 +20,11 @@ export class AttendanceService {
   constructor(private readonly prisma: PrismaService) {}
 
   async joinByCode(code: string, dto: JoinEventDto) {
-    const qr = await this.prisma.eventQrCode.findUnique({
+    const qr = await this.prisma.qrCode.findUnique({
       where: { code },
       include: { place: true, event: { include: { shifts: true } } },
     });
-    if (!qr?.active)
+    if (!qr?.active || qr.target !== "EVENT" || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
     const activeShift = this.assertScanWindow(qr.event);
     const distanceMeters = this.assertLocation(qr.place ?? qr.event, dto);
@@ -88,11 +88,11 @@ export class AttendanceService {
   }
 
   async registerByCode(code: string, dto: JoinEventDto) {
-    const qr = await this.prisma.eventQrCode.findUnique({
+    const qr = await this.prisma.qrCode.findUnique({
       where: { code },
       include: { event: true },
     });
-    if (!qr?.active)
+    if (!qr?.active || qr.target !== "EVENT" || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
 
     const checkInCode = this.toQrCode();

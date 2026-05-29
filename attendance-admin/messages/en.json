@@ -19,6 +19,8 @@
       "dashboard": "Dashboard",
       "events": "Events",
       "meetings": "Meetings",
+      "places": "Places",
+      "chairpersons": "Chairpersons",
       "registrations": "Registrations",
       "attendance": "Attendance",
       "people": "People",

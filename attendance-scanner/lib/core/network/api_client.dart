@@ -13,7 +13,7 @@ final dioProvider = Provider<Dio>((ref) {
   final storage = ref.watch(secureStorageProvider);
   final dio = Dio(
     BaseOptions(
-      baseUrl: apiBaseUrl.replaceAll(RegExp(r'/+$'), ''),
+      baseUrl: versionedApiBaseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 20),
       headers: {'Content-Type': 'application/json'},
@@ -77,4 +77,10 @@ List<T> unwrapList<T>(
 
 AuthSession unwrapSession(Object? payload) {
   return unwrapData(payload, AuthSession.fromJson);
+}
+
+String get versionedApiBaseUrl {
+  final normalized = apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
+  if (normalized.endsWith('/api')) return '$normalized/v1';
+  return normalized;
 }

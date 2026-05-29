@@ -147,32 +147,56 @@ class _SearchAndFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: MediaQuery.of(context).size.width < 700
-              ? double.infinity
-              : 480,
-          child: TextField(
-            controller: controller,
-            onChanged: onSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'searchEventsMeetings'.tr(),
-              prefixIcon: const Icon(LucideIcons.search),
-            ),
-          ),
-        ),
-        ..._HomeFilter.values.map(
+    final chips = _HomeFilter.values
+        .map(
           (value) => ChoiceChip(
             selected: filter == value,
             label: Text(value.name.tr()),
             onSelected: (_) => onFilterChanged(value),
           ),
-        ),
-      ],
+        )
+        .toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 700;
+        final search = TextField(
+          controller: controller,
+          onChanged: onSearchChanged,
+          decoration: InputDecoration(
+            hintText: 'searchEventsMeetings'.tr(),
+            prefixIcon: const Icon(LucideIcons.search),
+          ),
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              search,
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var index = 0; index < chips.length; index++) ...[
+                      chips[index],
+                      if (index != chips.length - 1) const SizedBox(width: 10),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [SizedBox(width: 480, child: search), ...chips],
+        );
+      },
     );
   }
 }
@@ -229,10 +253,8 @@ class _EventGrid extends StatelessWidget {
           return Column(
             children: [
               for (var index = 0; index < items.length; index++) ...[
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: veryCompact ? 232 : 172,
-                  ),
+                SizedBox(
+                  height: veryCompact ? 232 : 172,
                   child: _EventCard(
                     item: items[index],
                     compact: compact,
@@ -305,8 +327,7 @@ class _EventCard extends StatelessWidget {
             border: Border.all(color: colors.outline),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: IntrinsicHeight(
-            child: Row(
+          child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(width: 5, child: ColoredBox(color: accent)),
@@ -421,7 +442,6 @@ class _EventCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
           ),
         ),
       ),

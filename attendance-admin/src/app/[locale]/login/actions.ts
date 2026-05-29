@@ -9,6 +9,7 @@ import {
 import type { AuthSession } from "@/lib/auth/tokens";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_VERSION = "v1";
 
 type LoginInput = {
   email: string;
@@ -16,7 +17,7 @@ type LoginInput = {
 };
 
 export async function loginAdmin(input: LoginInput) {
-  const response = await fetch(`${API_URL}/api/auth/login`, {
+  const response = await fetch(`${API_URL}/api/${API_VERSION}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

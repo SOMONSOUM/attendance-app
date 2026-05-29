@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { EventMode, Gender } from "@prisma/client";
+import { EventMode, Gender, Prisma } from "@prisma/client";
 import type { Event, EventRegistration, Attendance } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
@@ -57,20 +57,6 @@ export class EventsService {
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
           qrCodes: separateQrByPlace ? undefined : { create: { code } },
-          places: separateQrByPlace
-            ? {
-                create:
-                  places?.map((place) => ({
-                    name: place.name,
-                    description: place.description,
-                    requireLocation: allowLocation && Boolean(place.requireLocation),
-                    locationName: place.locationName?.trim() || place.name,
-                    latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
-                    longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
-                    radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
-                  })) ?? [],
-              }
-            : undefined,
           shifts: {
             create:
               shifts?.map((shift) => ({
@@ -84,11 +70,21 @@ export class EventsService {
       });
 
       if (separateQrByPlace) {
-        const createdPlaces = await tx.eventPlace.findMany({
+        for (const place of places ?? []) {
+          const placeData = await this.toEventPlaceData(tx, tenantId, allowLocation, place);
+          await tx.place.create({
+            data: {
+              ...placeData,
+              eventId: createdEvent.id,
+            },
+          });
+        }
+        const createdPlaces = await tx.place.findMany({
           where: { eventId: createdEvent.id },
         });
-        await tx.eventQrCode.createMany({
+        await tx.qrCode.createMany({
           data: createdPlaces.map((place) => ({
+            target: "EVENT",
             eventId: createdEvent.id,
             placeId: place.id,
             code: this.toQrCode(),
@@ -211,7 +207,7 @@ export class EventsService {
           .map((place) => place.id)
           .filter((id): id is string => Boolean(id));
 
-        await tx.eventPlace.deleteMany({
+        await tx.place.deleteMany({
           where: {
             eventId,
             id: incomingPlaceIds.length ? { notIn: incomingPlaceIds } : undefined,
@@ -220,35 +216,23 @@ export class EventsService {
 
         for (const place of places) {
           if (place.id) {
-            await tx.eventPlace.updateMany({
+            const placeData = await this.toEventPlaceData(tx, tenantId, allowLocation, place);
+            await tx.place.updateMany({
               where: { id: place.id, eventId },
-              data: {
-                name: place.name,
-                description: place.description,
-                requireLocation: allowLocation && Boolean(place.requireLocation),
-                locationName: place.locationName?.trim() || place.name,
-                latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
-                longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
-                radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
-              },
+              data: placeData,
             });
           } else {
-            await tx.eventPlace.create({
+            const placeData = await this.toEventPlaceData(tx, tenantId, allowLocation, place);
+            await tx.place.create({
               data: {
                 eventId,
-                name: place.name,
-                description: place.description,
-                requireLocation: allowLocation && Boolean(place.requireLocation),
-                locationName: place.locationName?.trim() || place.name,
-                latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
-                longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
-                radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
+                ...placeData,
               },
             });
           }
         }
 
-        const createdPlaces = await tx.eventPlace.findMany({
+        const createdPlaces = await tx.place.findMany({
           where: { eventId },
           include: { qrCodes: true },
         });
@@ -257,8 +241,9 @@ export class EventsService {
             (place) => !place.qrCodes.some((qr) => qr.active),
           );
           if (placesWithoutQr.length) {
-            await tx.eventQrCode.createMany({
+            await tx.qrCode.createMany({
               data: placesWithoutQr.map((place) => ({
+                target: "EVENT",
                 eventId,
                 placeId: place.id,
                 code: this.toQrCode(),
@@ -266,12 +251,12 @@ export class EventsService {
             });
           }
         } else {
-          const existingEventQr = await tx.eventQrCode.findFirst({
-            where: { eventId, placeId: null, active: true },
+          const existingEventQr = await tx.qrCode.findFirst({
+            where: { target: "EVENT", eventId, placeId: null, active: true },
           });
           if (!existingEventQr) {
-            await tx.eventQrCode.create({
-              data: { eventId, code: this.toQrCode() },
+            await tx.qrCode.create({
+              data: { target: "EVENT", eventId, code: this.toQrCode() },
             });
           }
         }
@@ -292,8 +277,8 @@ export class EventsService {
 
   async getQr(tenantId: string | null, eventId: string) {
     await this.assertEvent(tenantId, eventId);
-    const qrs = await this.prisma.eventQrCode.findMany({
-      where: { eventId, active: true },
+    const qrs = await this.prisma.qrCode.findMany({
+      where: { target: "EVENT", eventId, active: true },
       orderBy: { createdAt: "desc" },
       include: { place: true },
     });
@@ -320,14 +305,14 @@ export class EventsService {
   }
 
   async getPublicByCode(code: string) {
-    const qr = await this.prisma.eventQrCode.findUnique({
+    const qr = await this.prisma.qrCode.findUnique({
       where: { code },
       include: {
         place: true,
         event: { include: { theme: true, shifts: true, places: true } },
       },
     });
-    if (!qr?.active)
+    if (!qr?.active || qr.target !== "EVENT" || !qr.event)
       throw new NotFoundException("QR code was not found or is inactive");
     return { ...qr.event, scanPlace: qr.place };
   }
@@ -494,10 +479,75 @@ export class EventsService {
   }
 
   private async assertPlace(eventId: string, placeId: string) {
-    const place = await this.prisma.eventPlace.findFirst({
+    const place = await this.prisma.place.findFirst({
       where: { id: placeId, eventId },
     });
     if (!place) throw new NotFoundException("Event place not found");
     return place;
+  }
+
+  private async toEventPlaceData(
+    tx: Prisma.TransactionClient,
+    tenantId: string | null,
+    allowLocation: boolean,
+    place: NonNullable<CreateEventDto["places"]>[number],
+  ) {
+    const catalogPlace = place.catalogPlaceId
+      ? await tx.place.findFirst({
+          where: { id: place.catalogPlaceId, tenantId },
+        })
+      : place.name.trim()
+        ? await this.upsertCatalogPlace(tx, tenantId, allowLocation, place)
+        : null;
+
+    const requireLocation =
+      allowLocation &&
+      Boolean(place.requireLocation ?? catalogPlace?.requireLocation);
+    const name = place.name?.trim() || catalogPlace?.name || "Place";
+
+    return {
+      catalogPlaceId: catalogPlace?.id ?? null,
+      name,
+      description: place.description?.trim() || catalogPlace?.description || null,
+      requireLocation,
+      locationName:
+        place.locationName?.trim() || catalogPlace?.locationName || name,
+      latitude: requireLocation
+        ? place.latitude ?? Number(catalogPlace?.latitude ?? 0)
+        : null,
+      longitude: requireLocation
+        ? place.longitude ?? Number(catalogPlace?.longitude ?? 0)
+        : null,
+      radiusMeters: requireLocation
+        ? place.radiusMeters ?? catalogPlace?.radiusMeters ?? 100
+        : 0,
+    };
+  }
+
+  private async upsertCatalogPlace(
+    tx: Prisma.TransactionClient,
+    tenantId: string | null,
+    allowLocation: boolean,
+    place: NonNullable<CreateEventDto["places"]>[number],
+  ) {
+    const data = {
+      tenantId,
+      name: place.name.trim(),
+      description: place.description?.trim() || null,
+      requireLocation: allowLocation && Boolean(place.requireLocation),
+      locationName: place.locationName?.trim() || place.name.trim(),
+      latitude:
+        allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+      longitude:
+        allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+      radiusMeters:
+        allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
+    };
+
+    const existing = await tx.place.findFirst({
+      where: { tenantId, name: place.name.trim(), eventId: null, meetingId: null },
+    });
+    if (!existing) return tx.place.create({ data });
+    return tx.place.update({ where: { id: existing.id }, data });
   }
 }

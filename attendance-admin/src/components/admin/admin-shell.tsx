@@ -12,6 +12,7 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  MapPin,
   ChevronLeft,
   ClipboardCheck,
   Database,
@@ -29,6 +30,7 @@ import {
   SlidersHorizontal,
   Sun,
   Users,
+  UserRoundCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,6 +75,20 @@ const navItems: NavItem[] = [
     permission: "meetings:read",
   },
   {
+    key: "places",
+    label: "Places",
+    href: "/en/places",
+    icon: MapPin,
+    permission: "places:read",
+  },
+  {
+    key: "chairpersons",
+    label: "Chairpersons",
+    href: "/en/chairpersons",
+    icon: UserRoundCheck,
+    permission: "chairpersons:read",
+  },
+  {
     key: "registrations",
     label: "Registrations",
     href: "/en/registrations",
@@ -110,6 +126,15 @@ const navItems: NavItem[] = [
   },
   { key: "settings", label: "Settings", href: "/en/settings", icon: Settings },
 ];
+const mainNavKeys = new Set([
+  "dashboard",
+  "events",
+  "meetings",
+  "places",
+  "chairpersons",
+  "registrations",
+  "attendance",
+]);
 
 export function AdminShell({
   active,
@@ -359,8 +384,14 @@ function SidebarContent({
   const router = useRouter();
   const params = useParams<{ locale: string }>();
   const [isPending, startTransition] = useTransition();
-  const visibleMenuItems = filterNavItems(navItems.slice(0, 7), currentUser);
-  const visibleSystemItems = filterNavItems(navItems.slice(7), currentUser);
+  const visibleMenuItems = filterNavItems(
+    navItems.filter((item) => mainNavKeys.has(item.key)),
+    currentUser,
+  );
+  const visibleSystemItems = filterNavItems(
+    navItems.filter((item) => !mainNavKeys.has(item.key)),
+    currentUser,
+  );
   const locale = params.locale ?? "en";
 
   function logout() {
@@ -517,7 +548,7 @@ function NavLink({
 }) {
   const t = useTranslations("adminShell");
   const Icon = item.icon;
-  const selected = item.label === active;
+  const selected = item.key === active || item.label === active;
   return (
     <Link
       href={item.href.replace(/^\/en(?=\/|$)/, `/${locale}`)}
@@ -552,7 +583,9 @@ function localizeTitle(
   title: string,
   t: ReturnType<typeof useTranslations<"adminShell">>,
 ) {
-  const item = navItems.find((navItem) => navItem.label === title);
+  const item = navItems.find(
+    (navItem) => navItem.key === title || navItem.label === title,
+  );
   return item ? t(`nav.${item.key}`) : title;
 }
 

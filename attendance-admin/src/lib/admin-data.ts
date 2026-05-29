@@ -54,6 +54,7 @@ export type EventShift = {
 
 export type EventPlace = {
   id?: string;
+  catalogPlaceId?: string | null;
   name: string;
   description?: string | null;
   requireLocation?: boolean;
@@ -83,6 +84,7 @@ export type EventForm = {
 
 export type MeetingChairperson = {
   id?: string;
+  catalogChairpersonId?: string | null;
   honorificTitleEn: string;
   honorificTitleKm: string;
   firstNameEn: string;
@@ -95,6 +97,7 @@ export type MeetingChairperson = {
 
 export type MeetingPlace = {
   id?: string;
+  catalogPlaceId?: string | null;
   name: string;
   description?: string | null;
   requireLocation?: boolean;
@@ -219,6 +222,35 @@ export type AttendanceRecord = {
   createdAt: string;
 };
 
+export type PlaceRecord = {
+  id: string;
+  name: string;
+  description?: string | null;
+  requireLocation?: boolean;
+  locationName?: string | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  radiusMeters?: number;
+  createdAt?: string;
+};
+
+export type PlaceForm = Omit<PlaceRecord, "id" | "createdAt">;
+
+export type ChairpersonRecord = {
+  id: string;
+  honorificTitleEn: string;
+  honorificTitleKm: string;
+  firstNameEn: string;
+  firstNameKm: string;
+  lastNameEn: string;
+  lastNameKm: string;
+  position?: string | null;
+  organization?: string | null;
+  createdAt?: string;
+};
+
+export type ChairpersonForm = Omit<ChairpersonRecord, "id" | "createdAt">;
+
 export type RegistrationForm = {
   fullNameEn: string;
   fullNameKm?: string;
@@ -292,6 +324,14 @@ export const meetingKeys = {
   all: ["meetings"] as const,
 };
 
+export const placeKeys = {
+  all: ["places"] as const,
+};
+
+export const chairpersonKeys = {
+  all: ["chairpersons"] as const,
+};
+
 export const userKeys = {
   all: ["users"] as const,
 };
@@ -328,6 +368,52 @@ export function updateEvent(id: string, data: Partial<EventForm>) {
 
 export function deleteEvent(id: string) {
   return api<{ deleted: true }>(`/events/${id}`, { method: "DELETE" });
+}
+
+export function listPlaces(params?: PaginationParams) {
+  return api<Paginated<PlaceRecord>>(`/places${paginationQuery(params)}`);
+}
+
+export function createPlace(data: PlaceForm) {
+  return api<PlaceRecord>("/places", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updatePlace(id: string, data: Partial<PlaceForm>) {
+  return api<PlaceRecord>(`/places/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deletePlace(id: string) {
+  return api<{ deleted: true }>(`/places/${id}`, { method: "DELETE" });
+}
+
+export function listChairpersons(params?: PaginationParams) {
+  return api<Paginated<ChairpersonRecord>>(
+    `/chairpersons${paginationQuery(params)}`,
+  );
+}
+
+export function createChairperson(data: ChairpersonForm) {
+  return api<ChairpersonRecord>("/chairpersons", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateChairperson(id: string, data: Partial<ChairpersonForm>) {
+  return api<ChairpersonRecord>(`/chairpersons/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteChairperson(id: string) {
+  return api<{ deleted: true }>(`/chairpersons/${id}`, { method: "DELETE" });
 }
 
 export function listMeetings(params?: PaginationParams) {

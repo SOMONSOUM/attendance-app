@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventMode, Gender } from "@prisma/client";
+import { EventMode, Gender, Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
@@ -54,9 +54,7 @@ export class MeetingsService {
           radiusMeters: allowLocation && dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
-          chairpersons: {
-            create: dto.chairpersons.map((chairperson) => ({ ...chairperson })),
-          },
+          chairpersons: undefined,
           shifts: {
             create:
               dto.shifts?.map((shift) => ({
@@ -65,21 +63,10 @@ export class MeetingsService {
                 endTime: this.toTimeDate(shift.endTime),
               })) ?? [],
           },
-          qrCodes: separateQrByPlace ? undefined : { create: { code } },
-          places: separateQrByPlace
-            ? {
-                create:
-                  dto.places?.map((place) => ({
-                    name: place.name,
-                    description: place.description,
-                    requireLocation: allowLocation && Boolean(place.requireLocation),
-                    locationName: place.locationName?.trim() || place.name,
-                    latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
-                    longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
-                    radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
-                  })) ?? [],
-              }
-            : undefined,
+          qrCodes: separateQrByPlace
+            ? undefined
+            : { create: { target: "MEETING", code } },
+          places: undefined,
           participants: {
             create:
               dto.mode !== EventMode.OPEN_REGISTRATION
@@ -92,12 +79,35 @@ export class MeetingsService {
         },
       });
 
+      for (const chairperson of dto.chairpersons) {
+        const chairpersonData = await this.toMeetingChairpersonData(
+          tx,
+          tenantId,
+          chairperson,
+        );
+        await tx.chairperson.create({
+          data: { ...chairpersonData, meetingId: meeting.id },
+        });
+      }
+
       if (separateQrByPlace) {
-        const places = await tx.meetingPlace.findMany({
+        for (const place of dto.places ?? []) {
+          const placeData = await this.toMeetingPlaceData(
+            tx,
+            tenantId,
+            allowLocation,
+            place,
+          );
+          await tx.place.create({
+            data: { ...placeData, meetingId: meeting.id },
+          });
+        }
+        const places = await tx.place.findMany({
           where: { meetingId: meeting.id },
         });
-        await tx.meetingQrCode.createMany({
+        await tx.qrCode.createMany({
           data: places.map((place) => ({
+            target: "MEETING",
             meetingId: meeting.id,
             placeId: place.id,
             code: this.toQrCode(),
@@ -135,7 +145,7 @@ export class MeetingsService {
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.chairpersons) {
-        await tx.meetingChairperson.deleteMany({ where: { meetingId } });
+        await tx.chairperson.deleteMany({ where: { meetingId } });
       }
       if (dto.participants) {
         await tx.meetingParticipant.deleteMany({ where: { meetingId } });
@@ -144,8 +154,8 @@ export class MeetingsService {
         await tx.meetingShift.deleteMany({ where: { meetingId } });
       }
       if (dto.places) {
-        await tx.meetingPlace.deleteMany({ where: { meetingId } });
-        await tx.meetingQrCode.deleteMany({ where: { meetingId } });
+        await tx.place.deleteMany({ where: { meetingId } });
+        await tx.qrCode.deleteMany({ where: { target: "MEETING", meetingId } });
       }
 
       const separateQrByPlace =
@@ -181,13 +191,7 @@ export class MeetingsService {
                 : undefined,
           startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
           endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
-          chairpersons: dto.chairpersons
-            ? {
-                create: dto.chairpersons.map((chairperson) => ({
-                  ...chairperson,
-                })),
-              }
-            : undefined,
+          chairpersons: undefined,
           shifts: dto.shifts
             ? {
                 create: dto.shifts.map((shift) => ({
@@ -197,21 +201,7 @@ export class MeetingsService {
                 })),
               }
             : undefined,
-          places: dto.places
-            ? {
-                create: separateQrByPlace
-                  ? dto.places.map((place) => ({
-                      name: place.name,
-                      description: place.description,
-                      requireLocation: allowLocation && Boolean(place.requireLocation),
-                      locationName: place.locationName?.trim() || place.name,
-                      latitude: allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
-                      longitude: allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
-                      radiusMeters: allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
-                    }))
-                  : [],
-              }
-            : undefined,
+          places: undefined,
           participants: dto.participants
             ? {
                 create: dto.participants.map((participant) => ({
@@ -223,22 +213,50 @@ export class MeetingsService {
         },
       });
 
+      if (dto.chairpersons) {
+        for (const chairperson of dto.chairpersons) {
+          const chairpersonData = await this.toMeetingChairpersonData(
+            tx,
+            tenantId,
+            chairperson,
+          );
+          await tx.chairperson.create({
+            data: { ...chairpersonData, meetingId },
+          });
+        }
+      }
+
       if (dto.places && separateQrByPlace) {
-        const places = await tx.meetingPlace.findMany({ where: { meetingId } });
-        await tx.meetingQrCode.createMany({
+        for (const place of dto.places) {
+          const placeData = await this.toMeetingPlaceData(
+            tx,
+            tenantId,
+            allowLocation,
+            place,
+          );
+          await tx.place.create({
+            data: { ...placeData, meetingId },
+          });
+        }
+      }
+
+      if (dto.places && separateQrByPlace) {
+        const places = await tx.place.findMany({ where: { meetingId } });
+        await tx.qrCode.createMany({
           data: places.map((place) => ({
+            target: "MEETING",
             meetingId,
             placeId: place.id,
             code: this.toQrCode(),
           })),
         });
       } else if (!separateQrByPlace) {
-        const existingQr = await tx.meetingQrCode.findFirst({
-          where: { meetingId, placeId: null, active: true },
+        const existingQr = await tx.qrCode.findFirst({
+          where: { target: "MEETING", meetingId, placeId: null, active: true },
         });
         if (!existingQr) {
-          await tx.meetingQrCode.create({
-            data: { meetingId, code: this.toQrCode() },
+          await tx.qrCode.create({
+            data: { target: "MEETING", meetingId, code: this.toQrCode() },
           });
         }
       }
@@ -258,8 +276,8 @@ export class MeetingsService {
 
   async getQr(tenantId: string | null, meetingId: string) {
     await this.assertMeeting(tenantId, meetingId);
-    const qrs = await this.prisma.meetingQrCode.findMany({
-      where: { meetingId, active: true },
+    const qrs = await this.prisma.qrCode.findMany({
+      where: { target: "MEETING", meetingId, active: true },
       orderBy: { createdAt: "desc" },
       include: { place: true },
     });
@@ -400,7 +418,7 @@ export class MeetingsService {
   }
 
   async getPublicByCode(code: string) {
-    const qr = await this.prisma.meetingQrCode.findUnique({
+    const qr = await this.prisma.qrCode.findUnique({
       where: { code },
       include: {
         place: true,
@@ -414,7 +432,9 @@ export class MeetingsService {
         },
       },
     });
-    if (!qr?.active) throw new NotFoundException("Meeting QR code not found");
+    if (!qr?.active || qr.target !== "MEETING" || !qr.meeting) {
+      throw new NotFoundException("Meeting QR code not found");
+    }
     return { ...qr.meeting, scanPlace: qr.place };
   }
 
@@ -422,7 +442,16 @@ export class MeetingsService {
     const meeting = await this.getPublicByCode(code);
 
     if (meeting.mode === EventMode.BULK_REGISTRATION) {
-      const distanceMeters = this.assertLocation(meeting.scanPlace ?? meeting, dto);
+      const distanceMeters = this.assertLocation(
+        meeting.scanPlace ?? {
+          requireLocation: meeting.requireLocation,
+          latitude: meeting.latitude,
+          longitude: meeting.longitude,
+          radiusMeters: meeting.radiusMeters,
+          locationName: meeting.locationName,
+        },
+        dto,
+      );
       if (!dto.participantId) {
         throw new BadRequestException("Please choose a registered participant.");
       }
@@ -585,7 +614,7 @@ export class MeetingsService {
   }
 
   private async assertPlace(meetingId: string, placeId: string) {
-    const place = await this.prisma.meetingPlace.findFirst({
+    const place = await this.prisma.place.findFirst({
       where: { id: placeId, meetingId },
     });
     if (!place) throw new NotFoundException("Meeting place not found");
@@ -617,6 +646,118 @@ export class MeetingsService {
 
   private toQrCode() {
     return randomBytes(18).toString("base64url");
+  }
+
+  private async toMeetingPlaceData(
+    tx: Prisma.TransactionClient,
+    tenantId: string | null,
+    allowLocation: boolean,
+    place: NonNullable<CreateMeetingDto["places"]>[number],
+  ) {
+    const catalogPlace = place.catalogPlaceId
+      ? await tx.place.findFirst({
+          where: { id: place.catalogPlaceId, tenantId },
+        })
+      : place.name.trim()
+        ? await this.upsertCatalogPlace(tx, tenantId, allowLocation, place)
+        : null;
+    const requireLocation =
+      allowLocation &&
+      Boolean(place.requireLocation ?? catalogPlace?.requireLocation);
+    const name = place.name?.trim() || catalogPlace?.name || "Place";
+    return {
+      catalogPlaceId: catalogPlace?.id ?? null,
+      name,
+      description: place.description?.trim() || catalogPlace?.description || null,
+      requireLocation,
+      locationName:
+        place.locationName?.trim() || catalogPlace?.locationName || name,
+      latitude: requireLocation
+        ? place.latitude ?? Number(catalogPlace?.latitude ?? 0)
+        : null,
+      longitude: requireLocation
+        ? place.longitude ?? Number(catalogPlace?.longitude ?? 0)
+        : null,
+      radiusMeters: requireLocation
+        ? place.radiusMeters ?? catalogPlace?.radiusMeters ?? 100
+        : 0,
+    };
+  }
+
+  private async upsertCatalogPlace(
+    tx: Prisma.TransactionClient,
+    tenantId: string | null,
+    allowLocation: boolean,
+    place: NonNullable<CreateMeetingDto["places"]>[number],
+  ) {
+    const data = {
+      tenantId,
+      name: place.name.trim(),
+      description: place.description?.trim() || null,
+      requireLocation: allowLocation && Boolean(place.requireLocation),
+      locationName: place.locationName?.trim() || place.name.trim(),
+      latitude:
+        allowLocation && place.requireLocation ? place.latitude ?? 0 : null,
+      longitude:
+        allowLocation && place.requireLocation ? place.longitude ?? 0 : null,
+      radiusMeters:
+        allowLocation && place.requireLocation ? place.radiusMeters ?? 100 : 0,
+    };
+
+    const existing = await tx.place.findFirst({
+      where: { tenantId, name: place.name.trim(), eventId: null, meetingId: null },
+    });
+    if (!existing) return tx.place.create({ data });
+    return tx.place.update({ where: { id: existing.id }, data });
+  }
+
+  private async toMeetingChairpersonData(
+    tx: Prisma.TransactionClient,
+    tenantId: string | null,
+    chairperson: CreateMeetingDto["chairpersons"][number],
+  ) {
+    const catalogChairperson = chairperson.catalogChairpersonId
+      ? await tx.chairperson.findFirst({
+          where: { id: chairperson.catalogChairpersonId, tenantId },
+        })
+      : await tx.chairperson.create({
+          data: {
+            tenantId,
+            honorificTitleEn: chairperson.honorificTitleEn.trim(),
+            honorificTitleKm: chairperson.honorificTitleKm.trim(),
+            firstNameEn: chairperson.firstNameEn.trim(),
+            firstNameKm: chairperson.firstNameKm.trim(),
+            lastNameEn: chairperson.lastNameEn.trim(),
+            lastNameKm: chairperson.lastNameKm.trim(),
+            position: chairperson.position?.trim() || null,
+            organization: chairperson.organization?.trim() || null,
+          },
+        });
+
+    return {
+      catalogChairpersonId: catalogChairperson?.id ?? null,
+      honorificTitleEn:
+        chairperson.honorificTitleEn?.trim() ||
+        catalogChairperson?.honorificTitleEn ||
+        "",
+      honorificTitleKm:
+        chairperson.honorificTitleKm?.trim() ||
+        catalogChairperson?.honorificTitleKm ||
+        "",
+      firstNameEn:
+        chairperson.firstNameEn?.trim() || catalogChairperson?.firstNameEn || "",
+      firstNameKm:
+        chairperson.firstNameKm?.trim() || catalogChairperson?.firstNameKm || "",
+      lastNameEn:
+        chairperson.lastNameEn?.trim() || catalogChairperson?.lastNameEn || "",
+      lastNameKm:
+        chairperson.lastNameKm?.trim() || catalogChairperson?.lastNameKm || "",
+      position: chairperson.position?.trim() || catalogChairperson?.position || null,
+      organization:
+        chairperson.organization?.trim() ||
+        catalogChairperson?.organization ||
+        null,
+    };
   }
 
   private get include() {

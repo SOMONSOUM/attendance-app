@@ -21,7 +21,7 @@ export type ApiError = {
 };
 
 export const apiClient = axios.create({
-  baseURL: "/api",
+  baseURL: "/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -42,7 +42,7 @@ apiClient.interceptors.response.use(
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
   if (isFormData) {
-    const response = await fetch(`/api${path}`, {
+    const response = await fetch(`/api/v1${path}`, {
       method: init.method ?? "GET",
       body: init.body,
       credentials: "same-origin",

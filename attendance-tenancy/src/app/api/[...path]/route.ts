@@ -7,6 +7,7 @@ import {
 import type { AuthSession } from "@/lib/auth/tokens";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_VERSION = "v1";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -30,7 +31,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
 async function proxyApiRequest(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
-  const pathname = path.join("/");
+  const pathname = stripVersion(path.join("/"));
   const body = hasBody(request.method) ? await request.arrayBuffer() : undefined;
 
   if (pathname === "auth/login") {
@@ -93,7 +94,7 @@ async function forwardRequest(
     headers.set("content-type", "application/json");
   }
 
-  return fetch(`${API_URL}/api/${pathname}${request.nextUrl.search}`, {
+  return fetch(`${API_URL}/api/${API_VERSION}/${pathname}${request.nextUrl.search}`, {
     method: request.method,
     headers,
     body,
@@ -140,7 +141,7 @@ async function buildResponse(apiResponse: Response) {
 }
 
 async function refreshSession(refreshToken: string) {
-  const response = await fetch(`${API_URL}/api/auth/refresh`, {
+  const response = await fetch(`${API_URL}/api/${API_VERSION}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),
@@ -175,4 +176,8 @@ function unauthorizedResponse(message = "Unauthorized") {
 
 function hasBody(method: string) {
   return !["GET", "HEAD"].includes(method.toUpperCase());
+}
+
+function stripVersion(pathname: string) {
+  return pathname.replace(/^v\d+\//, "");
 }

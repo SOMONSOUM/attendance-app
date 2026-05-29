@@ -13,10 +13,10 @@ model Meeting {
   radiusMeters      Int                  @default(0) @map("radius_meters")
   startsAt          DateTime             @map("starts_at")
   endsAt            DateTime             @map("ends_at")
-  chairpersons      MeetingChairperson[]
-  places            MeetingPlace[]
+  chairpersons      Chairperson[]
+  places            Place[]
   shifts            MeetingShift[]
-  qrCodes           MeetingQrCode[]
+  qrCodes           QrCode[]
   participants      MeetingParticipant[]
   createdById       String?              @map("created_by_id")
   createdAt         DateTime             @default(now()) @map("created_at")
@@ -41,67 +41,12 @@ model MeetingShift {
   @@map("meeting_shifts")
 }
 
-model MeetingChairperson {
-  id               String   @id @default(cuid())
-  meetingId        String   @map("meeting_id")
-  meeting          Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  honorificTitleEn String   @map("honorific_title_en")
-  honorificTitleKm String   @map("honorific_title_km")
-  firstNameEn      String   @map("first_name_en")
-  firstNameKm      String   @map("first_name_km")
-  lastNameEn       String   @map("last_name_en")
-  lastNameKm       String   @map("last_name_km")
-  position         String?
-  organization     String?
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-
-  @@index([meetingId])
-  @@map("meeting_chairpersons")
-}
-
-model MeetingPlace {
-  id           String               @id @default(cuid())
-  meetingId    String               @map("meeting_id")
-  meeting      Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  name         String
-  description  String?              @db.Text
-  requireLocation Boolean           @default(false) @map("require_location")
-  locationName String?              @map("location_name") @db.Text
-  latitude     Decimal?             @db.Decimal(10, 7)
-  longitude    Decimal?             @db.Decimal(10, 7)
-  radiusMeters Int                  @default(0) @map("radius_meters")
-  qrCodes      MeetingQrCode[]
-  participants MeetingParticipant[]
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
-
-  @@index([meetingId])
-  @@map("meeting_places")
-}
-
-model MeetingQrCode {
-  id        String        @id @default(cuid())
-  code      String        @unique
-  meetingId String        @map("meeting_id")
-  meeting   Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  placeId   String?       @map("place_id")
-  place     MeetingPlace? @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  active    Boolean       @default(true)
-  expiresAt DateTime?     @map("expires_at")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
-
-  @@index([placeId])
-  @@map("meeting_qr_codes")
-}
-
 model MeetingParticipant {
   id             String                   @id @default(cuid())
   meetingId      String                   @map("meeting_id")
   meeting        Meeting                  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   placeId        String?                  @map("place_id")
-  place          MeetingPlace?            @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  place          Place?                   @relation(fields: [placeId], references: [id], onDelete: Cascade)
   shiftId        String?                  @map("shift_id")
   shift          MeetingShift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   fullNameEn     String                   @map("full_name_en")

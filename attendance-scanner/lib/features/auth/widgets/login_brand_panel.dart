@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/scanner_logo.dart';
 
 class LoginBrandPanel extends StatelessWidget {
@@ -26,12 +25,13 @@ class LoginBrandPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(8);
+    final colors = Theme.of(context).colorScheme;
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 24 : 32),
       decoration: BoxDecoration(
-        color: AppTheme.darkPrimary,
+        color: colors.primary,
         borderRadius: compact
             ? radius
             : const BorderRadius.horizontal(left: Radius.circular(8)),
@@ -42,7 +42,7 @@ class LoginBrandPanel extends StatelessWidget {
           ScannerLogo(
             size: compact ? 52 : 60,
             backgroundColor: Colors.white.withValues(alpha: 0.14),
-            foregroundColor: Colors.white,
+            foregroundColor: colors.onPrimary,
           ),
           const Gap(20),
           Text(
@@ -59,7 +59,7 @@ class LoginBrandPanel extends StatelessWidget {
             subtitle,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: const Color(0xFFD8F4EA),
+              color: colors.onPrimary.withValues(alpha: 0.78),
               height: 1.4,
             ),
           ),
@@ -89,6 +89,8 @@ class _FeaturePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -98,7 +100,7 @@ class _FeaturePill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFFD8F4EA), size: 18),
+          Icon(icon, color: colors.onPrimary.withValues(alpha: 0.78), size: 18),
           const Gap(8),
           Expanded(
             child: Text(

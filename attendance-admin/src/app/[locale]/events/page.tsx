@@ -50,6 +50,9 @@ import {
   type EventRecord,
   listRegistrationImports,
   listEvents,
+  listPlaces,
+  placeKeys,
+  type PlaceRecord,
   updateEvent,
   uploadRegistrationImport,
 } from "@/lib/admin-data";
@@ -141,10 +144,15 @@ export default function EventsPage() {
     queryKey: ["registration-imports"],
     queryFn: () => listRegistrationImports({ pageSize: 100, target: "EVENT" }),
   });
+  const placesQuery = useQuery({
+    queryKey: placeKeys.all,
+    queryFn: () => listPlaces({ pageSize: 100 }),
+  });
   const currentUser = currentUserQuery.data;
   const canCreate = hasPermission(currentUser, "events:create");
   const canUpdate = hasPermission(currentUser, "events:update");
   const canDelete = hasPermission(currentUser, "events:delete");
+  const catalogPlaces = placesQuery.data?.items ?? [];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -229,6 +237,7 @@ export default function EventsPage() {
       places:
         event.places?.map((place) => ({
           id: place.id,
+          catalogPlaceId: place.catalogPlaceId,
           name: place.name,
           description: place.description ?? "",
           requireLocation: Boolean(place.requireLocation),
@@ -286,6 +295,12 @@ export default function EventsPage() {
         placeIndex === index ? { ...place, ...patch } : place,
       ),
     });
+  }
+
+  function applyCatalogPlace(index: number, placeId: string) {
+    const catalogPlace = catalogPlaces.find((place) => place.id === placeId);
+    if (!catalogPlace) return;
+    updatePlace(index, catalogPlaceToEventPlace(catalogPlace));
   }
 
   function changeMode(mode: EventForm["mode"]) {
@@ -563,6 +578,30 @@ export default function EventsPage() {
                                 className="grid gap-3 rounded-md border border-border p-3"
                                 key={index}
                               >
+                                {catalogPlaces.length ? (
+                                  <div className="grid gap-2">
+                                    <Label>Choose saved place</Label>
+                                    <Select
+                                      value={place.catalogPlaceId ?? ""}
+                                      onChange={(event) =>
+                                        applyCatalogPlace(
+                                          index,
+                                          event.target.value,
+                                        )
+                                      }
+                                    >
+                                      <option value="">Create new place</option>
+                                      {catalogPlaces.map((catalogPlace) => (
+                                        <option
+                                          key={catalogPlace.id}
+                                          value={catalogPlace.id}
+                                        >
+                                          {catalogPlace.name}
+                                        </option>
+                                      ))}
+                                    </Select>
+                                  </div>
+                                ) : null}
                                 <div className="flex items-center gap-2">
                                   <Field
                                     label="Place name"
@@ -1230,6 +1269,7 @@ function normalizeForm(form: EventForm): EventForm {
     places: form.separateQrByPlace
       ? form.places?.map((place) => ({
           id: place.id,
+          catalogPlaceId: place.catalogPlaceId,
           name: place.name,
           description: place.description?.trim() || null,
           requireLocation:
@@ -1258,6 +1298,21 @@ function normalizeForm(form: EventForm): EventForm {
     },
     startsAt: new Date(form.startsAt).toISOString(),
     endsAt: new Date(form.endsAt).toISOString(),
+  };
+}
+
+function catalogPlaceToEventPlace(
+  place: PlaceRecord,
+): NonNullable<EventForm["places"]>[number] {
+  return {
+    catalogPlaceId: place.id,
+    name: place.name,
+    description: place.description ?? "",
+    requireLocation: Boolean(place.requireLocation),
+    locationName: place.locationName ?? place.name,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    radiusMeters: place.radiusMeters ?? 100,
   };
 }
 

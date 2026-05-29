@@ -37,7 +37,7 @@ export function LoginForm({ locale }: { locale: string }) {
   });
 
   return (
-    <Card className="w-full border-white/60 bg-card/90 shadow-soft backdrop-blur">
+    <Card className="w-full overflow-hidden border-white/60 border-l-primary bg-card/90 shadow-soft backdrop-blur lg:border-l-8">
       <CardHeader className="items-center gap-3 pb-4 text-center">
         <span className="grid size-12 place-items-center rounded-md bg-secondary text-primary">
           <ShieldCheck size={24} />

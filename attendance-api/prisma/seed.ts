@@ -88,6 +88,14 @@ const permissions: PermissionSeed[] = [
   ["meetings", "read"],
   ["meetings", "update"],
   ["meetings", "delete"],
+  ["places", "create"],
+  ["places", "read"],
+  ["places", "update"],
+  ["places", "delete"],
+  ["chairpersons", "create"],
+  ["chairpersons", "read"],
+  ["chairpersons", "update"],
+  ["chairpersons", "delete"],
   ["registrations", "create"],
   ["registrations", "read"],
   ["attendance", "create"],
@@ -120,6 +128,12 @@ const roles: RoleSeed[] = [
       "meetings:create",
       "meetings:read",
       "meetings:update",
+      "places:create",
+      "places:read",
+      "places:update",
+      "chairpersons:create",
+      "chairpersons:read",
+      "chairpersons:update",
       "events:read",
       "registrations:create",
       "registrations:read",
@@ -135,6 +149,8 @@ const roles: RoleSeed[] = [
     permissions: [
       "events:read",
       "meetings:read",
+      "places:read",
+      "chairpersons:read",
       "registrations:read",
       "attendance:read",
     ],
@@ -763,18 +779,16 @@ async function resetDatabase() {
   await prisma.attendance.deleteMany();
   await prisma.eventRegistration.deleteMany();
   await prisma.meetingParticipant.deleteMany();
-  await prisma.meetingQrCode.deleteMany();
-  await prisma.meetingChairperson.deleteMany();
+  await prisma.qrCode.deleteMany();
   await prisma.meetingShift.deleteMany();
-  await prisma.meetingPlace.deleteMany();
   await prisma.meeting.deleteMany();
   await prisma.registrationImportRow.deleteMany();
   await prisma.registrationImport.deleteMany();
-  await prisma.eventQrCode.deleteMany();
   await prisma.eventTheme.deleteMany();
   await prisma.eventShift.deleteMany();
-  await prisma.eventPlace.deleteMany();
   await prisma.event.deleteMany();
+  await prisma.place.deleteMany();
+  await prisma.chairperson.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.rolePermission.deleteMany();
@@ -1027,15 +1041,17 @@ async function seedEvent() {
     create: sampleEvent,
   });
 
-  await prisma.eventQrCode.upsert({
+  await prisma.qrCode.upsert({
     where: { code: "DEMO-TECH-SUMMIT-2026" },
     update: {
+      target: RegistrationTarget.EVENT,
       eventId: event.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-TECH-SUMMIT-2026",
+      target: RegistrationTarget.EVENT,
       eventId: event.id,
       active: true,
     },
@@ -1163,7 +1179,7 @@ async function seedPlaceEvent() {
   }
 
   for (const placeSeed of placeSeeds) {
-    const place = await prisma.eventPlace.upsert({
+    const place = await prisma.place.upsert({
       where: { id: placeSeed.id },
       update: {
         eventId: event.id,
@@ -1188,9 +1204,10 @@ async function seedPlaceEvent() {
       },
     });
 
-    await prisma.eventQrCode.upsert({
+    await prisma.qrCode.upsert({
       where: { code: placeSeed.code },
       update: {
+        target: RegistrationTarget.EVENT,
         eventId: event.id,
         placeId: place.id,
         active: true,
@@ -1198,6 +1215,7 @@ async function seedPlaceEvent() {
       },
       create: {
         code: placeSeed.code,
+        target: RegistrationTarget.EVENT,
         eventId: event.id,
         placeId: place.id,
         active: true,
@@ -1287,7 +1305,7 @@ async function seedMeetings() {
   });
 
   for (const chairpersonSeed of boardMeetingChairpersons) {
-    await prisma.meetingChairperson.upsert({
+    await prisma.chairperson.upsert({
       where: { id: chairpersonSeed.id },
       update: {
         meetingId: board.id,
@@ -1307,9 +1325,10 @@ async function seedMeetings() {
     });
   }
 
-  await prisma.meetingQrCode.upsert({
+  await prisma.qrCode.upsert({
     where: { code: "DEMO-BOARD-BRIEFING-2026" },
     update: {
+      target: RegistrationTarget.MEETING,
       meetingId: board.id,
       placeId: null,
       active: true,
@@ -1317,6 +1336,7 @@ async function seedMeetings() {
     },
     create: {
       code: "DEMO-BOARD-BRIEFING-2026",
+      target: RegistrationTarget.MEETING,
       meetingId: board.id,
       active: true,
     },
@@ -1385,7 +1405,7 @@ async function seedMeetings() {
   });
 
   for (const chairpersonSeed of placeMeetingChairpersons) {
-    await prisma.meetingChairperson.upsert({
+    await prisma.chairperson.upsert({
       where: { id: chairpersonSeed.id },
       update: {
         meetingId: committee.id,
@@ -1422,7 +1442,7 @@ async function seedMeetings() {
   }
 
   for (const placeSeed of meetingPlaceSeeds) {
-    const place = await prisma.meetingPlace.upsert({
+    const place = await prisma.place.upsert({
       where: { id: placeSeed.id },
       update: {
         meetingId: committee.id,
@@ -1447,9 +1467,10 @@ async function seedMeetings() {
       },
     });
 
-    await prisma.meetingQrCode.upsert({
-      where: { code: placeSeed.code },
-      update: {
+    await prisma.qrCode.upsert({
+    where: { code: placeSeed.code },
+    update: {
+        target: RegistrationTarget.MEETING,
         meetingId: committee.id,
         placeId: place.id,
         active: true,
@@ -1457,6 +1478,7 @@ async function seedMeetings() {
       },
       create: {
         code: placeSeed.code,
+        target: RegistrationTarget.MEETING,
         meetingId: committee.id,
         placeId: place.id,
         active: true,
@@ -1503,7 +1525,7 @@ async function seedMeetings() {
   });
 
   for (const chairpersonSeed of openMeetingChairpersons) {
-    await prisma.meetingChairperson.upsert({
+    await prisma.chairperson.upsert({
       where: { id: chairpersonSeed.id },
       update: {
         meetingId: townhall.id,
@@ -1523,9 +1545,10 @@ async function seedMeetings() {
     });
   }
 
-  await prisma.meetingQrCode.upsert({
+  await prisma.qrCode.upsert({
     where: { code: "DEMO-PUBLIC-TOWNHALL-2026" },
     update: {
+      target: RegistrationTarget.MEETING,
       meetingId: townhall.id,
       placeId: null,
       active: true,
@@ -1533,6 +1556,7 @@ async function seedMeetings() {
     },
     create: {
       code: "DEMO-PUBLIC-TOWNHALL-2026",
+      target: RegistrationTarget.MEETING,
       meetingId: townhall.id,
       active: true,
     },
@@ -1591,9 +1615,10 @@ async function seedOpenEvent() {
     create: openEvent,
   });
 
-  await prisma.eventQrCode.upsert({
+  await prisma.qrCode.upsert({
     where: { code: "DEMO-COMMUNITY-OPEN-DAY-2026" },
     update: {
+      target: RegistrationTarget.EVENT,
       eventId: event.id,
       placeId: null,
       active: true,
@@ -1601,6 +1626,7 @@ async function seedOpenEvent() {
     },
     create: {
       code: "DEMO-COMMUNITY-OPEN-DAY-2026",
+      target: RegistrationTarget.EVENT,
       eventId: event.id,
       active: true,
     },
@@ -1695,6 +1721,75 @@ async function seedOpenEvent() {
   }
 }
 
+async function seedCatalogs() {
+  await prisma.place.createMany({
+    data: [
+      {
+        id: "seed-place-main-hall",
+        tenantId: "default-tenant",
+        name: "Main hall",
+        description: "Default venue for large attendance events.",
+        requireLocation: true,
+        locationName: "Main hall",
+        latitude: "11.5564000",
+        longitude: "104.9282000",
+        radiusMeters: 100,
+      },
+      {
+        id: "seed-place-workshop-room",
+        tenantId: "default-tenant",
+        name: "Workshop room",
+        description: "Smaller room for breakout sessions.",
+        requireLocation: false,
+        locationName: "Workshop room",
+        latitude: null,
+        longitude: null,
+        radiusMeters: 0,
+      },
+      {
+        id: "seed-place-policy-room",
+        tenantId: "default-tenant",
+        name: "Policy room",
+        description: "Meeting room with optional location check-in.",
+        requireLocation: false,
+        locationName: "Policy room",
+        latitude: null,
+        longitude: null,
+        radiusMeters: 0,
+      },
+    ],
+  });
+
+  await prisma.chairperson.createMany({
+    data: [
+      {
+        id: "seed-chairperson-sok-dara",
+        tenantId: "default-tenant",
+        honorificTitleEn: "H.E.",
+        honorificTitleKm: "ឯកឧត្តម",
+        firstNameEn: "Sok",
+        firstNameKm: "សុខ",
+        lastNameEn: "Dara",
+        lastNameKm: "ដារ៉ា",
+        position: "Chairperson",
+        organization: "Ministry of Education",
+      },
+      {
+        id: "seed-chairperson-chan-sophea",
+        tenantId: "default-tenant",
+        honorificTitleEn: "Dr.",
+        honorificTitleKm: "បណ្ឌិត",
+        firstNameEn: "Chan",
+        firstNameKm: "ចាន់",
+        lastNameEn: "Sophea",
+        lastNameKm: "សុភា",
+        position: "Program Director",
+        organization: "Innovation Office",
+      },
+    ],
+  });
+}
+
 async function seedPreRegistrationEvent() {
   const { id: eventId, ...eventData } = preRegistrationEvent;
   const event = await prisma.event.upsert({
@@ -1703,9 +1798,10 @@ async function seedPreRegistrationEvent() {
     create: preRegistrationEvent,
   });
 
-  await prisma.eventQrCode.upsert({
+  await prisma.qrCode.upsert({
     where: { code: "DEMO-DEVELOPER-CLINIC-2026" },
     update: {
+      target: RegistrationTarget.EVENT,
       eventId: event.id,
       placeId: null,
       active: true,
@@ -1713,6 +1809,7 @@ async function seedPreRegistrationEvent() {
     },
     create: {
       code: "DEMO-DEVELOPER-CLINIC-2026",
+      target: RegistrationTarget.EVENT,
       eventId: event.id,
       active: true,
     },
@@ -1762,7 +1859,7 @@ async function seedPreRegistrationMeeting() {
   });
 
   for (const chairpersonSeed of preRegistrationMeetingChairpersons) {
-    await prisma.meetingChairperson.upsert({
+    await prisma.chairperson.upsert({
       where: { id: chairpersonSeed.id },
       update: {
         meetingId: meeting.id,
@@ -1798,9 +1895,10 @@ async function seedPreRegistrationMeeting() {
     });
   }
 
-  await prisma.meetingQrCode.upsert({
+  await prisma.qrCode.upsert({
     where: { code: "DEMO-RESEARCH-ROUNDTABLE-2026" },
     update: {
+      target: RegistrationTarget.MEETING,
       meetingId: meeting.id,
       placeId: null,
       active: true,
@@ -1808,6 +1906,7 @@ async function seedPreRegistrationMeeting() {
     },
     create: {
       code: "DEMO-RESEARCH-ROUNDTABLE-2026",
+      target: RegistrationTarget.MEETING,
       meetingId: meeting.id,
       active: true,
     },
@@ -1860,6 +1959,7 @@ async function main() {
     data: { ownerUserId: "seed-user-admin" },
   });
   await seedExtraTenants(permissionByKey, passwordHash);
+  await seedCatalogs();
   await seedRegistrationImports();
   await seedEvent();
   await seedPlaceEvent();

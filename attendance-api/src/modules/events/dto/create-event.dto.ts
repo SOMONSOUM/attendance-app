@@ -77,6 +77,11 @@ export class EventPlaceDto {
   @IsString()
   id?: string;
 
+  @ApiPropertyOptional({ example: "clxcatalogplace001" })
+  @IsOptional()
+  @IsString()
+  catalogPlaceId?: string;
+
   @ApiProperty({ example: "Main hall" })
   @IsString()
   name!: string;

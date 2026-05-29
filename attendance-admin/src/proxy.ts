@@ -66,7 +66,7 @@ function redirectToLogin(request: NextRequest, locale: string) {
 }
 
 async function refreshSession(refreshToken: string) {
-  const response = await fetch(`${API_URL}/api/auth/refresh`, {
+  const response = await fetch(`${API_URL}/api/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),

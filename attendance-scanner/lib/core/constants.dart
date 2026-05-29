@@ -2,7 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 const defaultApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://localhost:3001/api',
+  defaultValue: 'http://localhost:3001/api/v1',
 );
 
 String get apiBaseUrl =>

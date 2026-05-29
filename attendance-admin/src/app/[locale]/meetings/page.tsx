@@ -43,13 +43,19 @@ import {
   getCurrentUser,
   hasPermission,
   listMeetingRegistrationImports,
+  listChairpersons,
   meetingKeys,
+  chairpersonKeys,
+  listPlaces,
+  placeKeys,
+  type ChairpersonRecord,
   type MeetingChairperson,
   type EventShift,
   type MeetingForm,
   type MeetingParticipant,
   type MeetingPlace,
   type MeetingRecord,
+  type PlaceRecord,
   listMeetings,
   updateMeeting,
   uploadMeetingRegistrationImport,
@@ -125,12 +131,22 @@ export default function MeetingsPage() {
     queryKey: ["registration-imports", "meetings"],
     queryFn: () => listMeetingRegistrationImports({ pageSize: 100 }),
   });
+  const placesQuery = useQuery({
+    queryKey: placeKeys.all,
+    queryFn: () => listPlaces({ pageSize: 100 }),
+  });
+  const chairpersonsQuery = useQuery({
+    queryKey: chairpersonKeys.all,
+    queryFn: () => listChairpersons({ pageSize: 100 }),
+  });
   const currentUser = currentUserQuery.data;
   const canCreate = hasPermission(currentUser, "meetings:create");
   const canUpdate = hasPermission(currentUser, "meetings:update");
   const canDelete = hasPermission(currentUser, "meetings:delete");
   const meetings = meetingsQuery.data?.items ?? [];
   const meetingImports = importsQuery.data?.items ?? [];
+  const catalogPlaces = placesQuery.data?.items ?? [];
+  const catalogChairpersons = chairpersonsQuery.data?.items ?? [];
   const activeCount = useMemo(
     () =>
       meetings.filter((meeting) => new Date(meeting.endsAt) >= new Date())
@@ -202,6 +218,7 @@ export default function MeetingsPage() {
       places:
         meeting.places?.map((place) => ({
           id: place.id,
+          catalogPlaceId: place.catalogPlaceId,
           name: place.name,
           description: place.description ?? "",
           requireLocation: Boolean(place.requireLocation),
@@ -242,6 +259,34 @@ export default function MeetingsPage() {
         placeIndex === index ? { ...place, ...patch } : place,
       ),
     });
+  }
+
+  function applyCatalogPlace(index: number, placeId: string) {
+    if (!placeId) {
+      updatePlace(index, { ...emptyPlace, catalogPlaceId: null });
+      return;
+    }
+    const catalogPlace = catalogPlaces.find((place) => place.id === placeId);
+    if (!catalogPlace) return;
+    updatePlace(index, catalogPlaceToMeetingPlace(catalogPlace));
+  }
+
+  function applyCatalogChairperson(index: number, chairpersonId: string) {
+    if (!chairpersonId) {
+      updateChairperson(index, {
+        ...emptyChairperson,
+        catalogChairpersonId: null,
+      });
+      return;
+    }
+    const catalogChairperson = catalogChairpersons.find(
+      (chairperson) => chairperson.id === chairpersonId,
+    );
+    if (!catalogChairperson) return;
+    updateChairperson(
+      index,
+      catalogChairpersonToMeetingChairperson(catalogChairperson),
+    );
   }
 
   function updateShift(index: number, patch: Partial<EventShift>) {
@@ -546,6 +591,27 @@ export default function MeetingsPage() {
                             key={index}
                             className="grid gap-3 rounded-md border border-border p-3"
                           >
+                            {catalogPlaces.length ? (
+                              <div className="grid gap-2">
+                                <Label>Choose saved place</Label>
+                                <Select
+                                  value={place.catalogPlaceId ?? ""}
+                                  onChange={(event) =>
+                                    applyCatalogPlace(index, event.target.value)
+                                  }
+                                >
+                                  <option value="">Create new place</option>
+                                  {catalogPlaces.map((catalogPlace) => (
+                                    <option
+                                      key={catalogPlace.id}
+                                      value={catalogPlace.id}
+                                    >
+                                      {catalogPlace.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                            ) : null}
                             <div className="flex items-center gap-2">
                               <Input
                                 placeholder="Place name"
@@ -662,6 +728,30 @@ export default function MeetingsPage() {
                         key={index}
                         className="grid gap-3 rounded-md border border-border p-3"
                       >
+                        {catalogChairpersons.length ? (
+                          <div className="grid gap-2">
+                            <Label>Choose saved chairperson</Label>
+                            <Select
+                              value={chairperson.catalogChairpersonId ?? ""}
+                              onChange={(event) =>
+                                applyCatalogChairperson(
+                                  index,
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              <option value="">Create new chairperson</option>
+                              {catalogChairpersons.map((catalogChairperson) => (
+                                <option
+                                  key={catalogChairperson.id}
+                                  value={catalogChairperson.id}
+                                >
+                                  {formatChairperson(catalogChairperson)}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                        ) : null}
                         <div className="flex items-center gap-2">
                           <p className="flex-1 text-sm font-medium">
                             Chairperson {index + 1}
@@ -1125,6 +1215,7 @@ function normalizeForm(form: MeetingForm): MeetingForm {
           .map((place) =>
             cleanObject({
               ...place,
+              catalogPlaceId: place.catalogPlaceId,
               requireLocation:
                 form.mode !== "PRE_REGISTRATION" &&
                 Boolean(place.requireLocation),
@@ -1145,7 +1236,10 @@ function normalizeForm(form: MeetingForm): MeetingForm {
           )
       : [],
     chairpersons: form.chairpersons.map((chairperson) =>
-      cleanObject(chairperson),
+      cleanObject({
+        ...chairperson,
+        catalogChairpersonId: chairperson.catalogChairpersonId,
+      }),
     ),
     participants: (form.participants ?? [])
       .filter((participant) => participant.fullNameEn.trim())
@@ -1164,6 +1258,35 @@ function cleanObject<T extends object>(value: T): T {
   ) as T;
 }
 
+function catalogPlaceToMeetingPlace(place: PlaceRecord): MeetingPlace {
+  return {
+    catalogPlaceId: place.id,
+    name: place.name,
+    description: place.description ?? "",
+    requireLocation: Boolean(place.requireLocation),
+    locationName: place.locationName ?? place.name,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    radiusMeters: place.radiusMeters ?? 100,
+  };
+}
+
+function catalogChairpersonToMeetingChairperson(
+  chairperson: ChairpersonRecord,
+): MeetingChairperson {
+  return {
+    catalogChairpersonId: chairperson.id,
+    honorificTitleEn: chairperson.honorificTitleEn,
+    honorificTitleKm: chairperson.honorificTitleKm,
+    firstNameEn: chairperson.firstNameEn,
+    firstNameKm: chairperson.firstNameKm,
+    lastNameEn: chairperson.lastNameEn,
+    lastNameKm: chairperson.lastNameKm,
+    position: chairperson.position ?? "",
+    organization: chairperson.organization ?? "",
+  };
+}
+
 function clamp(value: number, min: number, max: number) {
   if (Number.isNaN(value)) return min;
   return Math.min(Math.max(value, min), max);
@@ -1176,6 +1299,7 @@ function toNumber(value: string | number | null | undefined, fallback?: number) 
 
 function stripChairperson(chairperson: MeetingChairperson): MeetingChairperson {
   return {
+    catalogChairpersonId: chairperson.catalogChairpersonId,
     honorificTitleEn: chairperson.honorificTitleEn,
     honorificTitleKm: chairperson.honorificTitleKm,
     firstNameEn: chairperson.firstNameEn,
