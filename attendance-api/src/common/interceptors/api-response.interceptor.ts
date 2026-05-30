@@ -20,6 +20,9 @@ type MessageResponse<T> = {
 export class ApiResponseInterceptor<T> implements NestInterceptor<T> {
   intercept(context: ExecutionContext, next: CallHandler<T>): Observable<unknown> {
     const request = context.switchToHttp().getRequest<HttpRequest>();
+    if (isHealthRequest(request.url)) {
+      return next.handle();
+    }
 
     return next.handle().pipe(
       map((response) => {
@@ -38,6 +41,10 @@ export class ApiResponseInterceptor<T> implements NestInterceptor<T> {
       }),
     );
   }
+}
+
+function isHealthRequest(url: string) {
+  return /^\/api\/v\d+\/health(?:\/|$)/.test(url);
 }
 
 function normalizeResponse<T>(response: T): MessageResponse<T> {

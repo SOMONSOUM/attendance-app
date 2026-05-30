@@ -2,9 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsBoolean,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
 } from "class-validator";
@@ -12,6 +14,8 @@ import {
 export class PlaceDto {
   @ApiProperty({ example: "Main hall" })
   @IsString()
+  @IsNotEmpty()
+  @Matches(/\S/, { message: "name should not be empty" })
   name!: string;
 
   @ApiPropertyOptional({ example: "Ground floor keynote hall." })

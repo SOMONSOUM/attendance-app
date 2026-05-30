@@ -51,6 +51,7 @@ type Event = {
     | "BULK_REGISTRATION"
     | "PRE_REGISTRATION"
     | "OPEN_REGISTRATION";
+  separateQrByPlace?: boolean;
   locationName?: string;
   requireLocation?: boolean;
   latitude?: string | number;
@@ -200,7 +201,9 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       const data = await api<Registration[]>(
         `/events/${event.id}/registrations/search?${new URLSearchParams({
           q: value,
-          ...(event.scanPlace?.id ? { placeId: event.scanPlace.id } : {}),
+          ...(event.separateQrByPlace && event.scanPlace?.id
+            ? { placeId: event.scanPlace.id }
+            : {}),
         })}`,
       );
       setResults(data);

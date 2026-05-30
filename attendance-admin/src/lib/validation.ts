@@ -19,18 +19,19 @@ export const roleSchema = z.object({
   name: z.string().trim().min(1, "Role name is required."),
   description: z.string().optional(),
   permissions: z
-    .string()
-    .trim()
-    .min(1, "At least one permission is required.")
-    .refine(
-      (value) =>
-        value
-          .split(",")
-          .map((permission) => permission.trim())
-          .filter(Boolean)
-          .every((permission) => /^[a-z-]+:[a-z-]+$/i.test(permission)),
-      "Use comma-separated resource:action permissions.",
-    ),
+    .array(z.string().regex(/^[a-z-]+:[a-z-]+$/i))
+    .min(1, "At least one permission is required."),
+});
+
+export const chairpersonSchema = z.object({
+  honorificTitleEn: z.string().trim().min(1, "English honorific is required."),
+  honorificTitleKm: z.string().trim().min(1, "Khmer honorific is required."),
+  firstNameEn: z.string().trim().min(1, "English first name is required."),
+  firstNameKm: z.string().trim().min(1, "Khmer first name is required."),
+  lastNameEn: z.string().trim().min(1, "English last name is required."),
+  lastNameKm: z.string().trim().min(1, "Khmer last name is required."),
+  position: z.string().optional().nullable(),
+  organization: z.string().optional().nullable(),
 });
 
 const dateOnlySchema = z
@@ -45,6 +46,27 @@ const coordinateValueSchema = z
   .union([z.number(), z.string()])
   .nullable()
   .optional();
+
+export const placeSchema = z
+  .object({
+    name: z.string().trim().min(1, "Place name is required."),
+    description: z.string().optional().nullable(),
+    requireLocation: z.boolean().optional(),
+    locationName: z.string().optional().nullable(),
+    latitude: coordinateValueSchema,
+    longitude: coordinateValueSchema,
+    radiusMeters: z.number().min(0).max(5000).optional(),
+  })
+  .refine(
+    (value) =>
+      !value.requireLocation ||
+      Boolean(value.locationName?.trim()) ||
+      Boolean(value.name.trim()),
+    {
+      message: "Location name is required when location check-in is enabled.",
+      path: ["locationName"],
+    },
+  );
 
 const registrationModeSchema = z.enum([
   "BULK_REGISTRATION",
@@ -176,5 +198,7 @@ export const meetingSchema = z
 export type LoginValues = z.infer<typeof loginSchema>;
 export type UserValues = z.infer<typeof userSchema>;
 export type RoleValues = z.infer<typeof roleSchema>;
+export type PlaceValues = z.infer<typeof placeSchema>;
+export type ChairpersonValues = z.infer<typeof chairpersonSchema>;
 export type EventValues = z.infer<typeof eventSchema>;
 export type MeetingValues = z.infer<typeof meetingSchema>;

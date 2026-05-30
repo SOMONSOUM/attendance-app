@@ -26,6 +26,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    if (isHealthRequest(request.url) && exception instanceof HttpException) {
+      response.status(statusCode).json(exception.getResponse() as ApiErrorResponse);
+      return;
+    }
+
     const payload = this.toPayload(exception, statusCode);
     const body: ApiErrorResponse = {
       success: false,
@@ -81,4 +86,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       .replace(/[\s-]+/g, "_")
       .toUpperCase();
   }
+}
+
+function isHealthRequest(url: string) {
+  return /^\/api\/v\d+\/health(?:\/|$)/.test(url);
 }

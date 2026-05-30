@@ -28,7 +28,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!auth.hasConnectionError && offline) {
         return auth.isAuthenticated ? '/home' : '/login';
       }
-      if (!auth.isAuthenticated && !loggingIn) {
+      if (!auth.isAuthenticated && !loggingIn && !offline) {
         return '/login';
       }
       if (auth.isAuthenticated && loggingIn) {

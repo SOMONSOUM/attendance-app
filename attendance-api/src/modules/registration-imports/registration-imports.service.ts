@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Gender, RegistrationTarget } from "@prisma/client";
 import * as XLSX from "xlsx";
-import { PrismaService } from "../prisma/prisma.service";
+import { RegistrationImportsRepository } from "./registration-imports.repository";
 import {
   paginated,
   parsePagination,
@@ -26,7 +26,7 @@ const genderMap: Record<string, Gender> = {
 
 @Injectable()
 export class RegistrationImportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: RegistrationImportsRepository) {}
 
   async list(
     tenantId: string | null,

@@ -6,7 +6,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { compare, hash } from "bcryptjs";
 import { createHash, randomUUID } from "node:crypto";
-import { PrismaService } from "../prisma/prisma.service";
+import { AuthRepository } from "./auth.repository";
 import {
   ACCESS_TOKEN_EXPIRES_IN,
   jwtAccessSecret,
@@ -50,7 +50,7 @@ type RefreshTokenDelegate = {
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: AuthRepository,
     private readonly jwt: JwtService,
   ) {}
 
@@ -291,8 +291,6 @@ export class AuthService {
   }
 
   private get refreshTokens() {
-    return (
-      this.prisma as PrismaService & { refreshToken: RefreshTokenDelegate }
-    ).refreshToken;
+    return this.prisma.refreshToken as unknown as RefreshTokenDelegate;
   }
 }

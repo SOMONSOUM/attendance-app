@@ -13,7 +13,7 @@ export class PlacesRepository extends BaseRepository {
 
   async findMany(tenantId: string | null, query: PaginationQuery = {}) {
     const { skip, take } = parsePagination(query);
-    const where = { tenantId, eventId: null, meetingId: null };
+    const where = { tenantId };
     const [items, totalItems] = await this.prisma.$transaction([
       this.prisma.place.findMany({
         where,
@@ -28,13 +28,13 @@ export class PlacesRepository extends BaseRepository {
 
   findById(tenantId: string | null, placeId: string) {
     return this.prisma.place.findFirst({
-      where: { id: placeId, tenantId, eventId: null, meetingId: null },
+      where: { id: placeId, tenantId },
     });
   }
 
   findByName(tenantId: string | null, name: string) {
     return this.prisma.place.findFirst({
-      where: { tenantId, name, eventId: null, meetingId: null },
+      where: { tenantId, name },
     });
   }
 

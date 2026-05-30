@@ -1,4 +1,14 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+async function dismissWarningDialog(page: Page) {
+  const dialog = page.locator(
+    '[role="dialog"][aria-labelledby="scan-warning-title"]',
+  );
+
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  await dialog.getByRole("button", { name: "OK" }).click({ force: true });
+  await expect(dialog).toBeHidden({ timeout: 5_000 });
+}
 
 test("renders the localized public entry page", async ({ page }) => {
   await page.goto("/en");
@@ -16,15 +26,13 @@ test("renders a seeded bulk event QR screen and searches attendees", async ({
     .toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Bulk registration")).toBeVisible();
 
-  const warningDialog = page.getByRole("dialog");
-  if (await warningDialog.isVisible({ timeout: 1_000 }).catch(() => false)) {
-    await page.getByRole("button", { name: "OK" }).click();
-    await expect(warningDialog).toBeHidden();
-  }
+  await dismissWarningDialog(page);
 
   await page.getByPlaceholder("Search English or Khmer name").click();
-  await page.getByPlaceholder("Search English or Khmer name").pressSequentially("Sok");
-  await expect(page.getByText("Sok Dara")).toBeVisible({ timeout: 20_000 });
+  await page
+    .getByPlaceholder("Search English or Khmer name")
+    .pressSequentially("Chan");
+  await expect(page.getByText("Chan Sophea")).toBeVisible({ timeout: 20_000 });
 });
 
 test("renders an open event QR screen with registration fields", async ({

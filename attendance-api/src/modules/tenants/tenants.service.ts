@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { hash } from "bcryptjs";
-import { PrismaService } from "../prisma/prisma.service";
+import { TenantsRepository } from "./tenants.repository";
 import { RegisterTenantDto } from "./dto";
 
 const ownerPermissions = [
@@ -29,7 +29,7 @@ const ownerPermissions = [
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: TenantsRepository) {}
 
   list() {
     return this.prisma.tenant.findMany({

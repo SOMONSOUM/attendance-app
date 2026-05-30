@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../settings/app_settings.dart';
 
@@ -123,18 +122,7 @@ class AppTheme {
     AppFontFamily fontFamily,
     TextTheme baseTheme,
   ) {
-    return switch (fontFamily) {
-      AppFontFamily.kohSantepheap => GoogleFonts.kohSantepheapTextTheme(
-        baseTheme,
-      ),
-      AppFontFamily.notoSansKhmer => GoogleFonts.notoSansKhmerTextTheme(
-        baseTheme,
-      ),
-      AppFontFamily.inter => GoogleFonts.interTextTheme(baseTheme),
-      AppFontFamily.googleSans => GoogleFonts.interTextTheme(
-        baseTheme,
-      ).apply(fontFamily: 'Google Sans'),
-    };
+    return baseTheme.apply(fontFamily: _fontFamilyName(fontFamily));
   }
 
   static TextStyle _fontTextStyle(
@@ -143,28 +131,12 @@ class AppTheme {
     required double fontSize,
     required FontWeight fontWeight,
   }) {
-    return switch (fontFamily) {
-      AppFontFamily.kohSantepheap => GoogleFonts.kohSantepheap(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-      ),
-      AppFontFamily.notoSansKhmer => GoogleFonts.notoSansKhmer(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-      ),
-      AppFontFamily.inter => GoogleFonts.inter(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-      ),
-      AppFontFamily.googleSans => GoogleFonts.inter(
-        color: color,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-      ).copyWith(fontFamily: 'Google Sans'),
-    };
+    return TextStyle(
+      color: color,
+      fontFamily: _fontFamilyName(fontFamily),
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+    );
   }
 
   static TextTheme _withKhmerFallback(
@@ -200,13 +172,22 @@ class AppTheme {
   }
 
   static List<String> _fallbackFamilies(AppFontFamily fontFamily) {
-    final khmer = GoogleFonts.notoSansKhmer().fontFamily!;
-    final inter = GoogleFonts.inter().fontFamily!;
+    const khmer = 'Noto Sans Khmer';
+    const inter = 'Inter';
     return switch (fontFamily) {
       AppFontFamily.kohSantepheap => [khmer, inter],
       AppFontFamily.notoSansKhmer => [inter],
       AppFontFamily.inter => [khmer],
       AppFontFamily.googleSans => ['Google Sans', inter, khmer],
+    };
+  }
+
+  static String _fontFamilyName(AppFontFamily fontFamily) {
+    return switch (fontFamily) {
+      AppFontFamily.kohSantepheap => 'Koh Santepheap',
+      AppFontFamily.notoSansKhmer => 'Noto Sans Khmer',
+      AppFontFamily.inter => 'Inter',
+      AppFontFamily.googleSans => 'Google Sans',
     };
   }
 }

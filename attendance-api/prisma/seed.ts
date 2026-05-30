@@ -779,7 +779,10 @@ async function resetDatabase() {
   await prisma.attendance.deleteMany();
   await prisma.eventRegistration.deleteMany();
   await prisma.meetingParticipant.deleteMany();
-  await prisma.qrCode.deleteMany();
+  await prisma.eventQrCode.deleteMany();
+  await prisma.meetingQrCode.deleteMany();
+  await prisma.eventPlace.deleteMany();
+  await prisma.meetingPlace.deleteMany();
   await prisma.meetingShift.deleteMany();
   await prisma.meeting.deleteMany();
   await prisma.registrationImportRow.deleteMany();
@@ -796,6 +799,96 @@ async function resetDatabase() {
   await prisma.role.deleteMany();
   await prisma.permission.deleteMany();
   await prisma.tenant.deleteMany();
+}
+
+function eventDataFrom<T extends { id: string } & Record<string, unknown>>(seed: T) {
+  const {
+    id,
+    requireLocation,
+    locationName,
+    latitude,
+    longitude,
+    radiusMeters,
+    ...data
+  } = seed;
+  return data;
+}
+
+function meetingDataFrom<T extends { id: string } & Record<string, unknown>>(seed: T) {
+  const {
+    id,
+    requireLocation,
+    locationName,
+    latitude,
+    longitude,
+    radiusMeters,
+    ...data
+  } = seed;
+  return data;
+}
+
+async function seedDefaultEventPlace(event: {
+  id: string;
+  requireLocation: boolean;
+  locationName: string;
+  latitude: string;
+  longitude: string;
+  radiusMeters: number;
+}) {
+  return prisma.eventPlace.upsert({
+    where: { id: `${event.id}-place` },
+    update: {
+      eventId: event.id,
+      name: event.locationName,
+      requireLocation: event.requireLocation,
+      locationName: event.locationName,
+      latitude: event.requireLocation ? event.latitude : null,
+      longitude: event.requireLocation ? event.longitude : null,
+      radiusMeters: event.requireLocation ? event.radiusMeters : 0,
+    },
+    create: {
+      id: `${event.id}-place`,
+      eventId: event.id,
+      name: event.locationName,
+      requireLocation: event.requireLocation,
+      locationName: event.locationName,
+      latitude: event.requireLocation ? event.latitude : null,
+      longitude: event.requireLocation ? event.longitude : null,
+      radiusMeters: event.requireLocation ? event.radiusMeters : 0,
+    },
+  });
+}
+
+async function seedDefaultMeetingPlace(meeting: {
+  id: string;
+  requireLocation: boolean;
+  locationName: string;
+  latitude: string;
+  longitude: string;
+  radiusMeters: number;
+}) {
+  return prisma.meetingPlace.upsert({
+    where: { id: `${meeting.id}-place` },
+    update: {
+      meetingId: meeting.id,
+      name: meeting.locationName,
+      requireLocation: meeting.requireLocation,
+      locationName: meeting.locationName,
+      latitude: meeting.requireLocation ? meeting.latitude : null,
+      longitude: meeting.requireLocation ? meeting.longitude : null,
+      radiusMeters: meeting.requireLocation ? meeting.radiusMeters : 0,
+    },
+    create: {
+      id: `${meeting.id}-place`,
+      meetingId: meeting.id,
+      name: meeting.locationName,
+      requireLocation: meeting.requireLocation,
+      locationName: meeting.locationName,
+      latitude: meeting.requireLocation ? meeting.latitude : null,
+      longitude: meeting.requireLocation ? meeting.longitude : null,
+      radiusMeters: meeting.requireLocation ? meeting.radiusMeters : 0,
+    },
+  });
 }
 
 async function seedTenant() {
@@ -1034,25 +1127,27 @@ async function seedRegistrationImports() {
 }
 
 async function seedEvent() {
-  const { id: eventId, ...eventData } = sampleEvent;
+  const eventId = sampleEvent.id;
+  const eventData = eventDataFrom(sampleEvent);
   const event = await prisma.event.upsert({
     where: { id: eventId },
     update: eventData,
-    create: sampleEvent,
+    create: { id: eventId, ...eventData },
   });
+  const place = await seedDefaultEventPlace(sampleEvent);
 
-  await prisma.qrCode.upsert({
+  await prisma.eventQrCode.upsert({
     where: { code: "DEMO-TECH-SUMMIT-2026" },
     update: {
-      target: RegistrationTarget.EVENT,
       eventId: event.id,
+      placeId: place.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-TECH-SUMMIT-2026",
-      target: RegistrationTarget.EVENT,
       eventId: event.id,
+      placeId: place.id,
       active: true,
     },
   });
@@ -1146,11 +1241,12 @@ async function seedEvent() {
 }
 
 async function seedPlaceEvent() {
-  const { id: eventId, ...eventData } = placeEvent;
+  const eventId = placeEvent.id;
+  const eventData = eventDataFrom(placeEvent);
   const event = await prisma.event.upsert({
     where: { id: eventId },
     update: eventData,
-    create: placeEvent,
+    create: { id: eventId, ...eventData },
   });
 
   await prisma.eventTheme.upsert({
@@ -1179,7 +1275,7 @@ async function seedPlaceEvent() {
   }
 
   for (const placeSeed of placeSeeds) {
-    const place = await prisma.place.upsert({
+    const place = await prisma.eventPlace.upsert({
       where: { id: placeSeed.id },
       update: {
         eventId: event.id,
@@ -1204,10 +1300,9 @@ async function seedPlaceEvent() {
       },
     });
 
-    await prisma.qrCode.upsert({
+    await prisma.eventQrCode.upsert({
       where: { code: placeSeed.code },
       update: {
-        target: RegistrationTarget.EVENT,
         eventId: event.id,
         placeId: place.id,
         active: true,
@@ -1215,7 +1310,6 @@ async function seedPlaceEvent() {
       },
       create: {
         code: placeSeed.code,
-        target: RegistrationTarget.EVENT,
         eventId: event.id,
         placeId: place.id,
         active: true,
@@ -1297,12 +1391,14 @@ async function seedPlaceEvent() {
 }
 
 async function seedMeetings() {
-  const { id: boardMeetingId, ...boardMeetingData } = boardMeeting;
+  const boardMeetingId = boardMeeting.id;
+  const boardMeetingData = meetingDataFrom(boardMeeting);
   const board = await prisma.meeting.upsert({
     where: { id: boardMeetingId },
     update: boardMeetingData,
-    create: boardMeeting,
+    create: { id: boardMeetingId, ...boardMeetingData },
   });
+  const boardPlace = await seedDefaultMeetingPlace(boardMeeting);
 
   for (const chairpersonSeed of boardMeetingChairpersons) {
     await prisma.chairperson.upsert({
@@ -1325,19 +1421,18 @@ async function seedMeetings() {
     });
   }
 
-  await prisma.qrCode.upsert({
+  await prisma.meetingQrCode.upsert({
     where: { code: "DEMO-BOARD-BRIEFING-2026" },
     update: {
-      target: RegistrationTarget.MEETING,
       meetingId: board.id,
-      placeId: null,
+      placeId: boardPlace.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-BOARD-BRIEFING-2026",
-      target: RegistrationTarget.MEETING,
       meetingId: board.id,
+      placeId: boardPlace.id,
       active: true,
     },
   });
@@ -1397,11 +1492,12 @@ async function seedMeetings() {
     });
   }
 
-  const { id: placeMeetingId, ...placeMeetingData } = placeMeeting;
+  const placeMeetingId = placeMeeting.id;
+  const placeMeetingData = meetingDataFrom(placeMeeting);
   const committee = await prisma.meeting.upsert({
     where: { id: placeMeetingId },
     update: placeMeetingData,
-    create: placeMeeting,
+    create: { id: placeMeetingId, ...placeMeetingData },
   });
 
   for (const chairpersonSeed of placeMeetingChairpersons) {
@@ -1442,7 +1538,7 @@ async function seedMeetings() {
   }
 
   for (const placeSeed of meetingPlaceSeeds) {
-    const place = await prisma.place.upsert({
+    const place = await prisma.meetingPlace.upsert({
       where: { id: placeSeed.id },
       update: {
         meetingId: committee.id,
@@ -1467,10 +1563,9 @@ async function seedMeetings() {
       },
     });
 
-    await prisma.qrCode.upsert({
+    await prisma.meetingQrCode.upsert({
     where: { code: placeSeed.code },
     update: {
-        target: RegistrationTarget.MEETING,
         meetingId: committee.id,
         placeId: place.id,
         active: true,
@@ -1478,7 +1573,6 @@ async function seedMeetings() {
       },
       create: {
         code: placeSeed.code,
-        target: RegistrationTarget.MEETING,
         meetingId: committee.id,
         placeId: place.id,
         active: true,
@@ -1517,12 +1611,14 @@ async function seedMeetings() {
     }
   }
 
-  const { id: openMeetingId, ...openMeetingData } = openMeeting;
+  const openMeetingId = openMeeting.id;
+  const openMeetingData = meetingDataFrom(openMeeting);
   const townhall = await prisma.meeting.upsert({
     where: { id: openMeetingId },
     update: openMeetingData,
-    create: openMeeting,
+    create: { id: openMeetingId, ...openMeetingData },
   });
+  const townhallPlace = await seedDefaultMeetingPlace(openMeeting);
 
   for (const chairpersonSeed of openMeetingChairpersons) {
     await prisma.chairperson.upsert({
@@ -1545,19 +1641,18 @@ async function seedMeetings() {
     });
   }
 
-  await prisma.qrCode.upsert({
+  await prisma.meetingQrCode.upsert({
     where: { code: "DEMO-PUBLIC-TOWNHALL-2026" },
     update: {
-      target: RegistrationTarget.MEETING,
       meetingId: townhall.id,
-      placeId: null,
+      placeId: townhallPlace.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-PUBLIC-TOWNHALL-2026",
-      target: RegistrationTarget.MEETING,
       meetingId: townhall.id,
+      placeId: townhallPlace.id,
       active: true,
     },
   });
@@ -1608,26 +1703,27 @@ async function seedMeetings() {
 }
 
 async function seedOpenEvent() {
-  const { id: eventId, ...eventData } = openEvent;
+  const eventId = openEvent.id;
+  const eventData = eventDataFrom(openEvent);
   const event = await prisma.event.upsert({
     where: { id: eventId },
     update: eventData,
-    create: openEvent,
+    create: { id: eventId, ...eventData },
   });
+  const place = await seedDefaultEventPlace(openEvent);
 
-  await prisma.qrCode.upsert({
+  await prisma.eventQrCode.upsert({
     where: { code: "DEMO-COMMUNITY-OPEN-DAY-2026" },
     update: {
-      target: RegistrationTarget.EVENT,
       eventId: event.id,
-      placeId: null,
+      placeId: place.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-COMMUNITY-OPEN-DAY-2026",
-      target: RegistrationTarget.EVENT,
       eventId: event.id,
+      placeId: place.id,
       active: true,
     },
   });
@@ -1791,26 +1887,27 @@ async function seedCatalogs() {
 }
 
 async function seedPreRegistrationEvent() {
-  const { id: eventId, ...eventData } = preRegistrationEvent;
+  const eventId = preRegistrationEvent.id;
+  const eventData = eventDataFrom(preRegistrationEvent);
   const event = await prisma.event.upsert({
     where: { id: eventId },
     update: eventData,
-    create: preRegistrationEvent,
+    create: { id: eventId, ...eventData },
   });
+  const place = await seedDefaultEventPlace(preRegistrationEvent);
 
-  await prisma.qrCode.upsert({
+  await prisma.eventQrCode.upsert({
     where: { code: "DEMO-DEVELOPER-CLINIC-2026" },
     update: {
-      target: RegistrationTarget.EVENT,
       eventId: event.id,
-      placeId: null,
+      placeId: place.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-DEVELOPER-CLINIC-2026",
-      target: RegistrationTarget.EVENT,
       eventId: event.id,
+      placeId: place.id,
       active: true,
     },
   });
@@ -1851,12 +1948,14 @@ async function seedPreRegistrationEvent() {
 }
 
 async function seedPreRegistrationMeeting() {
-  const { id: meetingId, ...meetingData } = preRegistrationMeeting;
+  const meetingId = preRegistrationMeeting.id;
+  const meetingData = meetingDataFrom(preRegistrationMeeting);
   const meeting = await prisma.meeting.upsert({
     where: { id: meetingId },
     update: meetingData,
-    create: preRegistrationMeeting,
+    create: { id: meetingId, ...meetingData },
   });
+  const place = await seedDefaultMeetingPlace(preRegistrationMeeting);
 
   for (const chairpersonSeed of preRegistrationMeetingChairpersons) {
     await prisma.chairperson.upsert({
@@ -1895,19 +1994,18 @@ async function seedPreRegistrationMeeting() {
     });
   }
 
-  await prisma.qrCode.upsert({
+  await prisma.meetingQrCode.upsert({
     where: { code: "DEMO-RESEARCH-ROUNDTABLE-2026" },
     update: {
-      target: RegistrationTarget.MEETING,
       meetingId: meeting.id,
-      placeId: null,
+      placeId: place.id,
       active: true,
       expiresAt: null,
     },
     create: {
       code: "DEMO-RESEARCH-ROUNDTABLE-2026",
-      target: RegistrationTarget.MEETING,
       meetingId: meeting.id,
+      placeId: place.id,
       active: true,
     },
   });

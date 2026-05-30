@@ -7,7 +7,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
-import { PrismaService } from "../prisma/prisma.service";
+import { AttendanceRepository } from "./attendance.repository";
 import { JoinEventDto } from "./dto";
 import {
   paginated,
@@ -17,25 +17,25 @@ import {
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: AttendanceRepository) {}
 
   async joinByCode(code: string, dto: JoinEventDto) {
-    const qr = await this.prisma.qrCode.findUnique({
+    const qr = await this.prisma.eventQrCode.findUnique({
       where: { code },
       include: { place: true, event: { include: { shifts: true } } },
     });
-    if (!qr?.active || qr.target !== "EVENT" || !qr.event || !qr.eventId)
+    if (!qr?.active || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
     const activeShift = this.assertScanWindow(qr.event);
-    const distanceMeters = this.assertLocation(qr.place ?? qr.event, dto);
+    const distanceMeters = this.assertLocation(qr.place, dto);
     const registration = dto.registrationId
       ? await this.prisma.eventRegistration.findFirst({
-          where: {
-            id: dto.registrationId,
-            eventId: qr.eventId,
-            placeId: qr.placeId || undefined,
-          },
-        })
+        where: {
+          id: dto.registrationId,
+          eventId: qr.eventId,
+          placeId: qr.event.separateQrByPlace ? qr.placeId || undefined : undefined,
+        },
+      })
       : null;
     if (dto.registrationId && !registration) {
       throw new NotFoundException("Registration not found for this QR code");
@@ -88,11 +88,11 @@ export class AttendanceService {
   }
 
   async registerByCode(code: string, dto: JoinEventDto) {
-    const qr = await this.prisma.qrCode.findUnique({
+    const qr = await this.prisma.eventQrCode.findUnique({
       where: { code },
       include: { event: true },
     });
-    if (!qr?.active || qr.target !== "EVENT" || !qr.event || !qr.eventId)
+    if (!qr?.active || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
 
     const checkInCode = this.toQrCode();
@@ -356,10 +356,10 @@ export class AttendanceService {
       longitude: unknown;
       radiusMeters: number;
       locationName?: string | null;
-    },
+    } | null,
     dto: JoinEventDto,
   ) {
-    if (!event.requireLocation) return 0;
+    if (!event?.requireLocation) return 0;
 
     if (dto.latitude === undefined || dto.longitude === undefined) {
       throw new BadRequestException({

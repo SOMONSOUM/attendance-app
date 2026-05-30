@@ -3,7 +3,7 @@ import { EventMode, Gender, Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
-import { PrismaService } from "../prisma/prisma.service";
+import { MeetingsRepository } from "./meetings.repository";
 import { CreateMeetingDto, JoinMeetingDto, UpdateMeetingDto } from "./dto";
 import {
   paginated,
@@ -30,7 +30,7 @@ const genderMap: Record<string, Gender> = {
 
 @Injectable()
 export class MeetingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: MeetingsRepository) {}
 
   async create(tenantId: string | null, userId: string, dto: CreateMeetingDto) {
     this.assertChairpersons(dto.chairpersons);
@@ -38,7 +38,7 @@ export class MeetingsService {
     const allowLocation = dto.mode !== EventMode.PRE_REGISTRATION;
     const code = this.toQrCode();
 
-    return this.prisma.$transaction(async (tx) => {
+    const meeting = await this.prisma.$transaction(async (tx) => {
       const meeting = await tx.meeting.create({
         data: {
           tenantId,
@@ -47,11 +47,6 @@ export class MeetingsService {
           description: dto.description,
           mode: dto.mode,
           separateQrByPlace,
-          requireLocation: allowLocation && Boolean(dto.requireLocation),
-          locationName: dto.locationName?.trim() || "Not required",
-          latitude: allowLocation && dto.requireLocation ? dto.latitude ?? 0 : 0,
-          longitude: allowLocation && dto.requireLocation ? dto.longitude ?? 0 : 0,
-          radiusMeters: allowLocation && dto.requireLocation ? dto.radiusMeters ?? 100 : 0,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
           chairpersons: undefined,
@@ -63,9 +58,7 @@ export class MeetingsService {
                 endTime: this.toTimeDate(shift.endTime),
               })) ?? [],
           },
-          qrCodes: separateQrByPlace
-            ? undefined
-            : { create: { target: "MEETING", code } },
+          qrCodes: undefined,
           places: undefined,
           participants: {
             create:
@@ -98,20 +91,26 @@ export class MeetingsService {
             allowLocation,
             place,
           );
-          await tx.place.create({
+          await tx.meetingPlace.create({
             data: { ...placeData, meetingId: meeting.id },
           });
         }
-        const places = await tx.place.findMany({
+        const places = await tx.meetingPlace.findMany({
           where: { meetingId: meeting.id },
         });
-        await tx.qrCode.createMany({
+        await tx.meetingQrCode.createMany({
           data: places.map((place) => ({
-            target: "MEETING",
             meetingId: meeting.id,
             placeId: place.id,
             code: this.toQrCode(),
           })),
+        });
+      } else {
+        const defaultPlace = await tx.meetingPlace.create({
+          data: this.toDefaultMeetingPlaceData(meeting.id, allowLocation, dto),
+        });
+        await tx.meetingQrCode.create({
+          data: { meetingId: meeting.id, placeId: defaultPlace.id, code },
         });
       }
 
@@ -120,6 +119,7 @@ export class MeetingsService {
         include: this.include,
       });
     });
+    return this.withPrimaryPlace(meeting);
   }
 
   async list(tenantId: string | null, query: PaginationQuery = {}) {
@@ -136,14 +136,19 @@ export class MeetingsService {
       this.prisma.meeting.count({ where }),
     ]);
 
-    return paginated(items, totalItems, page, pageSize);
+    return paginated(
+      items.map((meeting) => this.withPrimaryPlace(meeting)),
+      totalItems,
+      page,
+      pageSize,
+    );
   }
 
   async update(tenantId: string | null, meetingId: string, dto: UpdateMeetingDto) {
     const existing = await this.assertMeeting(tenantId, meetingId);
     if (dto.chairpersons) this.assertChairpersons(dto.chairpersons);
 
-    return this.prisma.$transaction(async (tx) => {
+    const meeting = await this.prisma.$transaction(async (tx) => {
       if (dto.chairpersons) {
         await tx.chairperson.deleteMany({ where: { meetingId } });
       }
@@ -154,8 +159,8 @@ export class MeetingsService {
         await tx.meetingShift.deleteMany({ where: { meetingId } });
       }
       if (dto.places) {
-        await tx.place.deleteMany({ where: { meetingId } });
-        await tx.qrCode.deleteMany({ where: { target: "MEETING", meetingId } });
+        await tx.meetingPlace.deleteMany({ where: { meetingId } });
+        await tx.meetingQrCode.deleteMany({ where: { meetingId } });
       }
 
       const separateQrByPlace =
@@ -169,26 +174,6 @@ export class MeetingsService {
           description: dto.description,
           mode: dto.mode,
           separateQrByPlace: dto.separateQrByPlace,
-          requireLocation: allowLocation ? dto.requireLocation : false,
-          locationName: dto.locationName?.trim() || undefined,
-          latitude:
-            !allowLocation || dto.requireLocation === false
-              ? 0
-              : dto.latitude !== undefined
-                ? dto.latitude
-                : undefined,
-          longitude:
-            !allowLocation || dto.requireLocation === false
-              ? 0
-              : dto.longitude !== undefined
-                ? dto.longitude
-                : undefined,
-          radiusMeters:
-            !allowLocation || dto.requireLocation === false
-              ? 0
-              : dto.radiusMeters !== undefined
-                ? dto.radiusMeters
-                : undefined,
           startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
           endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
           chairpersons: undefined,
@@ -234,29 +219,42 @@ export class MeetingsService {
             allowLocation,
             place,
           );
-          await tx.place.create({
+          await tx.meetingPlace.create({
             data: { ...placeData, meetingId },
           });
         }
       }
 
       if (dto.places && separateQrByPlace) {
-        const places = await tx.place.findMany({ where: { meetingId } });
-        await tx.qrCode.createMany({
+        const places = await tx.meetingPlace.findMany({ where: { meetingId } });
+        await tx.meetingQrCode.createMany({
           data: places.map((place) => ({
-            target: "MEETING",
             meetingId,
             placeId: place.id,
             code: this.toQrCode(),
           })),
         });
       } else if (!separateQrByPlace) {
-        const existingQr = await tx.qrCode.findFirst({
-          where: { target: "MEETING", meetingId, placeId: null, active: true },
+        const defaultPlace =
+          (await tx.meetingPlace.findFirst({
+            where: { meetingId },
+            orderBy: { createdAt: "asc" },
+          })) ??
+          (await tx.meetingPlace.create({
+            data: this.toDefaultMeetingPlaceData(meetingId, allowLocation, dto),
+          }));
+        if (!dto.places) {
+          await tx.meetingPlace.update({
+            where: { id: defaultPlace.id },
+            data: this.toDefaultMeetingPlaceData(meetingId, allowLocation, dto),
+          });
+        }
+        const existingQr = await tx.meetingQrCode.findFirst({
+          where: { meetingId, active: true },
         });
         if (!existingQr) {
-          await tx.qrCode.create({
-            data: { target: "MEETING", meetingId, code: this.toQrCode() },
+          await tx.meetingQrCode.create({
+            data: { meetingId, placeId: defaultPlace.id, code: this.toQrCode() },
           });
         }
       }
@@ -266,6 +264,7 @@ export class MeetingsService {
         include: this.include,
       });
     });
+    return this.withPrimaryPlace(meeting);
   }
 
   async remove(tenantId: string | null, meetingId: string) {
@@ -276,8 +275,8 @@ export class MeetingsService {
 
   async getQr(tenantId: string | null, meetingId: string) {
     await this.assertMeeting(tenantId, meetingId);
-    const qrs = await this.prisma.qrCode.findMany({
-      where: { target: "MEETING", meetingId, active: true },
+    const qrs = await this.prisma.meetingQrCode.findMany({
+      where: { meetingId, active: true },
       orderBy: { createdAt: "desc" },
       include: { place: true },
     });
@@ -418,7 +417,7 @@ export class MeetingsService {
   }
 
   async getPublicByCode(code: string) {
-    const qr = await this.prisma.qrCode.findUnique({
+    const qr = await this.prisma.meetingQrCode.findUnique({
       where: { code },
       include: {
         place: true,
@@ -432,10 +431,10 @@ export class MeetingsService {
         },
       },
     });
-    if (!qr?.active || qr.target !== "MEETING" || !qr.meeting) {
+    if (!qr?.active || !qr.meeting) {
       throw new NotFoundException("Meeting QR code not found");
     }
-    return { ...qr.meeting, scanPlace: qr.place };
+    return { ...this.withPrimaryPlace(qr.meeting), scanPlace: qr.place };
   }
 
   async joinByCode(code: string, dto: JoinMeetingDto) {
@@ -443,13 +442,7 @@ export class MeetingsService {
 
     if (meeting.mode === EventMode.BULK_REGISTRATION) {
       const distanceMeters = this.assertLocation(
-        meeting.scanPlace ?? {
-          requireLocation: meeting.requireLocation,
-          latitude: meeting.latitude,
-          longitude: meeting.longitude,
-          radiusMeters: meeting.radiusMeters,
-          locationName: meeting.locationName,
-        },
+        meeting.scanPlace ?? null,
         dto,
       );
       if (!dto.participantId) {
@@ -460,7 +453,9 @@ export class MeetingsService {
         where: {
           id: dto.participantId,
           meetingId: meeting.id,
-          placeId: meeting.scanPlace?.id || undefined,
+          placeId: meeting.separateQrByPlace
+            ? meeting.scanPlace?.id || undefined
+            : undefined,
         },
       });
 
@@ -547,10 +542,10 @@ export class MeetingsService {
       longitude: unknown;
       radiusMeters: number;
       locationName?: string | null;
-    },
+    } | null,
     dto: JoinMeetingDto,
   ) {
-    if (!meeting.requireLocation) return 0;
+    if (!meeting?.requireLocation) return 0;
 
     if (dto.latitude === undefined || dto.longitude === undefined) {
       throw new BadRequestException({
@@ -614,7 +609,7 @@ export class MeetingsService {
   }
 
   private async assertPlace(meetingId: string, placeId: string) {
-    const place = await this.prisma.place.findFirst({
+    const place = await this.prisma.meetingPlace.findFirst({
       where: { id: placeId, meetingId },
     });
     if (!place) throw new NotFoundException("Meeting place not found");
@@ -705,10 +700,52 @@ export class MeetingsService {
     };
 
     const existing = await tx.place.findFirst({
-      where: { tenantId, name: place.name.trim(), eventId: null, meetingId: null },
+      where: { tenantId, name: place.name.trim() },
     });
     if (!existing) return tx.place.create({ data });
     return tx.place.update({ where: { id: existing.id }, data });
+  }
+
+  private toDefaultMeetingPlaceData(
+    meetingId: string,
+    allowLocation: boolean,
+    place: {
+      requireLocation?: boolean;
+      locationName?: string;
+      latitude?: number;
+      longitude?: number;
+      radiusMeters?: number;
+    },
+  ) {
+    const requireLocation = allowLocation && Boolean(place.requireLocation);
+    const name =
+      place.locationName?.trim() ||
+      (requireLocation ? "Meeting venue" : "Registration desk");
+    return {
+      meetingId,
+      name,
+      description: null,
+      catalogPlaceId: null,
+      requireLocation,
+      locationName: name,
+      latitude: requireLocation ? place.latitude ?? 0 : null,
+      longitude: requireLocation ? place.longitude ?? 0 : null,
+      radiusMeters: requireLocation ? place.radiusMeters ?? 100 : 0,
+    };
+  }
+
+  private withPrimaryPlace<T extends { places?: Array<Record<string, any>> }>(
+    meeting: T,
+  ) {
+    const primaryPlace = meeting.places?.[0];
+    return {
+      ...meeting,
+      requireLocation: primaryPlace?.requireLocation ?? false,
+      locationName: primaryPlace?.locationName ?? primaryPlace?.name ?? null,
+      latitude: primaryPlace?.latitude ?? null,
+      longitude: primaryPlace?.longitude ?? null,
+      radiusMeters: primaryPlace?.radiusMeters ?? 0,
+    };
   }
 
   private async toMeetingChairpersonData(

@@ -17,15 +17,25 @@ export class HealthService {
   ) {}
 
   async checkAll(): Promise<HealthCheckResult> {
+    const diskThresholdPercent = Number(
+      process.env.HEALTH_DISK_THRESHOLD_PERCENT ?? 0.99,
+    );
+    const heapThresholdBytes = Number(
+      process.env.HEALTH_HEAP_THRESHOLD_BYTES ?? 512 * 1024 * 1024,
+    );
+    const rssThresholdBytes = Number(
+      process.env.HEALTH_RSS_THRESHOLD_BYTES ?? 768 * 1024 * 1024,
+    );
+
     return this.health.check([
       () => this.prismaHealth.isHealthy("database"),
       () =>
         this.disk.checkStorage("storage", {
           path: "/",
-          thresholdPercent: 0.9,
+          thresholdPercent: diskThresholdPercent,
         }),
-      () => this.memory.checkHeap("memory_heap", 300 * 1024 * 1024),
-      () => this.memory.checkRSS("memory_rss", 300 * 1024 * 1024),
+      () => this.memory.checkHeap("memory_heap", heapThresholdBytes),
+      () => this.memory.checkRSS("memory_rss", rssThresholdBytes),
     ]);
   }
 

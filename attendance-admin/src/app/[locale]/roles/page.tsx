@@ -3,7 +3,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Edit3, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardCheck,
+  Edit3,
+  MapPin,
+  Palette,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UserCog,
+  Users,
+} from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import {
@@ -16,9 +27,15 @@ import {
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   createRole,
   deleteRole,
@@ -32,12 +49,108 @@ import {
 import { useAdminUiStore } from "@/lib/ui-store";
 import { roleSchema, type RoleValues } from "@/lib/validation";
 
+const PAGE_SIZE = 10;
+
+const permissionGroups = [
+  {
+    resource: "events",
+    label: "Events",
+    description: "Create and manage public attendance events.",
+    icon: CalendarDays,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "meetings",
+    label: "Meetings",
+    description: "Create meetings, chairpersons, participants, and QR codes.",
+    icon: Users,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "attendance",
+    label: "Attendance",
+    description: "View rosters and perform check-in operations.",
+    icon: ClipboardCheck,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "places",
+    label: "Places",
+    description: "Maintain reusable places and location rules.",
+    icon: MapPin,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "chairpersons",
+    label: "Chairpersons",
+    description: "Maintain reusable meeting chairperson profiles.",
+    icon: UserCog,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "registrations",
+    label: "Registration imports",
+    description: "Upload spreadsheets and reuse attendee lists.",
+    icon: ClipboardCheck,
+    actions: ["read", "create", "delete"],
+  },
+  {
+    resource: "users",
+    label: "People",
+    description: "Manage admin users and their assigned roles.",
+    icon: Users,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "roles",
+    label: "Roles",
+    description: "Create roles and choose what each role can do.",
+    icon: ShieldCheck,
+    actions: ["read", "create", "update", "delete"],
+  },
+  {
+    resource: "theme",
+    label: "Theme",
+    description: "Change participant-facing branding.",
+    icon: Palette,
+    actions: ["update"],
+  },
+] as const;
+
+const roleTemplates = [
+  {
+    label: "Scanner",
+    permissions: ["events:read", "meetings:read", "attendance:read", "attendance:create"],
+  },
+  {
+    label: "Organizer",
+    permissions: [
+      "events:read",
+      "events:create",
+      "events:update",
+      "meetings:read",
+      "meetings:create",
+      "meetings:update",
+      "attendance:read",
+      "registrations:read",
+      "registrations:create",
+      "places:read",
+      "chairpersons:read",
+    ],
+  },
+  {
+    label: "Admin",
+    permissions: permissionGroups.flatMap((group) =>
+      group.actions.map((action) => `${group.resource}:${action}`),
+    ),
+  },
+];
+
 const initialRoleForm: RoleValues = {
   name: "",
   description: "",
-  permissions: "events:read,attendance:read",
+  permissions: ["events:read", "attendance:read"],
 };
-const PAGE_SIZE = 10;
 
 export default function RolesPage() {
   const t = useTranslations("roles");
@@ -45,16 +158,11 @@ export default function RolesPage() {
   const [page, setPage] = useState(1);
   const editing = useAdminUiStore((state) => state.editingRole);
   const setEditing = useAdminUiStore((state) => state.setEditingRole);
-  const formMethods = useForm<RoleValues>({
+  const form = useForm<RoleValues>({
     resolver: zodResolver(roleSchema),
     defaultValues: initialRoleForm,
   });
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = formMethods;
+  const selectedPermissions = form.watch("permissions") ?? [];
   const rolesQuery = useQuery({
     queryKey: [...roleKeys.all, page],
     queryFn: () => listRoles({ page, pageSize: PAGE_SIZE }),
@@ -85,31 +193,54 @@ export default function RolesPage() {
 
   function rolePayload(values: RoleValues) {
     return {
-      name: values.name,
-      description: values.description,
-      permissions: values.permissions
-        .split(",")
-        .map((permission) => permission.trim())
-        .filter(Boolean),
+      name: values.name.trim(),
+      description: values.description?.trim() || "",
+      permissions: values.permissions,
     };
   }
 
   function resetForm() {
     setEditing(null);
-    reset(initialRoleForm);
+    form.reset(initialRoleForm);
   }
 
   function startEdit(role: RoleRecord) {
     setEditing(role);
-    reset({
+    form.reset({
       name: role.name,
       description: role.description ?? "",
-      permissions: role.permissions
-        .map(
-          ({ permission }) => `${permission.resource}:${permission.action}`,
-        )
-        .join(", "),
+      permissions: role.permissions.map(
+        ({ permission }) => `${permission.resource}:${permission.action}`,
+      ),
     });
+  }
+
+  function setPermissions(permissions: string[]) {
+    form.setValue("permissions", Array.from(new Set(permissions)), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }
+
+  function togglePermission(permission: string, checked: boolean) {
+    setPermissions(
+      checked
+        ? [...selectedPermissions, permission]
+        : selectedPermissions.filter((item) => item !== permission),
+    );
+  }
+
+  function toggleGroup(resource: string, checked: boolean) {
+    const group = permissionGroups.find((item) => item.resource === resource);
+    if (!group) return;
+    const groupPermissions = group.actions.map(
+      (action) => `${group.resource}:${action}`,
+    );
+    setPermissions(
+      checked
+        ? [...selectedPermissions, ...groupPermissions]
+        : selectedPermissions.filter((item) => !groupPermissions.includes(item)),
+    );
   }
 
   return (
@@ -126,9 +257,9 @@ export default function RolesPage() {
         ) : null
       }
     >
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_520px]">
         <TableShell>
-          <SectionToolbar title={t("matrix")} />
+          <SectionToolbar title="Roles people can use" />
           {rolesQuery.isLoading ? (
             <div className="p-5 text-sm text-muted-fg">{t("loading")}</div>
           ) : roles.length ? (
@@ -164,43 +295,143 @@ export default function RolesPage() {
               {editing ? t("updateRole") : t("createRole")}
             </CardTitle>
             <p className="mt-1 text-sm text-muted-fg">
-              {t("formDescription")}
+              Choose plain-language access below. The app will save the technical permission codes.
             </p>
           </CardHeader>
           <CardContent className="p-0">
-            <Form {...formMethods}>
+            <Form {...form}>
               <form
                 className="flex max-h-[calc(100dvh-9rem)] flex-col"
-                onSubmit={handleSubmit((values) =>
+                onSubmit={form.handleSubmit((values) =>
                   saveRoleMutation.mutate(values),
                 )}
               >
                 <div className="grid gap-4 overflow-y-auto p-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("roleName")}</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="scanner" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("roleDescription")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder={t("descriptionPlaceholder")}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="grid gap-2">
-                    <Label>{t("roleName")}</Label>
-                    <Input {...register("name")} placeholder="scanner" />
-                    {errors.name ? (
-                      <p className="text-xs text-destructive">
-                        {errors.name.message}
-                      </p>
-                    ) : null}
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium">Permission presets</p>
+                      <span className="text-xs text-muted-fg">
+                        {selectedPermissions.length} selected
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {roleTemplates.map((template) => (
+                        <Button
+                          key={template.label}
+                          type="button"
+                          variant="outline"
+                          className="h-8"
+                          onClick={() => setPermissions(template.permissions)}
+                        >
+                          {template.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label>{t("roleDescription")}</Label>
-                    <Input
-                      {...register("description")}
-                      placeholder={t("descriptionPlaceholder")}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>{t("permissions")}</Label>
-                    <Input
-                      {...register("permissions")}
-                      placeholder="events:read,attendance:read"
-                    />
-                    {errors.permissions ? (
+
+                  <div className="grid gap-3">
+                    {permissionGroups.map((group) => {
+                      const Icon = group.icon;
+                      const groupPermissions = group.actions.map(
+                        (action) => `${group.resource}:${action}`,
+                      );
+                      const allSelected = groupPermissions.every((permission) =>
+                        selectedPermissions.includes(permission),
+                      );
+                      return (
+                        <section
+                          key={group.resource}
+                          className="rounded-md border border-border bg-background p-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-fg">
+                              <Icon size={16} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                  <p className="font-medium">{group.label}</p>
+                                  <p className="text-xs text-muted-fg">
+                                    {group.description}
+                                  </p>
+                                </div>
+                                <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-fg">
+                                  <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={(event) =>
+                                      toggleGroup(
+                                        group.resource,
+                                        event.target.checked,
+                                      )
+                                    }
+                                  />
+                                  All
+                                </label>
+                              </div>
+                              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {group.actions.map((action) => {
+                                  const permission = `${group.resource}:${action}`;
+                                  return (
+                                    <label
+                                      key={permission}
+                                      className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedPermissions.includes(
+                                          permission,
+                                        )}
+                                        onChange={(event) =>
+                                          togglePermission(
+                                            permission,
+                                            event.target.checked,
+                                          )
+                                        }
+                                      />
+                                      <span className="capitalize">{action}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+                      );
+                    })}
+                    {form.formState.errors.permissions ? (
                       <p className="text-xs text-destructive">
-                        {errors.permissions.message}
+                        {form.formState.errors.permissions.message}
                       </p>
                     ) : null}
                   </div>
@@ -285,7 +516,7 @@ function RoleMatrixCard({
       </div>
       <div className="mt-4">
         <p className="mb-2 text-xs font-semibold uppercase text-muted-fg">
-          {t("permissions")}
+          Access areas
         </p>
         <PermissionChips role={role} />
       </div>
@@ -308,15 +539,26 @@ function PermissionChips({ role }: { role: RoleRecord }) {
 
   return (
     <div className="flex max-w-3xl flex-wrap gap-1.5">
-      {entries.map(([resource, actions]) => (
-        <span
-          key={resource}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
-        >
-          <span className="font-medium text-foreground">{resource}</span>
-          <span className="text-muted-fg">{actions.sort().join(", ")}</span>
-        </span>
-      ))}
+      {entries.map(([resource, actions]) => {
+        const group = permissionGroups.find((item) => item.resource === resource);
+        return (
+          <span
+            key={resource}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs"
+          >
+            <span className="font-medium text-foreground">
+              {group?.label ?? resource}
+            </span>
+            <span className="text-muted-fg">
+              {actions.sort().map(capitalize).join(", ")}
+            </span>
+          </span>
+        );
+      })}
     </div>
   );
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

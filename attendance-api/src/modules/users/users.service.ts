@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { hash } from "bcryptjs";
-import { PrismaService } from "../prisma/prisma.service";
+import { UsersRepository } from "./users.repository";
 import { CreateRoleDto, CreateUserDto, UpdateRoleDto, UpdateUserDto } from "./dto";
 import {
   paginated,
@@ -10,7 +10,7 @@ import {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: UsersRepository) {}
 
   async list(tenantId: string | null, query: PaginationQuery = {}) {
     const scopedTenantId = this.scopeTenant(tenantId);
