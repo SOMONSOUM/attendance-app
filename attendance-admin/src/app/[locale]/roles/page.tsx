@@ -24,6 +24,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { ListSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -276,7 +277,7 @@ export default function RolesPage() {
         <TableShell>
           <SectionToolbar title="Roles people can use" />
           {rolesQuery.isLoading ? (
-            <div className="p-5 text-sm text-muted-fg">{t("loading")}</div>
+            <ListSkeleton />
           ) : roles.length ? (
             <>
               <div className="grid gap-3 p-4">
@@ -375,7 +376,107 @@ export default function RolesPage() {
                   </div>
 
                   <div className="grid gap-3">
-                    <div className="overflow-x-auto rounded-md border border-border">
+                    <div className="grid gap-3 md:hidden">
+                      {actionColumns.map((action) => {
+                        const actionPermissions = permissionGroups
+                          .filter((group) => groupHasAction(group, action))
+                          .map((group) => `${group.resource}:${action}`);
+                        const allSelected = actionPermissions.every(
+                          (permission) =>
+                            selectedPermissions.includes(permission),
+                        );
+                        return (
+                          <label
+                            key={action}
+                            className="flex min-h-10 cursor-pointer items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium capitalize"
+                          >
+                            Select all {action}
+                            <Checkbox
+                              checked={allSelected}
+                              onCheckedChange={(checked) =>
+                                toggleAction(action, checked === true)
+                              }
+                              aria-label={`Select all ${action} permissions`}
+                            />
+                          </label>
+                        );
+                      })}
+                      <div className="grid gap-3">
+                        {permissionGroups.map((group) => {
+                          const Icon = group.icon;
+                          const groupPermissions = group.actions.map(
+                            (action) => `${group.resource}:${action}`,
+                          );
+                          const allSelected = groupPermissions.every(
+                            (permission) =>
+                              selectedPermissions.includes(permission),
+                          );
+                          return (
+                            <section
+                              key={group.resource}
+                              className="rounded-md border border-border bg-background"
+                            >
+                              <div className="flex min-w-0 items-start gap-3 border-b border-border p-3">
+                                <span className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-fg">
+                                  <Icon size={16} />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="font-medium">{group.label}</p>
+                                      <p className="mt-1 text-xs leading-5 text-muted-fg">
+                                        {group.description}
+                                      </p>
+                                    </div>
+                                    <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-fg">
+                                      All
+                                      <Checkbox
+                                        checked={allSelected}
+                                        onCheckedChange={(checked) =>
+                                          toggleGroup(
+                                            group.resource,
+                                            checked === true,
+                                          )
+                                        }
+                                        aria-label={`Select all ${group.label} permissions`}
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 p-3">
+                                {actionColumns.map((action) => {
+                                  const permission = `${group.resource}:${action}`;
+                                  const available = groupHasAction(group, action);
+                                  if (!available) return null;
+                                  return (
+                                    <label
+                                      key={permission}
+                                      className="flex min-h-10 cursor-pointer items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm capitalize"
+                                    >
+                                      {action}
+                                      <Checkbox
+                                        checked={selectedPermissions.includes(
+                                          permission,
+                                        )}
+                                        onCheckedChange={(checked) =>
+                                          togglePermission(
+                                            permission,
+                                            checked === true,
+                                          )
+                                        }
+                                        aria-label={`${group.label} ${action}`}
+                                      />
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="hidden overflow-x-auto rounded-md border border-border md:block">
                       <div className="min-w-[30rem]">
                         <div className="grid grid-cols-[minmax(11rem,1fr)_repeat(4,minmax(4.75rem,5.5rem))] border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-fg">
                           <span>Access area</span>

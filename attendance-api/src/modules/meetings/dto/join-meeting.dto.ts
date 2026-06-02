@@ -37,10 +37,15 @@ export class JoinMeetingDto {
   @IsString()
   position?: string;
 
-  @ApiPropertyOptional({ example: "Policy Department" })
+  @ApiPropertyOptional({ example: "Ministry of Commerce" })
   @IsOptional()
   @IsString()
-  department?: string;
+  organization?: string;
+
+  @ApiPropertyOptional({ example: "+855 12 345 678" })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
 
   @ApiPropertyOptional({ example: "sophea@example.com" })
   @IsOptional()

@@ -27,7 +27,7 @@ type UserSeed = {
   fullNameKm: string | null;
   gender: Gender;
   position: string;
-  department: string;
+  organization: string;
   role: string;
 };
 
@@ -37,7 +37,7 @@ type RegistrationSeed = {
   fullNameKm: string | null;
   gender: Gender;
   position: string;
-  department: string;
+  organization: string;
 };
 
 type ShiftSeed = {
@@ -165,7 +165,7 @@ const users: UserSeed[] = [
     fullNameKm: null,
     gender: Gender.OTHER,
     position: "System Administrator",
-    department: "Information Technology",
+    organization: "Information Technology",
     role: "admin",
   },
   {
@@ -175,7 +175,7 @@ const users: UserSeed[] = [
     fullNameKm: null,
     gender: Gender.FEMALE,
     position: "Event Coordinator",
-    department: "Operations",
+    organization: "Operations",
     role: "operator",
   },
   {
@@ -185,7 +185,7 @@ const users: UserSeed[] = [
     fullNameKm: null,
     gender: Gender.MALE,
     position: "HR Officer",
-    department: "Human Resources",
+    organization: "Human Resources",
     role: "viewer",
   },
 ];
@@ -201,8 +201,8 @@ const extraTenants: TenantSeed[] = [
       fullNameEn: "Ministry Owner",
       fullNameKm: null,
       gender: Gender.OTHER,
-      position: "Department Director",
-      department: "Administration",
+      position: "Organization Director",
+      organization: "Administration",
       role: "admin",
     },
     users: [
@@ -213,7 +213,7 @@ const extraTenants: TenantSeed[] = [
         fullNameKm: null,
         gender: Gender.FEMALE,
         position: "Event Officer",
-        department: "Operations",
+        organization: "Operations",
         role: "operator",
       },
     ],
@@ -229,7 +229,7 @@ const extraTenants: TenantSeed[] = [
       fullNameKm: null,
       gender: Gender.MALE,
       position: "Campus Administrator",
-      department: "Student Affairs",
+      organization: "Student Affairs",
       role: "admin",
     },
     users: [
@@ -240,7 +240,7 @@ const extraTenants: TenantSeed[] = [
         fullNameKm: null,
         gender: Gender.FEMALE,
         position: "HR Assistant",
-        department: "Human Resources",
+        organization: "Human Resources",
         role: "viewer",
       },
     ],
@@ -411,7 +411,7 @@ const openEventAttendances = [
     fullNameKm: null,
     gender: Gender.FEMALE,
     position: "Student",
-    department: "Open Visitor",
+    organization: "Open Visitor",
   },
   {
     id: "seed-attendance-open-day-mony",
@@ -420,7 +420,7 @@ const openEventAttendances = [
     fullNameKm: null,
     gender: Gender.MALE,
     position: "Founder",
-    department: "Startup Community",
+    organization: "Startup Community",
   },
 ];
 
@@ -431,7 +431,7 @@ const registrations: RegistrationSeed[] = [
     fullNameKm: "សុខ ដារ៉ា",
     gender: Gender.MALE,
     position: "Software Engineer",
-    department: "Engineering",
+    organization: "Engineering",
   },
   {
     id: "seed-registration-chan-sophea",
@@ -439,7 +439,7 @@ const registrations: RegistrationSeed[] = [
     fullNameKm: "ចាន សុភា",
     gender: Gender.FEMALE,
     position: "Product Manager",
-    department: "Product",
+    organization: "Product",
   },
   {
     id: "seed-registration-kim-sovann",
@@ -447,7 +447,7 @@ const registrations: RegistrationSeed[] = [
     fullNameKm: "គីម សុវណ្ណ",
     gender: Gender.OTHER,
     position: "Designer",
-    department: "Creative",
+    organization: "Creative",
   },
 ];
 
@@ -469,7 +469,7 @@ const placeSeeds: PlaceSeed[] = [
         fullNameKm: null,
         gender: Gender.FEMALE,
         position: "Marketing Lead",
-        department: "Marketing",
+        organization: "Marketing",
       },
       {
         id: "seed-registration-expo-vuthy",
@@ -477,7 +477,7 @@ const placeSeeds: PlaceSeed[] = [
         fullNameKm: null,
         gender: Gender.MALE,
         position: "Sales Manager",
-        department: "Sales",
+        organization: "Sales",
       },
     ],
   },
@@ -498,7 +498,7 @@ const placeSeeds: PlaceSeed[] = [
         fullNameKm: null,
         gender: Gender.MALE,
         position: "Solutions Engineer",
-        department: "Engineering",
+        organization: "Engineering",
       },
       {
         id: "seed-registration-expo-sophea",
@@ -506,7 +506,7 @@ const placeSeeds: PlaceSeed[] = [
         fullNameKm: null,
         gender: Gender.FEMALE,
         position: "Customer Success",
-        department: "Customer Success",
+        organization: "Customer Success",
       },
     ],
   },
@@ -551,7 +551,7 @@ const boardMeetingParticipants: RegistrationSeed[] = [
     fullNameKm: null,
     gender: Gender.MALE,
     position: "Finance Manager",
-    department: "Finance",
+    organization: "Finance",
   },
   {
     id: "seed-meeting-participant-board-davy",
@@ -559,7 +559,7 @@ const boardMeetingParticipants: RegistrationSeed[] = [
     fullNameKm: null,
     gender: Gender.FEMALE,
     position: "Legal Advisor",
-    department: "Legal",
+    organization: "Legal",
   },
 ];
 
@@ -621,7 +621,7 @@ const meetingPlaceSeeds = [
         fullNameKm: null,
         gender: Gender.FEMALE,
         position: "Policy Analyst",
-        department: "Planning",
+        organization: "Planning",
       },
       {
         id: "seed-meeting-participant-policy-vireak",
@@ -629,7 +629,7 @@ const meetingPlaceSeeds = [
         fullNameKm: null,
         gender: Gender.MALE,
         position: "Project Lead",
-        department: "Programs",
+        organization: "Programs",
       },
     ],
   },
@@ -650,7 +650,7 @@ const meetingPlaceSeeds = [
         fullNameKm: null,
         gender: Gender.FEMALE,
         position: "Procurement Officer",
-        department: "Procurement",
+        organization: "Procurement",
       },
       {
         id: "seed-meeting-participant-budget-bora",
@@ -658,7 +658,7 @@ const meetingPlaceSeeds = [
         fullNameKm: null,
         gender: Gender.MALE,
         position: "Accountant",
-        department: "Finance",
+        organization: "Finance",
       },
     ],
   },
@@ -750,7 +750,7 @@ const openMeetingParticipants = [
     fullNameKm: null,
     gender: Gender.FEMALE,
     position: "Community Visitor",
-    department: "Public",
+    organization: "Public",
     latitude: "11.5681300",
     longitude: "104.9223500",
     distanceMeters: 10,
@@ -1008,7 +1008,7 @@ async function seedUsers(
         fullNameKm: userSeed.fullNameKm,
         gender: userSeed.gender,
         position: userSeed.position,
-        department: userSeed.department,
+        organization: userSeed.organization,
       },
       create: {
         id: userSeed.id,
@@ -1019,7 +1019,7 @@ async function seedUsers(
         fullNameKm: userSeed.fullNameKm,
         gender: userSeed.gender,
         position: userSeed.position,
-        department: userSeed.department,
+        organization: userSeed.organization,
       },
     });
 
@@ -1120,7 +1120,7 @@ async function seedRegistrationImports() {
         fullNameKm: registration.fullNameKm,
         gender: registration.gender,
         position: registration.position,
-        department: registration.department,
+        organization: registration.organization,
       })),
     });
   }
@@ -1216,7 +1216,7 @@ async function seedEvent() {
       fullNameKm: "សុខ ដារ៉ា",
       gender: checkedInRegistration.gender,
       position: checkedInRegistration.position,
-      department: checkedInRegistration.department,
+      organization: checkedInRegistration.organization,
       latitude: "11.5564500",
       longitude: "104.9282500",
       distanceMeters: 8,
@@ -1231,7 +1231,7 @@ async function seedEvent() {
       fullNameKm: "សុខ ដារ៉ា",
       gender: checkedInRegistration.gender,
       position: checkedInRegistration.position,
-      department: checkedInRegistration.department,
+      organization: checkedInRegistration.organization,
       latitude: "11.5564500",
       longitude: "104.9282500",
       distanceMeters: 8,
@@ -1364,7 +1364,7 @@ async function seedPlaceEvent() {
         fullNameKm: registrationSeed.fullNameKm,
         gender: registrationSeed.gender,
         position: registrationSeed.position,
-        department: registrationSeed.department,
+        organization: registrationSeed.organization,
         latitude: "11.5622100",
         longitude: "104.9160500",
         distanceMeters: 12,
@@ -1380,7 +1380,7 @@ async function seedPlaceEvent() {
         fullNameKm: registrationSeed.fullNameKm,
         gender: registrationSeed.gender,
         position: registrationSeed.position,
-        department: registrationSeed.department,
+        organization: registrationSeed.organization,
         latitude: "11.5622100",
         longitude: "104.9160500",
         distanceMeters: 12,
@@ -1764,7 +1764,7 @@ async function seedOpenEvent() {
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
         position: attendanceSeed.position,
-        department: attendanceSeed.department,
+        organization: attendanceSeed.organization,
         checkInCode: `${registrationId}-qr`,
         source: "OPEN_REGISTRATION",
       },
@@ -1776,7 +1776,7 @@ async function seedOpenEvent() {
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
         position: attendanceSeed.position,
-        department: attendanceSeed.department,
+        organization: attendanceSeed.organization,
         checkInCode: `${registrationId}-qr`,
         source: "OPEN_REGISTRATION",
       },
@@ -1791,7 +1791,7 @@ async function seedOpenEvent() {
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
         position: attendanceSeed.position,
-        department: attendanceSeed.department,
+        organization: attendanceSeed.organization,
         latitude: "11.5681300",
         longitude: "104.9223500",
         distanceMeters: 10,
@@ -1807,7 +1807,7 @@ async function seedOpenEvent() {
         fullNameKm: attendanceSeed.fullNameKm,
         gender: attendanceSeed.gender,
         position: attendanceSeed.position,
-        department: attendanceSeed.department,
+        organization: attendanceSeed.organization,
         latitude: "11.5681300",
         longitude: "104.9223500",
         distanceMeters: 10,
@@ -1929,7 +1929,7 @@ async function seedPreRegistrationEvent() {
       fullNameKm: null,
       gender: Gender.FEMALE,
       position: "Frontend Developer",
-      department: "Engineering",
+      organization: "Engineering",
       checkInCode: "seed-registration-developer-clinic-sopheary-qr",
       source: "PRE_REGISTRATION",
     },
@@ -1940,7 +1940,7 @@ async function seedPreRegistrationEvent() {
       fullNameKm: null,
       gender: Gender.FEMALE,
       position: "Frontend Developer",
-      department: "Engineering",
+      organization: "Engineering",
       checkInCode: "seed-registration-developer-clinic-sopheary-qr",
       source: "PRE_REGISTRATION",
     },
@@ -2019,7 +2019,7 @@ async function seedPreRegistrationMeeting() {
       fullNameKm: null,
       gender: Gender.MALE,
       position: "Researcher",
-      department: "Innovation",
+      organization: "Innovation",
       status: MeetingParticipantStatus.INVITED,
       checkInCode: "seed-meeting-participant-roundtable-nara-qr",
       source: "PRE_REGISTRATION",
@@ -2032,7 +2032,7 @@ async function seedPreRegistrationMeeting() {
       fullNameKm: null,
       gender: Gender.MALE,
       position: "Researcher",
-      department: "Innovation",
+      organization: "Innovation",
       status: MeetingParticipantStatus.INVITED,
       checkInCode: "seed-meeting-participant-roundtable-nara-qr",
       source: "PRE_REGISTRATION",

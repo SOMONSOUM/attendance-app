@@ -138,7 +138,7 @@ export class EventsController {
           type: "string",
           format: "binary",
           description:
-            "XLSX file with Fullname English, Fullname Khmer, Gender, Position, Department headers.",
+            "XLSX file with Fullname English, Fullname Khmer, Gender, Position, Organization headers.",
         },
       },
       required: ["file"],

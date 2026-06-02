@@ -27,8 +27,10 @@ export type PublicMeeting = {
     id: string;
     fullNameEn: string;
     fullNameKm?: string | null;
+    gender?: "MALE" | "FEMALE" | "OTHER" | null;
     position?: string | null;
-    department?: string | null;
+    organization?: string | null;
+    phoneNumber?: string | null;
     status?: "INVITED" | "JOINED" | "CANCELLED";
     placeId?: string | null;
   }>;

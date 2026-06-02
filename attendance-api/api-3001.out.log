@@ -1,0 +1,108 @@
+
+> start:prod
+> node dist/src/main.js
+
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mModulesModule dependencies initialized[39m[38;5;3m +84ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPassportModule dependencies initialized[39m[38;5;3m +15ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +17ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mThrottlerModule dependencies initialized[39m[38;5;3m +24ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mJwtModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mRbacModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +28ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTerminusModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPrismaModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAuthModule dependencies initialized[39m[38;5;3m +6ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mUsersModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPlacesModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mChairpersonsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTenantsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAttendanceModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mThemeModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mHealthModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mEventsModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMeetingsModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mRegistrationImportsModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAuthController {/api/auth} (version: 1):[39m[38;5;3m +157ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/login, POST} (version: 1) route[39m[38;5;3m +6ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/register, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/me, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/refresh, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/logout, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mUsersController {/api/users} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/roles, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/roles, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/roles/:roleId, PATCH} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/roles/:roleId, DELETE} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users, POST} (version: 1) route[39m[38;5;3m +0ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/:userId, PATCH} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/:userId/role, PATCH} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/users/:userId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mEventsController {/api/events} (version: 1):[39m[38;5;3m +0ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId/qr, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId, PATCH} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/qr/:code, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId/registrations/upload, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId/registrations/copy/:sourceEventId, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId/registrations/import/:importId, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId/registrations/search, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mMeetingsController {/api/meetings} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId, PATCH} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/qr, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/participants/upload, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/participants/import/:importId, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/participants, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/participants/:participantId/card, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/participants/:participantId/join, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/:meetingId/participants/:participantId/join, DELETE} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/qr/:code, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/qr/:code/join, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/participants/qr/:checkInCode/join, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/meetings/participants/qr/:checkInCode/card, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPlacesController {/api/places} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/places, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/places, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/places/:placeId, PATCH} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/places/:placeId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mChairpersonsController {/api/chairpersons} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chairpersons, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chairpersons, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chairpersons/:chairpersonId, PATCH} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/chairpersons/:chairpersonId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mRegistrationImportsController {/api/registration-imports} (version: 1):[39m[38;5;3m +0ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/registration-imports, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/registration-imports/template, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/registration-imports/:importId/download, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/registration-imports/:importId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/registration-imports/upload, POST} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/registration-imports/meetings/upload, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTenantsController {/api/tenants} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/tenants/register, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/tenants, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/tenants/:tenantId/owner, PATCH} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAttendanceController {/api/attendance} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/qr/:code/join, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/qr/:code/register, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/events/:eventId, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/events/:eventId/roster, GET} (version: 1) route[39m[38;5;3m +0ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/events/:eventId/registrations/:registrationId/card, GET} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/events/:eventId/registrations/:registrationId/join, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/registrations/qr/:checkInCode/join, POST} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/registrations/qr/:checkInCode/card, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/attendance/:attendanceId, DELETE} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mThemeController {/api/events/:eventId/theme} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/events/:eventId/theme, PUT} (version: 1) route[39m[38;5;3m +2ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/health} (version: 1):[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health/db, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health/ping, GET} (version: 1) route[39m[38;5;3m +1ms[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[PrismaService] [39m[32mPrisma connected to MySQL[39m
+[32m[Nest] 5056  - [39m06/02/2026, 4:01:05 PM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +8ms[39m

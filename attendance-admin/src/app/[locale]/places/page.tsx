@@ -12,6 +12,7 @@ import {
   TableShell,
 } from "@/components/admin/admin-shell";
 import { LocationPicker } from "@/components/admin/location-picker";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -142,63 +143,69 @@ export default function PlacesPage() {
             </p>
           </div>
           <TableShell>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {places.map((place) => (
-                  <TableRow key={place.id}>
-                    <TableCell className="font-medium">{place.name}</TableCell>
-                    <TableCell className="text-muted-fg">
-                      {place.locationName || "Not set"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusPill tone={place.requireLocation ? "green" : "blue"}>
-                        {place.requireLocation ? "Required" : "Optional"}
-                      </StatusPill>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canUpdate ? (
-                        <Button
-                          variant="ghost"
-                          className="size-9 px-0"
-                          onClick={() => startEdit(place)}
-                        >
-                          <Edit3 size={15} />
-                        </Button>
-                      ) : null}
-                      {canDelete ? (
-                        <Button
-                          variant="ghost"
-                          className="size-9 px-0 text-danger"
-                          onClick={() => deleteMutation.mutate(place.id)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {!places.length ? (
-              <EmptyState
-                title="No places yet"
-                text="Create places once and reuse them in event and meeting setup."
-              />
-            ) : null}
-            <PaginationFooter
-              page={page}
-              pageSize={PAGE_SIZE}
-              totalItems={placesQuery.data?.meta.totalItems ?? 0}
-              onPageChange={setPage}
-            />
+            {placesQuery.isLoading ? (
+              <TableSkeleton columns={4} />
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {places.map((place) => (
+                      <TableRow key={place.id}>
+                        <TableCell className="font-medium">{place.name}</TableCell>
+                        <TableCell className="text-muted-fg">
+                          {place.locationName || "Not set"}
+                        </TableCell>
+                        <TableCell>
+                          <StatusPill tone={place.requireLocation ? "green" : "blue"}>
+                            {place.requireLocation ? "Required" : "Optional"}
+                          </StatusPill>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canUpdate ? (
+                            <Button
+                              variant="ghost"
+                              className="size-9 px-0"
+                              onClick={() => startEdit(place)}
+                            >
+                              <Edit3 size={15} />
+                            </Button>
+                          ) : null}
+                          {canDelete ? (
+                            <Button
+                              variant="ghost"
+                              className="size-9 px-0 text-danger"
+                              onClick={() => deleteMutation.mutate(place.id)}
+                            >
+                              <Trash2 size={15} />
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {!places.length ? (
+                  <EmptyState
+                    title="No places yet"
+                    text="Create places once and reuse them in event and meeting setup."
+                  />
+                ) : null}
+                <PaginationFooter
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  totalItems={placesQuery.data?.meta.totalItems ?? 0}
+                  onPageChange={setPage}
+                />
+              </>
+            )}
           </TableShell>
         </div>
 

@@ -84,6 +84,9 @@ class _DesktopMethodRail extends StatelessWidget {
                   controller: controller,
                   focusNode: focusNode,
                   autofocus: true,
+                  onChanged: (value) {
+                    if (_hasScannerSuffix(value)) onSubmitted(value);
+                  },
                   onSubmitted: onSubmitted,
                   decoration: InputDecoration(
                     hintText: l10n.typeOrPasteCode,
@@ -214,8 +217,15 @@ class _DesktopResultPane extends StatelessWidget {
           _ResultCard(person: state.lastPerson!),
         const SizedBox(height: 18),
         _RecentCheckIns(
-          people: selectedItem?.recentPeople.take(5).toList() ?? const [],
+          people: [
+            ...state.recentPeople,
+            ...?selectedItem?.recentPeople.where(
+              (person) =>
+                  !state.recentPeople.any((recent) => recent.id == person.id),
+            ),
+          ].take(5).toList(),
           isLoading: selectedItemLoading,
+          onPersonTap: (person) => _showPersonDialog(context, person),
         ),
       ],
     );
@@ -228,57 +238,69 @@ class _MobileScannerView extends StatelessWidget {
     required this.selectedItem,
     required this.selectedItemLoading,
     required this.cameraPaused,
+    required this.cameraController,
     required this.hardwareController,
     required this.hardwareFocusNode,
     required this.onCameraDetect,
     required this.onHardwareSubmit,
+    required this.onRefresh,
   });
 
   final ScanState state;
   final EventMeetingItem? selectedItem;
   final bool selectedItemLoading;
   final bool cameraPaused;
+  final MobileScannerController cameraController;
   final TextEditingController hardwareController;
   final FocusNode hardwareFocusNode;
   final ValueChanged<BarcodeCapture> onCameraDetect;
   final ValueChanged<String> onHardwareSubmit;
+  final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final l10n = _L10n();
 
-    return ListView(
-      padding: EdgeInsets.only(
-        bottom: 20 + MediaQuery.of(context).padding.bottom,
-      ),
-      children: [
-        _MobileHeader(
-          title: selectedItem?.title ?? l10n.qrScanner,
-          subtitle: l10n.scanPersonalQr,
-          icon: Icons.qr_code_scanner_rounded,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: 20 + MediaQuery.of(context).padding.bottom,
         ),
-        if (selectedItemLoading || selectedItem != null) ...[
-          const SizedBox(height: 12),
-          _SelectedScanContext(
-            item: selectedItem,
-            isLoading: selectedItemLoading,
+        children: [
+          _MobileHeader(
+            title: selectedItem?.title ?? l10n.qrScanner,
+            subtitle: l10n.scanPersonalQr,
+            icon: Icons.qr_code_scanner_rounded,
           ),
-        ],
-        const SizedBox(height: 14),
-        if (supportsCameraScanning) ...[
-          _CameraFrame(paused: cameraPaused, onDetect: onCameraDetect),
+          if (selectedItemLoading || selectedItem != null) ...[
+            const SizedBox(height: 12),
+            _SelectedScanContext(
+              item: selectedItem,
+              isLoading: selectedItemLoading,
+            ),
+          ],
           const SizedBox(height: 14),
+          if (supportsCameraScanning) ...[
+            _CameraFrame(
+              paused: cameraPaused,
+              controller: cameraController,
+              onDetect: onCameraDetect,
+            ),
+            const SizedBox(height: 14),
+          ],
+          _ManualEntryCard(
+            controller: hardwareController,
+            focusNode: hardwareFocusNode,
+            onSubmitted: onHardwareSubmit,
+          ),
+          if (state.isCheckingIn) ...[
+            const SizedBox(height: 16),
+            const LinearProgressIndicator(minHeight: 6),
+          ],
         ],
-        _ManualEntryCard(
-          controller: hardwareController,
-          focusNode: hardwareFocusNode,
-          onSubmitted: onHardwareSubmit,
-        ),
-        if (state.isCheckingIn) ...[
-          const SizedBox(height: 16),
-          const LinearProgressIndicator(minHeight: 6),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -289,45 +311,51 @@ class _MobileResultView extends StatelessWidget {
     required this.selectedItem,
     required this.selectedItemLoading,
     required this.onScanNext,
+    required this.onRefresh,
   });
 
   final CheckInPerson person;
   final EventMeetingItem? selectedItem;
   final bool selectedItemLoading;
   final VoidCallback onScanNext;
+  final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final l10n = _L10n();
 
-    return ListView(
-      padding: EdgeInsets.only(
-        bottom: 20 + MediaQuery.of(context).padding.bottom,
-      ),
-      children: [
-        _MobileHeader(
-          title: l10n.checkInResult,
-          subtitle: l10n.scanSuccessful,
-          icon: Icons.check_rounded,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: 20 + MediaQuery.of(context).padding.bottom,
         ),
-        const SizedBox(height: 14),
-        _SuccessBanner(text: l10n.checkedInSuccessfully),
-        if (selectedItemLoading || selectedItem != null) ...[
+        children: [
+          _MobileHeader(
+            title: l10n.checkInResult,
+            subtitle: l10n.scanSuccessful,
+            icon: Icons.check_rounded,
+          ),
+          const SizedBox(height: 14),
+          _SuccessBanner(text: l10n.checkedInSuccessfully),
+          if (selectedItemLoading || selectedItem != null) ...[
+            const SizedBox(height: 12),
+            _SelectedScanContext(
+              item: selectedItem,
+              isLoading: selectedItemLoading,
+            ),
+          ],
           const SizedBox(height: 12),
-          _SelectedScanContext(
-            item: selectedItem,
-            isLoading: selectedItemLoading,
+          _ResultCard(person: person),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            onPressed: onScanNext,
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            label: Text(l10n.scanNextAttendee),
           ),
         ],
-        const SizedBox(height: 12),
-        _ResultCard(person: person),
-        const SizedBox(height: 14),
-        ElevatedButton.icon(
-          onPressed: onScanNext,
-          icon: const Icon(Icons.qr_code_scanner_rounded),
-          label: Text(l10n.scanNextAttendee),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -369,11 +397,7 @@ class _MobileHeader extends StatelessWidget {
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -495,9 +519,14 @@ class _DetailMeta extends StatelessWidget {
 }
 
 class _CameraFrame extends StatelessWidget {
-  const _CameraFrame({required this.paused, required this.onDetect});
+  const _CameraFrame({
+    required this.paused,
+    required this.controller,
+    required this.onDetect,
+  });
 
   final bool paused;
+  final MobileScannerController controller;
   final ValueChanged<BarcodeCapture> onDetect;
 
   @override
@@ -512,7 +541,11 @@ class _CameraFrame extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            MobileScanner(fit: BoxFit.cover, onDetect: onDetect),
+            MobileScanner(
+              controller: controller,
+              fit: BoxFit.cover,
+              onDetect: onDetect,
+            ),
             ColoredBox(color: Colors.black.withValues(alpha: 0.22)),
             Center(
               child: LayoutBuilder(
@@ -581,6 +614,9 @@ class _ManualEntryCard extends StatelessWidget {
             TextField(
               controller: controller,
               focusNode: focusNode,
+              onChanged: (value) {
+                if (_hasScannerSuffix(value)) onSubmitted(value);
+              },
               onSubmitted: onSubmitted,
               decoration: InputDecoration(
                 hintText: l10n.typeOrPasteCode,
@@ -757,21 +793,22 @@ class _ResultHeaderDetails extends StatelessWidget {
           ],
         ),
         if (subtitle.isNotEmpty)
-          Text(
-            subtitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
       ],
     );
   }
 }
 
 class _RecentCheckIns extends StatelessWidget {
-  const _RecentCheckIns({required this.people, required this.isLoading});
+  const _RecentCheckIns({
+    required this.people,
+    required this.isLoading,
+    required this.onPersonTap,
+  });
 
   final List<CheckInPerson> people;
   final bool isLoading;
+  final ValueChanged<CheckInPerson> onPersonTap;
 
   @override
   Widget build(BuildContext context) {
@@ -801,7 +838,12 @@ class _RecentCheckIns extends StatelessWidget {
                 ),
               )
             else
-              ...people.map((person) => _RecentRow(person: person)),
+              ...people.map(
+                (person) => _RecentRow(
+                  person: person,
+                  onTap: () => onPersonTap(person),
+                ),
+              ),
           ],
         ),
       ),
@@ -810,44 +852,197 @@ class _RecentCheckIns extends StatelessWidget {
 }
 
 class _RecentRow extends StatelessWidget {
-  const _RecentRow({required this.person});
+  const _RecentRow({required this.person, required this.onTap});
 
   final CheckInPerson person;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+        mouseCursor: SystemMouseCursors.click,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: colors.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: colors.primary,
+                foregroundColor: colors.onPrimary,
+                child: Text(
+                  _initials(person.fullName),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      person.fullName,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      person.position ??
+                          person.organization ??
+                          person.kindLabel,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.check_circle_rounded, color: colors.primary, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showPersonDialog(BuildContext context, CheckInPerson person) {
+  final l10n = _L10n();
+  final colors = Theme.of(context).colorScheme;
+  return showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: colors.primaryContainer,
+                    foregroundColor: colors.onPrimaryContainer,
+                    child: Text(
+                      _initials(person.fullName),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          person.fullName,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          person.kindLabel,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colors.onSurface.withValues(alpha: 0.62),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.primaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        person.status ?? 'JOINED',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              if (person.fullNameKm?.isNotEmpty == true)
+                _DialogInfo(label: l10n.fullName, value: person.fullNameKm!),
+              _DialogInfo(label: l10n.position, value: person.position),
+              _DialogInfo(label: l10n.organization, value: person.organization),
+              _DialogInfo(label: l10n.phoneNumber, value: person.phoneNumber),
+              _DialogInfo(label: l10n.gender, value: person.gender),
+              const SizedBox(height: 6),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.ok),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _DialogInfo extends StatelessWidget {
+  const _DialogInfo({required this.label, required this.value});
+
+  final String label;
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == null || value!.trim().isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: colors.primary,
-            foregroundColor: colors.onPrimary,
+          SizedBox(
+            width: 108,
             child: Text(
-              _initials(person.fullName),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  person.fullName,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  person.position ?? person.organization ?? person.kindLabel,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+            child: Text(
+              value!,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Icon(Icons.check_circle_rounded, color: colors.primary, size: 18),
         ],
       ),
     );
@@ -1091,6 +1286,10 @@ String _initials(String value) {
   if (words.length == 1) return words.first.characters.first.toUpperCase();
   return '${words.first.characters.first}${words.last.characters.first}'
       .toUpperCase();
+}
+
+bool _hasScannerSuffix(String value) {
+  return value.contains('\n') || value.contains('\r') || value.contains('\t');
 }
 
 String _detailStart(EventMeetingItem? item) {

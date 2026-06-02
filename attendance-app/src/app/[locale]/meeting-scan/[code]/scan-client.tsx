@@ -21,11 +21,16 @@ export function MeetingScanClient({
   const [selectedId, setSelectedId] = useState("");
   const [fullNameEn, setFullNameEn] = useState("");
   const [fullNameKm, setFullNameKm] = useState("");
+  const [gender, setGender] = useState<"MALE" | "FEMALE" | "OTHER">("MALE");
+  const [positionName, setPositionName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(t("readyStatus"));
   const [participantQr, setParticipantQr] = useState<{
     fullNameEn: string;
     qrImage: string;
+    cardImage?: string;
   } | null>(null);
   const selected = meeting.participants.find((item) => item.id === selectedId);
   const availableParticipants = useMemo(
@@ -60,7 +65,7 @@ export function MeetingScanClient({
         meeting.mode === "BULK_REGISTRATION" && meeting.requireLocation
           ? await getCurrentLocation()
           : null;
-      const response = await api<{ fullNameEn: string; qrImage?: string }>(
+      const response = await api<{ fullNameEn: string; qrImage?: string; cardImage?: string }>(
         `/meetings/qr/${code}/join`,
         {
         method: "POST",
@@ -68,6 +73,10 @@ export function MeetingScanClient({
           participantId: selected?.id,
           fullNameEn: selected?.fullNameEn ?? fullNameEn,
           fullNameKm: selected?.fullNameKm ?? fullNameKm,
+          gender: selected?.gender ?? gender,
+          position: selected?.position ?? positionName,
+          organization: selected?.organization ?? organization,
+          phoneNumber: selected?.phoneNumber ?? phoneNumber,
           ...(position
             ? {
                 latitude: position.coords.latitude,
@@ -81,6 +90,7 @@ export function MeetingScanClient({
         setParticipantQr({
           fullNameEn: response.fullNameEn,
           qrImage: response.qrImage,
+          cardImage: response.cardImage,
         });
         setStatus(t("registrationComplete"));
       } else {
@@ -148,6 +158,16 @@ export function MeetingScanClient({
                 alt={t("personalQrAlt")}
                 className="mx-auto size-56 rounded-md border border-border bg-white p-3"
               />
+              {participantQr.cardImage ? (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    downloadDataUrl(participantQr.cardImage!, "participant-card.png")
+                  }
+                >
+                  Download attendee card
+                </Button>
+              ) : null}
             </div>
           ) : isRegisteredListMode(meeting.mode) ? (
             <>
@@ -196,7 +216,7 @@ export function MeetingScanClient({
                             {[
                               participant.fullNameKm,
                               participant.position,
-                              participant.department,
+                              participant.organization,
                             ]
                               .filter(Boolean)
                               .join(" · ")}
@@ -217,7 +237,8 @@ export function MeetingScanClient({
                   <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <Detail label={t("khmerName")} value={selected.fullNameKm} />
                     <Detail label={t("position")} value={selected.position} />
-                    <Detail label={t("department")} value={selected.department} />
+                    <Detail label="Organization" value={selected.organization} />
+                    <Detail label="Phone" value={selected.phoneNumber} />
                     <Detail
                       label={t("status")}
                       value={participantStatusLabel(selected.status, t)}
@@ -242,6 +263,32 @@ export function MeetingScanClient({
                 value={fullNameKm}
                 onChange={(event) => setFullNameKm(event.target.value)}
               />
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={gender}
+                onChange={(event) =>
+                  setGender(event.target.value as "MALE" | "FEMALE" | "OTHER")
+                }
+              >
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+              <Input
+                placeholder="Position"
+                value={positionName}
+                onChange={(event) => setPositionName(event.target.value)}
+              />
+              <Input
+                placeholder="Organization"
+                value={organization}
+                onChange={(event) => setOrganization(event.target.value)}
+              />
+              <Input
+                placeholder="Phone number"
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+              />
             </div>
           )}
 
@@ -251,7 +298,11 @@ export function MeetingScanClient({
               Boolean(participantQr) ||
               (isRegisteredListMode(meeting.mode)
                 ? !selected
-                : !fullNameEn.trim())
+                : !fullNameEn.trim() ||
+                  !fullNameKm.trim() ||
+                  !positionName.trim() ||
+                  !organization.trim() ||
+                  !phoneNumber.trim())
             }
             onClick={join}
             className="w-full"
@@ -282,6 +333,13 @@ function getCurrentLocation() {
       timeout: 15_000,
     });
   });
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  link.click();
 }
 
 function isRegisteredListMode(mode: PublicMeeting["mode"]) {

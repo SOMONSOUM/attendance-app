@@ -35,7 +35,7 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: "Operations" })
   @IsOptional()
   @IsString()
-  department?: string;
+  organization?: string;
 
   @ApiPropertyOptional({ example: "viewer" })
   @IsOptional()

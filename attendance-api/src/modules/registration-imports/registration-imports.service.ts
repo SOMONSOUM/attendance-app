@@ -13,7 +13,9 @@ type UploadRow = {
   "Fullname Khmer"?: string;
   Gender?: string;
   Position?: string;
-  Department?: string;
+  Organization?: string;
+  "Phone Number"?: string;
+  Phone?: string;
 };
 
 const genderMap: Record<string, Gender> = {
@@ -94,7 +96,7 @@ export class RegistrationImportsService {
         "Fullname Khmer": row.fullNameKm ?? "",
         Gender: row.gender ? titleCase(row.gender) : "",
         Position: row.position ?? "",
-        Department: row.department ?? "",
+        Organization: row.organization ?? "",
       })),
       {
         header: [
@@ -102,7 +104,7 @@ export class RegistrationImportsService {
           "Fullname Khmer",
           "Gender",
           "Position",
-          "Department",
+          "Organization",
         ],
       },
     );
@@ -135,9 +137,11 @@ export class RegistrationImportsService {
         "Fullname Khmer",
         "Gender",
         "Position",
-        "Department",
+        "Organization",
+        "Organization",
+        "Phone Number",
       ],
-      ["Sok Dara", "", "Male", "Software Engineer", "Engineering"],
+      ["Sok Dara", "", "Male", "Software Engineer", "Engineering", "Ministry of Commerce", "+855 12 345 678"],
     ]);
     XLSX.utils.book_append_sheet(workbook, sheet, "Attendees");
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
@@ -165,7 +169,7 @@ export class RegistrationImportsService {
         fullNameKm: row["Fullname Khmer"]?.trim(),
         gender: row.Gender ? genderMap[row.Gender.toLowerCase()] : undefined,
         position: row.Position?.trim(),
-        department: row.Department?.trim(),
+        phoneNumber: (row["Phone Number"] ?? row.Phone)?.trim(),
       }));
   }
 }

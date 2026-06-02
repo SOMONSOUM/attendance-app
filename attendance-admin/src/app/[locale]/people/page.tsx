@@ -12,6 +12,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +51,7 @@ const initialForm: UserValues = {
   fullNameEn: "",
   gender: undefined,
   position: "",
-  department: "",
+  organization: "",
   roleName: "viewer",
 };
 const PAGE_SIZE = 10;
@@ -149,7 +150,7 @@ export default function PeoplePage() {
       fullNameEn: user.fullNameEn,
       gender: user.gender ?? undefined,
       position: user.position ?? "",
-      department: user.department ?? "",
+      organization: user.organization ?? "",
       roleName: user.roles[0]?.role.name ?? "viewer",
     });
   }
@@ -172,7 +173,7 @@ export default function PeoplePage() {
         <TableShell>
           <SectionToolbar title="People directory" />
           {usersQuery.isLoading ? (
-            <div className="p-5 text-sm text-muted-fg">Loading people...</div>
+            <TableSkeleton columns={6} />
           ) : users.length ? (
             <>
             <Table>
@@ -181,7 +182,7 @@ export default function PeoplePage() {
                   <TableHead>Full name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Position</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>Organization</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -201,7 +202,7 @@ export default function PeoplePage() {
                         {user.position ?? "-"}
                       </TableCell>
                       <TableCell className="text-muted-fg">
-                        {user.department ?? "-"}
+                        {user.organization ?? "-"}
                       </TableCell>
                       <TableCell>
                         {canAssignRole && roleOptions.length ? (
@@ -331,10 +332,10 @@ export default function PeoplePage() {
                 onChange={(value) => setValue("position", value)}
               />
               <Field
-                label="Department"
+                label="Organization"
                 required={false}
-                value={form.department ?? ""}
-                onChange={(value) => setValue("department", value)}
+                value={form.organization ?? ""}
+                onChange={(value) => setValue("organization", value)}
               />
               <Button
                 disabled={

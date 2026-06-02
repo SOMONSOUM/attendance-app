@@ -118,7 +118,8 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       fullNameKm: "",
       gender: "MALE",
       position: "",
-      department: "",
+      organization: "",
+      phoneNumber: "",
     },
   });
   const form = watch();
@@ -126,6 +127,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   const [attendeeQr, setAttendeeQr] = useState<{
     fullNameEn: string;
     qrImage: string;
+    cardImage?: string;
   } | null>(null);
   const [warning, setWarning] = useState<WarningKey | null>(null);
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
@@ -245,7 +247,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           : {}),
       };
 
-      const response = await api<{ fullNameEn: string; qrImage?: string }>(
+      const response = await api<{ fullNameEn: string; qrImage?: string; cardImage?: string }>(
         event.mode === "BULK_REGISTRATION"
           ? `/attendance/qr/${code}/join`
           : `/attendance/qr/${code}/register`,
@@ -258,6 +260,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
         setAttendeeQr({
           fullNameEn: response.fullNameEn,
           qrImage: response.qrImage,
+          cardImage: response.cardImage,
         });
         setStatus("Registration complete. Show this QR to admin at arrival.");
       } else {
@@ -411,7 +414,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                         {person.fullNameEn}
                       </strong>
                       <span className="block truncate text-sm text-muted-fg">
-                        {[person.fullNameKm, person.position, person.department]
+                        {[person.fullNameKm, person.position, person.organization]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
@@ -442,6 +445,16 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                 alt="Personal check-in QR"
                 className="mx-auto size-56 rounded-md border border-border bg-white p-3"
               />
+              {attendeeQr.cardImage ? (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    downloadDataUrl(attendeeQr.cardImage!, "attendee-card.png")
+                  }
+                >
+                  Download attendee card
+                </Button>
+              ) : null}
             </div>
           ) : !isRegisteredListMode(event.mode) ? (
             <div className="grid gap-3">
@@ -471,10 +484,29 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                 placeholder={t("position")}
                 {...register("position")}
               />
+              {errors.position ? (
+                <p className="text-xs text-destructive">
+                  {errors.position.message}
+                </p>
+              ) : null}
               <Input
-                placeholder={t("department")}
-                {...register("department")}
+                placeholder="Organization"
+                {...register("organization")}
               />
+              {errors.organization ? (
+                <p className="text-xs text-destructive">
+                  {errors.organization.message}
+                </p>
+              ) : null}
+              <Input
+                placeholder="Phone number"
+                {...register("phoneNumber")}
+              />
+              {errors.phoneNumber ? (
+                <p className="text-xs text-destructive">
+                  {errors.phoneNumber.message}
+                </p>
+              ) : null}
             </div>
           ) : selected ? (
             <div className="rounded-md bg-secondary p-4">
@@ -483,7 +515,8 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                 <Detail label={t("khmerName")} value={selected.fullNameKm} />
                 <Detail label={t("gender")} value={selected.gender} />
                 <Detail label={t("position")} value={selected.position} />
-                <Detail label={t("department")} value={selected.department} />
+                <Detail label="Organization" value={selected.organization} />
+                <Detail label="Phone" value={selected.phoneNumber} />
               </dl>
             </div>
           ) : (
@@ -499,7 +532,11 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
               Boolean(scanBlockReason) ||
               (isRegisteredListMode(event.mode)
                 ? !selected
-                : !form.fullNameEn.trim())
+                : !form.fullNameEn.trim() ||
+                  !form.fullNameKm.trim() ||
+                  !form.position.trim() ||
+                  !form.organization.trim() ||
+                  !form.phoneNumber.trim())
             }
             onClick={join}
             className="w-full"
@@ -572,6 +609,13 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       ) : null}
     </main>
   );
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  link.click();
 }
 
 function WarningDialog({

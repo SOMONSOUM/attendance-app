@@ -114,7 +114,8 @@ export type MeetingParticipant = {
   fullNameKm?: string | null;
   gender?: "MALE" | "FEMALE" | "OTHER" | null;
   position?: string | null;
-  department?: string | null;
+  organization?: string | null;
+  phoneNumber?: string | null;
   email?: string | null;
   status?: "INVITED" | "JOINED" | "CANCELLED";
   joinedAt?: string | null;
@@ -169,7 +170,7 @@ export type UserRecord = {
   fullNameKm?: string | null;
   gender?: "MALE" | "FEMALE" | "OTHER" | null;
   position?: string | null;
-  department?: string | null;
+  organization?: string | null;
   roles: { role: { id: string; name: string } }[];
   createdAt: string;
 };
@@ -204,7 +205,7 @@ export type UserForm = {
   fullNameEn: string;
   gender?: "MALE" | "FEMALE" | "OTHER";
   position?: string;
-  department?: string;
+  organization?: string;
   roleName?: string;
 };
 
@@ -216,7 +217,8 @@ export type AttendanceRecord = {
   fullNameEn: string;
   gender?: string | null;
   position?: string | null;
-  department?: string | null;
+  organization?: string | null;
+  phoneNumber?: string | null;
   distanceMeters?: number;
   fullNameKm?: string | null;
   status: "JOINED" | "CANCELLED";
@@ -257,7 +259,8 @@ export type RegistrationForm = {
   fullNameKm?: string;
   gender?: "MALE" | "FEMALE" | "OTHER" | "";
   position?: string;
-  department?: string;
+  organization?: string;
+  phoneNumber?: string;
   shiftId?: string;
   placeId?: string;
 };
@@ -275,7 +278,8 @@ export type EventRosterRecord = {
   fullNameKm?: string | null;
   gender?: string | null;
   position?: string | null;
-  department?: string | null;
+  organization?: string | null;
+  phoneNumber?: string | null;
   joined: boolean;
   status: "JOINED" | "CANCELLED" | "NOT_YET";
   joinedAt?: string | null;
@@ -716,11 +720,37 @@ export function registerMeetingParticipant(
   });
 }
 
+export async function downloadEventAttendeeCard(
+  eventId: string,
+  registrationId: string,
+) {
+  return apiBlob(
+    `/attendance/events/${eventId}/registrations/${registrationId}/card`,
+  );
+}
+
+export async function downloadMeetingParticipantCard(
+  meetingId: string,
+  participantId: string,
+) {
+  return apiBlob(`/meetings/${meetingId}/participants/${participantId}/card`);
+}
+
 export function joinMeetingParticipantByQrCode(checkInCode: string) {
   return api<MeetingParticipant>(
     `/meetings/participants/qr/${checkInCode}/join`,
     { method: "POST" },
   );
+}
+
+async function apiBlob(path: string) {
+  const response = await fetch(`/api${path}`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.blob();
 }
 
 export function cancelAttendance(attendanceId: string) {
@@ -753,7 +783,7 @@ function cleanRegistrationForm(data: RegistrationForm) {
     fullNameKm: data.fullNameKm?.trim() || undefined,
     gender: data.gender || undefined,
     position: data.position?.trim() || undefined,
-    department: data.department?.trim() || undefined,
+    phoneNumber: data.phoneNumber?.trim() || undefined,
     shiftId: data.shiftId || undefined,
     placeId: data.placeId || undefined,
   };

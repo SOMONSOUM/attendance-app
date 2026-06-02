@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, ListFilter, Users } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -10,8 +10,10 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter, paginate } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
@@ -48,7 +50,7 @@ type AttendanceLog = {
   placeName: string;
   fullNameEn: string;
   fullNameKm?: string | null;
-  department?: string | null;
+  organization?: string | null;
   checkInAt: string;
   status: "JOINED" | "CANCELLED";
 };
@@ -65,9 +67,14 @@ export default function AttendancePage() {
   const [sourceKey, setSourceKey] = useState(ALL);
   const [date, setDate] = useState(todayInputValue);
   const [scanCode, setScanCode] = useState("");
+  const [scanNotice, setScanNotice] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
   const [search, setSearch] = useState("");
   const [scanType, setScanType] = useState<Exclude<SourceType, "ALL">>("EVENT");
   const [page, setPage] = useState(1);
+  const scanInputRef = useRef<HTMLInputElement>(null);
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
     queryFn: () => listEvents({ pageSize: 100 }),
@@ -88,13 +95,25 @@ export default function AttendancePage() {
   const scanMutation = useMutation<unknown, Error>({
     mutationFn: () =>
       scanType === "EVENT"
-        ? joinAttendeeByQrCode(scanCode.trim())
-        : joinMeetingParticipantByQrCode(scanCode.trim()),
+        ? joinAttendeeByQrCode(cleanScannedCode(scanCode))
+        : joinMeetingParticipantByQrCode(cleanScannedCode(scanCode)),
     onSuccess: () => {
+      setScanNotice({
+        tone: "success",
+        message: t("scanSuccess"),
+      });
       setScanCode("");
       eventsQuery.refetch();
       meetingsQuery.refetch();
       attendanceQueries.forEach((query) => query.refetch());
+    },
+    onError: (error) => {
+      setScanNotice({
+        tone: "error",
+        message: alreadyJoinedMessage(error.message) ?? error.message,
+      });
+      setScanCode("");
+      scanInputRef.current?.focus();
     },
   });
   const cancelMutation = useMutation<unknown, Error, AttendanceLog>({
@@ -120,7 +139,7 @@ export default function AttendancePage() {
           placeName: row.placeName ?? placeName(event.places, row.placeId),
           fullNameEn: row.fullNameEn,
           fullNameKm: row.fullNameKm,
-          department: row.department,
+          organization: row.organization,
           checkInAt: row.createdAt,
           status: row.status,
         })),
@@ -184,6 +203,10 @@ export default function AttendancePage() {
   const meetingCount = filteredLogs.filter((row) => row.sourceType === "MEETING").length;
   const pageLogs = paginate(filteredLogs, page, PAGE_SIZE);
 
+  useEffect(() => {
+    scanInputRef.current?.focus();
+  }, [scanMutation.isPending, scanType]);
+
   function changeSourceType(nextType: SourceType) {
     setSourceType(nextType);
     setSourceKey(ALL);
@@ -223,15 +246,16 @@ export default function AttendancePage() {
               {t("checkedInCount", { count: filteredLogs.length })}
             </Button>
           </div>
-          <div className="grid gap-2 md:grid-cols-[160px_150px_minmax(240px,1fr)_minmax(220px,1fr)]">
-            <Input
+          <div className="grid gap-2 md:grid-cols-[170px_150px_minmax(240px,1fr)_minmax(220px,1fr)]">
+            <DatePicker
               className="h-9"
-              type="date"
               value={date}
-              onChange={(event) => {
-                setDate(event.target.value);
+              onChange={(value) => {
+                setDate(value);
                 setPage(1);
               }}
+              placeholder="Filter date"
+              ariaLabel="Filter date"
             />
             <Select
               className="h-9"
@@ -269,7 +293,15 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-sm md:grid-cols-[150px_minmax(260px,1fr)_auto]">
+        <form
+          className="grid gap-3 rounded-lg border border-border bg-card p-4 shadow-sm md:grid-cols-[150px_minmax(260px,1fr)_auto]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (cleanScannedCode(scanCode) && !scanMutation.isPending) {
+              scanMutation.mutate();
+            }
+          }}
+        >
           <Select
             className="h-10"
             value={scanType}
@@ -281,26 +313,37 @@ export default function AttendancePage() {
             <option value="MEETING">{t("meetingQr")}</option>
           </Select>
           <Input
+            ref={scanInputRef}
             className="h-10"
             value={scanCode}
             placeholder={t("scanPlaceholder")}
-            onChange={(event) => setScanCode(event.target.value)}
+            onChange={(event) => {
+              setScanCode(event.target.value.replace(/[\r\n]+/g, ""));
+              setScanNotice(null);
+            }}
+            autoComplete="off"
+            autoFocus
           />
           <Button
+            type="submit"
             className="h-10"
-            disabled={!scanCode.trim() || scanMutation.isPending}
-            onClick={() => scanMutation.mutate()}
+            disabled={!cleanScannedCode(scanCode) || scanMutation.isPending}
           >
             {scanMutation.isPending ? t("checking") : t("markJoined")}
           </Button>
-          {scanMutation.error ? (
-            <p className="text-sm text-destructive md:col-span-3">
-              {scanMutation.error.message}
+          {scanNotice ? (
+            <p
+              className={`text-sm md:col-span-3 ${
+                scanNotice.tone === "success" ? "text-success" : "text-destructive"
+              }`}
+              role="status"
+            >
+              {scanNotice.message}
             </p>
           ) : null}
-        </div>
+        </form>
         {isLoading ? (
-          <div className="p-5 text-sm text-muted-fg">{t("loading")}</div>
+          <TableSkeleton columns={8} />
         ) : filteredLogs.length ? (
           <>
           <Table>
@@ -310,7 +353,7 @@ export default function AttendancePage() {
                 <TableHead>{common("type")}</TableHead>
                 <TableHead>{t("source")}</TableHead>
                 <TableHead>{common("place")}</TableHead>
-                <TableHead>{common("department")}</TableHead>
+                <TableHead>{common("organization")}</TableHead>
                 <TableHead>{t("checkInTime")}</TableHead>
                 <TableHead>{common("status")}</TableHead>
                 <TableHead>{common("actions")}</TableHead>
@@ -333,7 +376,7 @@ export default function AttendancePage() {
                   <TableCell>{row.sourceName}</TableCell>
                   <TableCell className="text-muted-fg">{row.placeName}</TableCell>
                   <TableCell className="text-muted-fg">
-                    {row.department ?? "-"}
+                    {row.organization ?? "-"}
                   </TableCell>
                   <TableCell className="text-muted-fg">
                     {formatDateTime(row.checkInAt)}
@@ -406,7 +449,7 @@ function meetingLogFromParticipant(
     placeName: placeName(places, participant.placeId),
     fullNameEn: participant.fullNameEn,
     fullNameKm: participant.fullNameKm,
-    department: participant.department,
+    organization: participant.organization,
     checkInAt: participant.joinedAt!,
     status: participant.status === "CANCELLED" ? "CANCELLED" : "JOINED",
   };
@@ -441,4 +484,14 @@ function matchesAttendanceSearch(row: AttendanceLog, search: string) {
   return [row.fullNameEn, row.fullNameKm]
     .filter(Boolean)
     .some((value) => value!.toLowerCase().includes(needle));
+}
+
+function cleanScannedCode(value: string) {
+  return value.trim().replace(/^https?:\/\/\S+\/([^/?#]+)[/?#]?$/i, "$1");
+}
+
+function alreadyJoinedMessage(message: string) {
+  return /already joined/i.test(message)
+    ? "This personal QR code is already checked in."
+    : null;
 }

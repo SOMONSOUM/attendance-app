@@ -35,5 +35,5 @@ export class RegisterUserDto {
   @ApiPropertyOptional({ example: "Human Resources" })
   @IsOptional()
   @IsString()
-  department?: string;
+  organization?: string;
 }

@@ -1,5 +1,6 @@
-import { BadgeCheck, QrCode } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Download } from "lucide-react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export default async function AttendeeQrPage({
   params,
@@ -7,28 +8,48 @@ export default async function AttendeeQrPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
+  const cardDataUrl = await getCardDataUrl(
+    `/attendance/registrations/qr/${encodeURIComponent(code)}/card`,
+  );
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8">
-      <Card className="mx-auto grid max-w-md gap-4 p-5 text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-md bg-secondary text-primary">
-          <QrCode size={24} />
-        </span>
-        <div>
-          <h1 className="text-xl font-semibold">Personal check-in QR</h1>
-          <p className="mt-2 text-sm text-muted-fg">
-            Show this code to an admin when you arrive. The admin scan records
-            your attendance.
-          </p>
-        </div>
-        <div className="rounded-md border border-border bg-muted p-3 font-mono text-sm break-all">
-          {code}
-        </div>
-        <p className="inline-flex items-center justify-center gap-2 text-sm font-medium text-success">
-          <BadgeCheck size={16} />
-          Registration saved
-        </p>
-      </Card>
+    <main className="min-h-screen bg-[#061f5d] px-4 py-6">
+      <div className="mx-auto grid max-w-[420px] justify-items-center gap-4">
+        {cardDataUrl ? (
+          <img
+            src={cardDataUrl}
+            alt="Personal check-in card"
+            className="w-full rounded-md shadow-2xl"
+          />
+        ) : (
+          <div className="grid min-h-[560px] w-full place-items-center rounded-md border border-white/20 bg-white/10 p-6 text-center text-white">
+            <div>
+              <p className="text-lg font-semibold">Personal check-in card</p>
+              <p className="mt-3 break-all font-mono text-sm">{code}</p>
+            </div>
+          </div>
+        )}
+        {cardDataUrl ? (
+          <a
+            href={cardDataUrl}
+            download={`attendee-card-${code}.png`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-white px-4 text-sm font-medium text-[#075fc2] shadow-sm transition hover:bg-slate-100"
+          >
+            <Download size={16} />
+            Download card
+          </a>
+        ) : null}
+      </div>
     </main>
   );
+}
+
+async function getCardDataUrl(path: string) {
+  const response = await fetch(`${API_URL}/api/v1${path}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const contentType = response.headers.get("content-type") ?? "image/png";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return `data:${contentType};base64,${buffer.toString("base64")}`;
 }

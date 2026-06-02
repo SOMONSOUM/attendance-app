@@ -76,7 +76,7 @@ model User {
   fullNameKm          String?              @map("full_name_km")
   gender              Gender?              @map("gender")
   position            String?              @map("position")
-  department          String?              @map("department")
+  organization        String?
   roles               UserRole[]
   attendances         Attendance[]
   registrationImports RegistrationImport[]

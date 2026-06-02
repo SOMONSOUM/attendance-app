@@ -91,7 +91,8 @@ model EventRegistration {
   fullNameKm String?     @map("full_name_km")
   gender     Gender?
   position   String?
-  department String?
+  organization String?
+  phoneNumber String?     @map("phone_number")
   checkInCode String?     @unique @map("check_in_code")
   source     String      @default("UPLOAD")
   createdAt  DateTime    @default(now()) @map("created_at")
@@ -99,6 +100,7 @@ model EventRegistration {
 
   @@index([eventId, fullNameEn])
   @@index([eventId, fullNameKm])
+  @@index([phoneNumber])
   @@index([placeId])
   @@index([shiftId])
   @@map("event_registrations")

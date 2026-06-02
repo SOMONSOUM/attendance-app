@@ -10,15 +10,22 @@ import { Button } from "@/components/ui/button"
 type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root> & {
   title?: React.ReactNode
   description?: React.ReactNode
+  contentClassName?: string
 }
 
-function Dialog({ children, title, description, ...props }: DialogProps) {
+function Dialog({
+  children,
+  title,
+  description,
+  contentClassName,
+  ...props
+}: DialogProps) {
   const hasInlineContent = title !== undefined || description !== undefined
 
   return (
     <DialogPrimitive.Root data-slot="dialog" {...props}>
       {hasInlineContent ? (
-        <DialogContent>
+        <DialogContent className={contentClassName}>
           <DialogHeader>
             {title ? <DialogTitle>{title}</DialogTitle> : null}
             {description ? (

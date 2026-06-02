@@ -6,6 +6,7 @@ import { Edit3, Plus, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { AdminShell, EmptyState, TableShell } from "@/components/admin/admin-shell";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -134,63 +135,69 @@ export default function ChairpersonsPage() {
             </p>
           </div>
           <TableShell>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {chairpersons.map((chairperson) => (
-                  <TableRow key={chairperson.id}>
-                    <TableCell className="font-medium">
-                      {formatChairperson(chairperson)}
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {chairperson.position || "Not set"}
-                    </TableCell>
-                    <TableCell className="text-muted-fg">
-                      {chairperson.organization || "Not set"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canUpdate ? (
-                        <Button
-                          variant="ghost"
-                          className="size-9 px-0"
-                          onClick={() => startEdit(chairperson)}
-                        >
-                          <Edit3 size={15} />
-                        </Button>
-                      ) : null}
-                      {canDelete ? (
-                        <Button
-                          variant="ghost"
-                          className="size-9 px-0 text-danger"
-                          onClick={() => deleteMutation.mutate(chairperson.id)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {!chairpersons.length ? (
-              <EmptyState
-                title="No chairpersons yet"
-                text="Create chairpersons once and select them while creating meetings."
-              />
-            ) : null}
-            <PaginationFooter
-              page={page}
-              pageSize={PAGE_SIZE}
-              totalItems={chairpersonsQuery.data?.meta.totalItems ?? 0}
-              onPageChange={setPage}
-            />
+            {chairpersonsQuery.isLoading ? (
+              <TableSkeleton columns={4} />
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Organization</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {chairpersons.map((chairperson) => (
+                      <TableRow key={chairperson.id}>
+                        <TableCell className="font-medium">
+                          {formatChairperson(chairperson)}
+                        </TableCell>
+                        <TableCell className="text-muted-fg">
+                          {chairperson.position || "Not set"}
+                        </TableCell>
+                        <TableCell className="text-muted-fg">
+                          {chairperson.organization || "Not set"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canUpdate ? (
+                            <Button
+                              variant="ghost"
+                              className="size-9 px-0"
+                              onClick={() => startEdit(chairperson)}
+                            >
+                              <Edit3 size={15} />
+                            </Button>
+                          ) : null}
+                          {canDelete ? (
+                            <Button
+                              variant="ghost"
+                              className="size-9 px-0 text-danger"
+                              onClick={() => deleteMutation.mutate(chairperson.id)}
+                            >
+                              <Trash2 size={15} />
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {!chairpersons.length ? (
+                  <EmptyState
+                    title="No chairpersons yet"
+                    text="Create chairpersons once and select them while creating meetings."
+                  />
+                ) : null}
+                <PaginationFooter
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  totalItems={chairpersonsQuery.data?.meta.totalItems ?? 0}
+                  onPageChange={setPage}
+                />
+              </>
+            )}
           </TableShell>
         </div>
 

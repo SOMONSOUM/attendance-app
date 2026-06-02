@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Query, Req, Res } from "@nestjs/common";
+import type { Response } from "express";
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -82,6 +83,28 @@ export class AttendanceController {
     return this.attendance.roster(request.user.tenantId, eventId);
   }
 
+  @ApiOperation({ summary: "Download attendee card image" })
+  @RequirePermissions("attendance:read")
+  @Get("events/:eventId/registrations/:registrationId/card")
+  async registrationCard(
+    @Req() request: AuthRequest,
+    @Param("eventId") eventId: string,
+    @Param("registrationId") registrationId: string,
+    @Res() response: Response,
+  ) {
+    const buffer = await this.attendance.registrationCard(
+      request.user.tenantId,
+      eventId,
+      registrationId,
+    );
+    response.setHeader("Content-Type", "image/png");
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="attendee-card-${registrationId}.png"`,
+    );
+    response.send(buffer);
+  }
+
   @ApiOperation({ summary: "Mark a registered attendee as joined" })
   @ApiParam({ name: "eventId", example: "clxevent001" })
   @ApiParam({ name: "registrationId", example: "clxregistration001" })
@@ -105,11 +128,29 @@ export class AttendanceController {
   joinRegistrationQr(
     @Req() request: AuthRequest,
     @Param("checkInCode") checkInCode: string,
+    @Body("eventId") eventId?: string,
   ) {
     return this.attendance.joinRegistrationByCode(
       request.user.tenantId,
       checkInCode,
+      eventId,
     );
+  }
+
+  @Public()
+  @ApiOperation({ summary: "View attendee card image by attendee QR code" })
+  @Get("registrations/qr/:checkInCode/card")
+  async registrationCardByCode(
+    @Param("checkInCode") checkInCode: string,
+    @Res() response: Response,
+  ) {
+    const buffer = await this.attendance.registrationCardByCode(checkInCode);
+    response.setHeader("Content-Type", "image/png");
+    response.setHeader(
+      "Content-Disposition",
+      `inline; filename="attendee-card-${checkInCode}.png"`,
+    );
+    response.send(buffer);
   }
 
   @ApiOperation({ summary: "Cancel an attendee check-in" })

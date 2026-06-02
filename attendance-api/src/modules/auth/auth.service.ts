@@ -113,7 +113,7 @@ export class AuthService {
         fullNameEn: dto.fullNameEn,
         gender: dto.gender,
         position: dto.position,
-        department: dto.department,
+        organization: dto.organization,
         roles: viewerRole
           ? {
               create: {

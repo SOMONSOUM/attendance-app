@@ -103,7 +103,7 @@ export class TenantsService {
           passwordHash: await hash(dto.ownerPassword, 10),
           fullNameEn: dto.ownerName,
           position: "Tenant Owner",
-          department: dto.name,
+          organization: dto.name,
           roles: { create: { roleId: ownerRole.id } },
         },
         include: { roles: { include: { role: true } } },

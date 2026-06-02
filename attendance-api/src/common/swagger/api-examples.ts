@@ -86,7 +86,7 @@ export const registrationExample = {
   fullNameKm: "សុខ ដារ៉ា",
   gender: "MALE",
   position: "Engineering Manager",
-  department: "Technology",
+  organization: "Technology",
   source: "UPLOAD",
   createdAt: "2026-05-18T03:00:00.000Z",
 };
@@ -100,7 +100,7 @@ export const attendanceExample = {
   fullNameKm: "សុខ ដារ៉ា",
   gender: "MALE",
   position: "Engineering Manager",
-  department: "Technology",
+  organization: "Technology",
   latitude: "0.0000000",
   longitude: "0.0000000",
   distanceMeters: 0,

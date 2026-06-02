@@ -8,10 +8,12 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -145,6 +147,28 @@ export class MeetingsController {
     );
   }
 
+  @ApiOperation({ summary: "Download meeting participant card image" })
+  @RequirePermissions("meetings:read")
+  @Get(":meetingId/participants/:participantId/card")
+  async participantCard(
+    @Req() request: AuthRequest,
+    @Param("meetingId") meetingId: string,
+    @Param("participantId") participantId: string,
+    @Res() response: Response,
+  ) {
+    const buffer = await this.meetings.participantCard(
+      request.user.tenantId,
+      meetingId,
+      participantId,
+    );
+    response.setHeader("Content-Type", "image/png");
+    response.setHeader(
+      "Content-Disposition",
+      `attachment; filename="participant-card-${participantId}.png"`,
+    );
+    response.send(buffer);
+  }
+
   @ApiOperation({ summary: "Mark a meeting participant as joined" })
   @RequirePermissions("meetings:update")
   @Post(":meetingId/participants/:participantId/join")
@@ -198,10 +222,28 @@ export class MeetingsController {
   joinParticipantQr(
     @Req() request: AuthRequest,
     @Param("checkInCode") checkInCode: string,
+    @Body("meetingId") meetingId?: string,
   ) {
     return this.meetings.joinParticipantByCode(
       request.user.tenantId,
       checkInCode,
+      meetingId,
     );
+  }
+
+  @Public()
+  @ApiOperation({ summary: "View meeting participant card image by participant QR code" })
+  @Get("participants/qr/:checkInCode/card")
+  async participantCardByCode(
+    @Param("checkInCode") checkInCode: string,
+    @Res() response: Response,
+  ) {
+    const buffer = await this.meetings.participantCardByCode(checkInCode);
+    response.setHeader("Content-Type", "image/png");
+    response.setHeader(
+      "Content-Disposition",
+      `inline; filename="participant-card-${checkInCode}.png"`,
+    );
+    response.send(buffer);
   }
 }

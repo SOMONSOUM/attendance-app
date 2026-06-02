@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
+  Download,
   UserCheck,
   UserPlus,
   Users,
@@ -21,6 +22,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { PageSkeleton, TableSkeleton } from "@/components/admin/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -38,6 +40,7 @@ import {
 } from "@/components/ui/table";
 import {
   cancelMeetingParticipant,
+  downloadMeetingParticipantCard,
   getMeetingQr,
   joinMeetingParticipant,
   listMeetings,
@@ -100,6 +103,17 @@ export default function MeetingDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: meetingKeys.all });
     },
+  });
+  const cardMutation = useMutation({
+    mutationFn: ({
+      participantId,
+      fileName,
+    }: {
+      participantId: string;
+      fileName: string;
+    }) => downloadMeetingParticipantCard(meetingId, participantId).then((blob) =>
+      downloadBlob(blob, fileName),
+    ),
   });
   const registerMutation = useMutation({
     mutationFn: (data: RegistrationForm) => {
@@ -198,8 +212,11 @@ export default function MeetingDetailPage() {
       }
     >
       {meetingsQuery.isLoading ? (
-        <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-fg">
-          {t("loadingMeeting")}
+        <div className="space-y-5">
+          <PageSkeleton />
+          <TableShell>
+            <TableSkeleton columns={8} />
+          </TableShell>
         </div>
       ) : !meeting ? (
         <EmptyState
@@ -417,7 +434,7 @@ export default function MeetingDetailPage() {
                       <TableHead>{common("place")}</TableHead>
                       <TableHead>{t("shift")}</TableHead>
                       <TableHead>{common("position")}</TableHead>
-                      <TableHead>{common("department")}</TableHead>
+                      <TableHead>{common("organization")}</TableHead>
                       <TableHead>{common("status")}</TableHead>
                       <TableHead>{t("joinedTime")}</TableHead>
                       <TableHead className="text-right">{common("actions")}</TableHead>
@@ -444,7 +461,7 @@ export default function MeetingDetailPage() {
                           {participant.position || "-"}
                         </TableCell>
                         <TableCell className="text-muted-fg">
-                          {participant.department || "-"}
+                          {participant.organization || "-"}
                         </TableCell>
                         <TableCell>
                           <StatusPill
@@ -466,7 +483,28 @@ export default function MeetingDetailPage() {
                                   name={participant.fullNameEn}
                                   code={participant.checkInCode}
                                   fileName={`${meeting.name}-${participant.fullNameEn}.png`}
+                                  cardPath={
+                                    participant.checkInCode
+                                      ? `/api/meetings/participants/qr/${encodeURIComponent(participant.checkInCode)}/card`
+                                      : undefined
+                                  }
                                 />
+                                <Button
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="shrink-0"
+                                  disabled={cardMutation.isPending}
+                                  onClick={() =>
+                                    cardMutation.mutate({
+                                      participantId: participant.id!,
+                                      fileName: `${meeting.name}-${participant.fullNameEn}-card.png`,
+                                    })
+                                  }
+                                  aria-label={`Download attendee card for ${participant.fullNameEn}`}
+                                  title={`Download attendee card for ${participant.fullNameEn}`}
+                                >
+                                  <Download />
+                                </Button>
                                 {participant.status === "JOINED" ? (
                                   <Button
                                     variant="destructive"
@@ -555,7 +593,8 @@ const emptyRegistrationForm: RegistrationForm = {
   fullNameKm: "",
   gender: "",
   position: "",
-  department: "",
+  organization: "",
+  phoneNumber: "",
   shiftId: "",
 };
 
@@ -653,11 +692,19 @@ function RegistrationDialog({
               }
             />
           </FormField>
-          <FormField label={labels.department} className="sm:col-span-2">
+          <FormField label="Organization">
             <Input
-              value={values.department ?? ""}
+              value={values.organization ?? ""}
               onChange={(event) =>
-                onChange({ ...values, department: event.target.value })
+                onChange({ ...values, organization: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Phone number">
+            <Input
+              value={values.phoneNumber ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, phoneNumber: event.target.value })
               }
             />
           </FormField>
@@ -690,7 +737,7 @@ type RegistrationDialogLabels = {
   shift: string;
   noShift: string;
   position: string;
-  department: string;
+  organization: string;
   cancel: string;
   register: string;
   registering: string;
@@ -717,7 +764,7 @@ function registrationDialogLabels(
     shift: t("shift"),
     noShift: t("noShiftSelected"),
     position: t("position"),
-    department: t("department"),
+    organization: t("organization"),
     cancel: t("cancel"),
     register: t("register"),
     registering: t("registering"),
@@ -777,6 +824,15 @@ function matchesParticipantShift(
   shiftId: string,
 ) {
   return shiftId === "ALL" || participant.shiftId === shiftId;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function meetingStatus(

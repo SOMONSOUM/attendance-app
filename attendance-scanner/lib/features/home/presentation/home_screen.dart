@@ -57,6 +57,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
         actions: [
+          IconButton(
+            tooltip: 'refresh'.tr(),
+            onPressed: _refreshHome,
+            icon: const Icon(LucideIcons.refreshCw),
+          ),
           const AppSettingsActions(),
           ProfileMenu(user: auth.user, fallbackName: 'adminUser'.tr()),
         ],
@@ -81,57 +86,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 720;
-                return ListView(
-                  children: [
-                    _HomeHeader(
-                      total: value.items.length,
-                      live: value.items.where((item) => item.isLive).length,
-                      upcoming: value.items
-                          .where((item) => item.isUpcoming)
-                          .length,
-                      checkedInToday: value.items.fold<int>(
-                        0,
-                        (sum, item) => sum + item.checkedInCount,
+                return RefreshIndicator(
+                  onRefresh: _refreshHome,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _HomeHeader(
+                        total: value.items.length,
+                        live: value.items.where((item) => item.isLive).length,
+                        upcoming: value.items
+                            .where((item) => item.isUpcoming)
+                            .length,
+                        checkedInToday: value.items.fold<int>(
+                          0,
+                          (sum, item) => sum + item.checkedInCount,
+                        ),
+                        compact: compact,
                       ),
-                      compact: compact,
-                    ),
-                    const SizedBox(height: 14),
-                    _SearchAndFilters(
-                      controller: _searchController,
-                      filter: _filter,
-                      onFilterChanged: (filter) =>
-                          setState(() => _filter = filter),
-                      onSearchChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 14),
-                    _SectionHeading(
-                      title: 'todayDate'.tr(
-                        namedArgs: {
-                          'date': DateFormat('d MMMM').format(DateTime.now()),
-                        },
+                      const SizedBox(height: 14),
+                      _SearchAndFilters(
+                        controller: _searchController,
+                        filter: _filter,
+                        onFilterChanged: (filter) =>
+                            setState(() => _filter = filter),
+                        onSearchChanged: (_) => setState(() {}),
                       ),
-                      count: filtered.where((item) => !item.isUpcoming).length,
-                    ),
-                    const SizedBox(height: 10),
-                    _EventGrid(
-                      items: filtered
-                          .where((item) => !item.isUpcoming)
-                          .toList(),
-                      compact: compact,
-                      onOpen: _openScanner,
-                    ),
-                    const SizedBox(height: 18),
-                    _SectionHeading(
-                      title: 'upcoming'.tr(),
-                      count: filtered.where((item) => item.isUpcoming).length,
-                    ),
-                    const SizedBox(height: 10),
-                    _EventGrid(
-                      items: filtered.where((item) => item.isUpcoming).toList(),
-                      compact: compact,
-                      onOpen: _openScanner,
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      _SectionHeading(
+                        title: 'todayDate'.tr(
+                          namedArgs: {
+                            'date': DateFormat('d MMMM').format(DateTime.now()),
+                          },
+                        ),
+                        count: filtered
+                            .where((item) => !item.isUpcoming)
+                            .length,
+                      ),
+                      const SizedBox(height: 10),
+                      _EventGrid(
+                        items: filtered
+                            .where((item) => !item.isUpcoming)
+                            .toList(),
+                        compact: compact,
+                        onOpen: _openScanner,
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionHeading(
+                        title: 'upcoming'.tr(),
+                        count: filtered.where((item) => item.isUpcoming).length,
+                      ),
+                      const SizedBox(height: 10),
+                      _EventGrid(
+                        items: filtered
+                            .where((item) => item.isUpcoming)
+                            .toList(),
+                        compact: compact,
+                        onOpen: _openScanner,
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -162,5 +175,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await context.push('/scan', extra: item);
     if (!mounted) return;
     ref.read(homeControllerProvider.notifier).reload();
+  }
+
+  Future<void> _refreshHome() {
+    return ref.read(homeControllerProvider.notifier).reload();
   }
 }

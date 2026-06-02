@@ -20,6 +20,7 @@ import {
   TableShell,
 } from "@/components/admin/admin-shell";
 import { LocationPicker } from "@/components/admin/location-picker";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +61,7 @@ import {
   updateMeeting,
   uploadMeetingRegistrationImport,
 } from "@/lib/admin-data";
+import { meetingSchema } from "@/lib/validation";
 
 const emptyChairperson: MeetingChairperson = {
   honorificTitleEn: "",
@@ -119,6 +121,7 @@ export default function MeetingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<MeetingRecord | null>(null);
   const [page, setPage] = useState(1);
   const [step, setStep] = useState(0);
+  const [stepError, setStepError] = useState("");
   const meetingsQuery = useQuery({
     queryKey: [...meetingKeys.all, page],
     queryFn: () => listMeetings({ page, pageSize: PAGE_SIZE }),
@@ -195,6 +198,7 @@ export default function MeetingsPage() {
     setForm(initialForm);
     setParticipantFile(null);
     setSourceImportId("");
+    setStepError("");
     setStep(0);
   }
 
@@ -237,7 +241,37 @@ export default function MeetingsPage() {
     });
     setParticipantFile(null);
     setSourceImportId("");
+    setStepError("");
     setStep(0);
+  }
+
+  function goToStep(nextStep: number) {
+    if (nextStep <= step) {
+      setStep(nextStep);
+      setStepError("");
+      return;
+    }
+    if (validateCurrentStep()) {
+      setStep(Math.min(nextStep, wizardSteps.length - 1));
+      setStepError("");
+    }
+  }
+
+  function validateCurrentStep() {
+    const result = meetingSchema.safeParse(form);
+    if (result.success) return true;
+
+    const stepPaths = [
+      ["name", "description", "startsAt", "endsAt", "locationName"],
+      ["mode", "separateQrByPlace", "places", "requireLocation"],
+      ["chairpersons", "participants", "shifts"],
+    ];
+    const issue = result.error.issues.find((item) =>
+      stepPaths[step].includes(String(item.path[0])),
+    );
+    if (!issue) return true;
+    setStepError(issue.message);
+    return false;
   }
 
   function updateChairperson(
@@ -329,7 +363,7 @@ export default function MeetingsPage() {
             </Button>
           </SectionToolbar>
           {meetingsQuery.isLoading ? (
-            <div className="p-5 text-sm text-muted-fg">Loading meetings...</div>
+            <TableSkeleton columns={7} />
           ) : meetings.length ? (
             <>
               <Table>
@@ -455,16 +489,18 @@ export default function MeetingsPage() {
               onSubmit={(event) => {
                 event.preventDefault();
                 if (step < wizardSteps.length - 1) {
-                  setStep((value) =>
-                    Math.min(value + 1, wizardSteps.length - 1),
-                  );
+                  goToStep(step + 1);
                   return;
                 }
-                saveMutation.mutate();
+                if (meetingSchema.safeParse(form).success) {
+                  saveMutation.mutate();
+                } else {
+                  validateCurrentStep();
+                }
               }}
             >
               <div className="border-b border-border p-4">
-                <WizardSteps step={step} onStepChange={setStep} />
+                <WizardSteps step={step} onStepChange={goToStep} />
               </div>
               <div className="grid gap-4 overflow-y-auto p-4">
                 {step === 0 ? (
@@ -1016,6 +1052,9 @@ export default function MeetingsPage() {
                     {saveMutation.error.message}
                   </p>
                 ) : null}
+                {stepError ? (
+                  <p className="text-sm text-destructive">{stepError}</p>
+                ) : null}
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-border bg-card p-4">
                 <Button
@@ -1034,12 +1073,14 @@ export default function MeetingsPage() {
                   }
                   onClick={() => {
                     if (step < wizardSteps.length - 1) {
-                      setStep((value) =>
-                        Math.min(value + 1, wizardSteps.length - 1),
-                      );
+                      goToStep(step + 1);
                       return;
                     }
-                    saveMutation.mutate();
+                    if (meetingSchema.safeParse(form).success) {
+                      saveMutation.mutate();
+                    } else {
+                      validateCurrentStep();
+                    }
                   }}
                 >
                   {step === wizardSteps.length - 1 ? (
@@ -1317,7 +1358,7 @@ function stripParticipant(participant: MeetingParticipant): MeetingParticipant {
     fullNameKm: participant.fullNameKm ?? "",
     gender: participant.gender ?? null,
     position: participant.position ?? "",
-    department: participant.department ?? "",
+    organization: participant.organization ?? "",
     email: participant.email ?? "",
     status: participant.status ?? "INVITED",
   };

@@ -163,7 +163,7 @@ export class UsersService {
         fullNameEn: dto.fullNameEn,
         gender: dto.gender,
         position: dto.position,
-        department: dto.department,
+        organization: dto.organization,
         roles: role ? { create: { roleId: role.id } } : undefined,
       },
       include: { roles: { include: { role: true } } },
@@ -194,7 +194,7 @@ export class UsersService {
         fullNameEn: dto.fullNameEn,
         gender: dto.gender,
         position: dto.position,
-        department: dto.department,
+        organization: dto.organization,
       },
       include: { roles: { include: { role: true } } },
     });

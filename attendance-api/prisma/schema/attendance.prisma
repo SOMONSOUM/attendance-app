@@ -13,7 +13,8 @@ model Attendance {
   fullNameKm     String?          @map("full_name_km")
   gender         Gender?
   position       String?
-  department     String?
+  organization   String?
+  phoneNumber    String?          @map("phone_number")
   latitude       Decimal          @db.Decimal(10, 7)
   longitude      Decimal          @db.Decimal(10, 7)
   distanceMeters Int              @default(0) @map("distance_meters")

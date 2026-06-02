@@ -16,6 +16,7 @@
     "prisma:seed": "prisma db seed"
   },
   "dependencies": {
+    "@fontsource-variable/kantumruy-pro": "^5.2.8",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.3",
     "@nestjs/config": "^4.0.2",
@@ -40,6 +41,7 @@
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sone": "^1.4.0",
     "swagger-ui-express": "^5.0.1",
     "xlsx": "^0.18.5"
   },

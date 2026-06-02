@@ -42,9 +42,13 @@ export class JoinEventDto {
   @IsString()
   position?: string;
 
-  @ApiPropertyOptional({ example: "Technology" })
+  @ApiPropertyOptional({ example: "Ministry of Commerce" })
   @IsOptional()
   @IsString()
-  department?: string;
+  organization?: string;
 
+  @ApiPropertyOptional({ example: "+855 12 345 678" })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
 }

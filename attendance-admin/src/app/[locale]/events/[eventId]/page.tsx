@@ -9,6 +9,7 @@ import {
   BarChart3,
   Check,
   Clock,
+  Download,
   RotateCcw,
   UserCheck,
   UserPlus,
@@ -23,6 +24,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { PageSkeleton, TableSkeleton } from "@/components/admin/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -39,6 +41,7 @@ import {
 } from "@/components/ui/table";
 import {
   cancelAttendance,
+  downloadEventAttendeeCard,
   eventKeys,
   getEventQr,
   joinRegisteredAttendee,
@@ -73,7 +76,7 @@ export default function EventDetailPage() {
   const eventId = params.eventId;
   const selectedPlaceId = searchParams.get("placeId") ?? ALL;
   const queryClient = useQueryClient();
-  const [department, setDepartment] = useState(ALL);
+  const [organization, setOrganization] = useState(ALL);
   const [position, setPosition] = useState(ALL);
   const [gender, setGender] = useState(ALL);
   const [shift, setShift] = useState(ALL);
@@ -107,6 +110,17 @@ export default function EventDetailPage() {
   const cancelMutation = useMutation({
     mutationFn: cancelAttendance,
     onSuccess: () => refreshEventData(queryClient, eventId),
+  });
+  const cardMutation = useMutation({
+    mutationFn: ({
+      registrationId,
+      fileName,
+    }: {
+      registrationId: string;
+      fileName: string;
+    }) => downloadEventAttendeeCard(eventId, registrationId).then((blob) =>
+      downloadBlob(blob, fileName),
+    ),
   });
   const registerMutation = useMutation({
     mutationFn: (data: RegistrationForm) => {
@@ -147,14 +161,14 @@ export default function EventDetailPage() {
     () =>
       scopedRows.filter(
         (row) =>
-          matchesFilter(row.department, department) &&
+          matchesFilter(row.organization, organization) &&
           matchesFilter(row.position, position) &&
           matchesFilter(row.gender, gender) &&
           matchesFilter(row.shiftName, shift) &&
           matchesJoinStatus(row, joinStatus) &&
           matchesSearch(row, search),
       ),
-    [scopedRows, department, position, gender, shift, joinStatus, search],
+    [scopedRows, organization, position, gender, shift, joinStatus, search],
   );
   const totalPages = Math.max(Math.ceil(filteredRows.length / pageSize), 1);
   const currentPage = Math.min(page, totalPages);
@@ -165,10 +179,10 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [department, position, gender, shift, joinStatus, pageSize, selectedPlaceId, search]);
+  }, [organization, position, gender, shift, joinStatus, pageSize, selectedPlaceId, search]);
 
-  const departmentOptions = useMemo(
-    () => uniqueValues(scopedRows.map((row) => row.department)),
+  const organizationOptions = useMemo(
+    () => uniqueValues(scopedRows.map((row) => row.organization)),
     [scopedRows],
   );
   const positionOptions = useMemo(
@@ -232,8 +246,11 @@ export default function EventDetailPage() {
       }
     >
       {eventsQuery.isLoading || rosterQuery.isLoading ? (
-        <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-fg">
-          {t("loadingEvent")}
+        <div className="space-y-5">
+          <PageSkeleton />
+          <TableShell>
+            <TableSkeleton columns={8} />
+          </TableShell>
         </div>
       ) : !event ? (
         <EmptyState
@@ -372,11 +389,11 @@ export default function EventDetailPage() {
           <Card>
             <CardContent className="grid gap-3 p-4 xl:grid-cols-6">
               <FilterSelect
-                label={common("department")}
-                value={department}
-                values={departmentOptions}
-                onChange={setDepartment}
-                allLabel={t("allDepartments")}
+                label={common("organization")}
+                value={organization}
+                values={organizationOptions}
+                onChange={setOrganization}
+                allLabel={t("allOrganizations")}
               />
               <FilterSelect
                 label={common("position")}
@@ -424,7 +441,7 @@ export default function EventDetailPage() {
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    setDepartment(ALL);
+                    setOrganization(ALL);
                     setPosition(ALL);
                     setGender(ALL);
                     setShift(ALL);
@@ -474,7 +491,7 @@ export default function EventDetailPage() {
                   <TableHeader>
                     <TableRow className="border-t-0">
                       <TableHead>{common("user")}</TableHead>
-                      <TableHead>{common("department")}</TableHead>
+                      <TableHead>{common("organization")}</TableHead>
                       <TableHead>{common("position")}</TableHead>
                       <TableHead>{common("gender")}</TableHead>
                       {event.separateQrByPlace ? <TableHead>{common("place")}</TableHead> : null}
@@ -498,7 +515,7 @@ export default function EventDetailPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-fg">
-                          {row.department ?? "-"}
+                          {row.organization ?? "-"}
                         </TableCell>
                         <TableCell className="text-muted-fg">
                           {row.position ?? "-"}
@@ -531,7 +548,28 @@ export default function EventDetailPage() {
                                 name={row.fullNameEn}
                                 code={row.checkInCode}
                                 fileName={`${event.name}-${row.fullNameEn}.png`}
+                                cardPath={
+                                  row.checkInCode
+                                    ? `/api/attendance/registrations/qr/${encodeURIComponent(row.checkInCode)}/card`
+                                    : undefined
+                                }
                               />
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                className="shrink-0"
+                                disabled={cardMutation.isPending}
+                                onClick={() =>
+                                  cardMutation.mutate({
+                                    registrationId: row.registrationId!,
+                                    fileName: `${event.name}-${row.fullNameEn}-card.png`,
+                                  })
+                                }
+                                aria-label={`Download attendee card for ${row.fullNameEn}`}
+                                title={`Download attendee card for ${row.fullNameEn}`}
+                              >
+                                <Download />
+                              </Button>
                               {row.joined && row.attendanceId ? (
                                 <Button
                                   variant="destructive"
@@ -699,7 +737,8 @@ const emptyRegistrationForm: RegistrationForm = {
   fullNameKm: "",
   gender: "",
   position: "",
-  department: "",
+  organization: "",
+  phoneNumber: "",
   shiftId: "",
 };
 
@@ -797,11 +836,19 @@ function RegistrationDialog({
               }
             />
           </FormField>
-          <FormField label={labels.department} className="sm:col-span-2">
+          <FormField label="Organization">
             <Input
-              value={values.department ?? ""}
+              value={values.organization ?? ""}
               onChange={(event) =>
-                onChange({ ...values, department: event.target.value })
+                onChange({ ...values, organization: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Phone number">
+            <Input
+              value={values.phoneNumber ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, phoneNumber: event.target.value })
               }
             />
           </FormField>
@@ -834,7 +881,7 @@ type RegistrationDialogLabels = {
   shift: string;
   noShift: string;
   position: string;
-  department: string;
+  organization: string;
   cancel: string;
   register: string;
   registering: string;
@@ -861,7 +908,7 @@ function registrationDialogLabels(
     shift: t("shift"),
     noShift: t("noShiftSelected"),
     position: t("position"),
-    department: t("department"),
+    organization: t("organization"),
     cancel: t("cancel"),
     register: t("register"),
     registering: t("registering"),
@@ -908,6 +955,15 @@ function matchesSearch(row: EventRosterRecord, search: string) {
   return [row.fullNameEn, row.fullNameKm]
     .filter(Boolean)
     .some((value) => value!.toLowerCase().includes(needle));
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function eventStatus(

@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/gestures.dart';
 
 import 'router.dart';
 import 'settings/app_settings.dart';
@@ -26,6 +27,7 @@ class AttendanceScannerApp extends ConsumerWidget {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       routerConfig: router,
+      scrollBehavior: const _ScannerScrollBehavior(),
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(
@@ -36,4 +38,15 @@ class AttendanceScannerApp extends ConsumerWidget {
       },
     );
   }
+}
+
+class _ScannerScrollBehavior extends MaterialScrollBehavior {
+  const _ScannerScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    ...super.dragDevices,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }

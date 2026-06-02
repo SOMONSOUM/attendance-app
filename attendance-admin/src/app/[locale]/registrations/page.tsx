@@ -18,6 +18,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -252,7 +253,7 @@ export default function RegistrationsPage() {
             </div>
           </SectionToolbar>
           {importsQuery.isLoading ? (
-            <div className="p-5 text-sm text-muted-fg">{t("loading")}</div>
+            <TableSkeleton columns={7} />
           ) : allImports.length ? (
             <>
               <Table>

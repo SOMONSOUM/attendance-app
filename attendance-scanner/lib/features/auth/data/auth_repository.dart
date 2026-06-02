@@ -31,6 +31,23 @@ class AuthRepository {
     return unwrapData(response.data, AuthUser.fromJson);
   }
 
+  Future<AuthUser?> restoreUser() async {
+    if (await hasAccessToken()) {
+      return me();
+    }
+
+    final refreshToken = await storage.read(key: refreshTokenStorageKey);
+    if (refreshToken == null || refreshToken.isEmpty) return null;
+
+    final response = await dio.post(
+      '/auth/refresh',
+      data: {'refreshToken': refreshToken},
+    );
+    final session = unwrapSession(response.data);
+    await saveSession(session);
+    return session.user;
+  }
+
   Future<void> saveSession(AuthSession session) async {
     await storage.write(key: accessTokenStorageKey, value: session.accessToken);
     await storage.write(

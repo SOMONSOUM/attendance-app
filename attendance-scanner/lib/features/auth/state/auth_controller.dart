@@ -34,9 +34,7 @@ class AuthController extends ChangeNotifier {
     _connectionError = false;
     _error = null;
     try {
-      if (await _repository.hasAccessToken()) {
-        _user = await _repository.me();
-      }
+      _user = await _repository.restoreUser();
     } catch (error) {
       if (isNetworkConnectionError(error)) {
         _connectionError = true;

@@ -49,7 +49,7 @@ class ScanController extends Notifier<ScanState> {
   @override
   ScanState build() => const ScanState();
 
-  Future<void> submit(String rawQrValue) async {
+  Future<void> submit(String rawQrValue, {CheckInTarget? target}) async {
     final trimmed = rawQrValue.trim();
     if (trimmed.isEmpty || state.isCheckingIn) return;
 
@@ -60,9 +60,12 @@ class ScanController extends Notifier<ScanState> {
     );
 
     try {
-      final person = await ref.read(checkInRepositoryProvider).checkIn(trimmed);
+      final person = await ref
+          .read(checkInRepositoryProvider)
+          .checkIn(trimmed, target: target);
       state = state.copyWith(
         lastPerson: person,
+        recentPeople: [person, ...state.recentPeople].take(5).toList(),
         isCheckingIn: false,
         successCount: state.successCount + 1,
         clearError: true,
@@ -70,7 +73,7 @@ class ScanController extends Notifier<ScanState> {
     } catch (error) {
       state = state.copyWith(
         isCheckingIn: false,
-        error: error.toString().replaceFirst('Exception: ', ''),
+        error: checkInErrorMessage(error),
       );
     }
   }

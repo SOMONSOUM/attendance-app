@@ -32,7 +32,7 @@ export class UsersController {
           fullNameKm: null,
           gender: null,
           position: "Administrator",
-          department: "Operations",
+          organization: "Operations",
           roles: [{ role: { id: "clxrole001", name: "Admin" } }],
           createdAt: "2026-05-18T03:00:00.000Z",
           updatedAt: "2026-05-18T03:00:00.000Z",

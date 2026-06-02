@@ -18,6 +18,7 @@ import {
   StatusPill,
   TableShell,
 } from "@/components/admin/admin-shell";
+import { PageSkeleton, TableSkeleton } from "@/components/admin/loading-skeletons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -91,6 +92,7 @@ export function DashboardPageContent() {
         new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
     )
     .slice(0, 5);
+  const isLoading = eventsQuery.isLoading || meetingsQuery.isLoading;
 
   return (
     <AdminShell
@@ -114,6 +116,14 @@ export function DashboardPageContent() {
         </>
       }
     >
+      {isLoading ? (
+        <div className="space-y-5">
+          <PageSkeleton />
+          <TableShell>
+            <TableSkeleton columns={6} rows={8} />
+          </TableShell>
+        </div>
+      ) : (
       <div className="space-y-5">
         <section className="grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
           <Card>
@@ -283,6 +293,7 @@ export function DashboardPageContent() {
           ) : null}
         </TableShell>
       </div>
+      )}
     </AdminShell>
   );
 }

@@ -48,7 +48,6 @@ CheckInPerson checkInPersonFromApi(
       (json['fullNameEn'] ?? json['fullName'] ?? 'Unknown') as String;
   final organization =
       json['organization'] ??
-      json['department'] ??
       json['event']?['name'] ??
       json['meeting']?['name'];
 

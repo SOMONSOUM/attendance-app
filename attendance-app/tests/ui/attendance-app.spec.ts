@@ -49,6 +49,9 @@ test("renders an open event QR screen with registration fields", async ({
     .pressSequentially("UI Test Visitor");
   await page.getByPlaceholder("Position").click();
   await page.getByPlaceholder("Position").pressSequentially("QA Visitor");
+  await page.getByPlaceholder("Full name Khmer").fill("UI Test Visitor Khmer");
+  await page.getByPlaceholder("Organization").fill("QA Organization");
+  await page.getByPlaceholder("Phone number").fill("+855 12 345 678");
 
   await expect(page.getByRole("button", { name: "Join event" })).toBeEnabled();
 });
@@ -79,5 +82,9 @@ test("renders a pre-registration meeting QR screen", async ({ page }) => {
   await page
     .getByPlaceholder("Full name in English")
     .pressSequentially("UI Test Participant");
+  await page.getByPlaceholder("Full name in Khmer").fill("UI Test Participant Khmer");
+  await page.getByPlaceholder("Position").fill("QA Participant");
+  await page.getByPlaceholder("Organization").fill("QA Organization");
+  await page.getByPlaceholder("Phone number").fill("+855 12 345 678");
   await expect(page.getByRole("button", { name: "Check in" })).toBeEnabled();
 });

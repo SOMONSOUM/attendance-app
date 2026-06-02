@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
 import { MeetingsRepository } from "./meetings.repository";
+import { AttendeeCardService } from "../attendance/attendee-card.service";
 import { CreateMeetingDto, JoinMeetingDto, UpdateMeetingDto } from "./dto";
 import {
   paginated,
@@ -16,7 +17,9 @@ type UploadRow = {
   "Fullname Khmer"?: string;
   Gender?: string;
   Position?: string;
-  Department?: string;
+  Organization?: string;
+  "Phone Number"?: string;
+  Phone?: string;
   Email?: string;
 };
 
@@ -30,7 +33,10 @@ const genderMap: Record<string, Gender> = {
 
 @Injectable()
 export class MeetingsService {
-  constructor(private readonly prisma: MeetingsRepository) {}
+  constructor(
+    private readonly prisma: MeetingsRepository,
+    private readonly attendeeCard: AttendeeCardService,
+  ) {}
 
   async create(tenantId: string | null, userId: string, dto: CreateMeetingDto) {
     this.assertChairpersons(dto.chairpersons);
@@ -322,7 +328,7 @@ export class MeetingsService {
         fullNameKm: row["Fullname Khmer"]?.trim(),
         gender: row.Gender ? genderMap[row.Gender.toLowerCase()] : undefined,
         position: row.Position?.trim(),
-        department: row.Department?.trim(),
+        phoneNumber: (row["Phone Number"] ?? row.Phone)?.trim(),
         email: row.Email?.trim(),
         checkInCode: this.toQrCode(),
         source: "UPLOAD",
@@ -355,7 +361,7 @@ export class MeetingsService {
         fullNameKm: row.fullNameKm,
         gender: row.gender,
         position: row.position,
-        department: row.department,
+        phoneNumber: row.phoneNumber,
         checkInCode: this.toQrCode(),
         source: `IMPORT:${importId}`,
       })),
@@ -385,7 +391,7 @@ export class MeetingsService {
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
         position: dto.position,
-        department: dto.department,
+        phoneNumber: dto.phoneNumber,
         email: dto.email,
         status: "INVITED",
         checkInCode: this.toQrCode(),
@@ -441,6 +447,8 @@ export class MeetingsService {
 
   async joinByCode(code: string, dto: JoinMeetingDto) {
     const meeting = await this.getPublicByCode(code);
+    this.assertMeetingDateWindow(meeting);
+    const activeShift = dto.shiftId ? null : this.assertScanWindow(meeting);
 
     if (meeting.mode === EventMode.BULK_REGISTRATION) {
       const distanceMeters = this.assertLocation(
@@ -484,7 +492,7 @@ export class MeetingsService {
     const checkInCode = this.toQrCode();
     const shiftId = dto.shiftId
       ? (await this.assertShift(meeting.id, dto.shiftId)).id
-      : undefined;
+      : activeShift?.id;
     const participant = await this.prisma.meetingParticipant.create({
       data: {
         meetingId: meeting.id,
@@ -494,7 +502,7 @@ export class MeetingsService {
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
         position: dto.position,
-        department: dto.department,
+        phoneNumber: dto.phoneNumber,
         email: dto.email,
         status: "INVITED",
         checkInCode,
@@ -508,16 +516,66 @@ export class MeetingsService {
     return {
       ...participant,
       qrImage: await this.toParticipantQrImage(checkInCode),
+      cardImage: await this.toParticipantCardImage({
+        fullNameEn: participant.fullNameEn,
+        fullNameKm: participant.fullNameKm,
+        organization: participant.organization,
+        checkInCode,
+      }),
     };
   }
 
-  async joinParticipantByCode(tenantId: string | null, checkInCode: string) {
+  async participantCard(
+    tenantId: string | null,
+    meetingId: string,
+    participantId: string,
+  ) {
+    const participant = await this.prisma.meetingParticipant.findFirst({
+      where: { id: participantId, meetingId, meeting: { tenantId } },
+    });
+    if (!participant?.checkInCode) {
+      throw new NotFoundException("Participant QR code not found");
+    }
+
+    return this.attendeeCard.renderPng({
+      fullNameEn: participant.fullNameEn,
+      fullNameKm: participant.fullNameKm,
+      organization: participant.organization,
+      checkInCode: participant.checkInCode,
+    });
+  }
+
+  async participantCardByCode(checkInCode: string) {
     const participant = await this.prisma.meetingParticipant.findUnique({
       where: { checkInCode },
-      include: { meeting: true },
+    });
+    if (!participant?.checkInCode) {
+      throw new NotFoundException("Participant QR code not found");
+    }
+
+    return this.attendeeCard.renderPng({
+      fullNameEn: participant.fullNameEn,
+      fullNameKm: participant.fullNameKm,
+      organization: participant.organization,
+      checkInCode: participant.checkInCode,
+    });
+  }
+
+  async joinParticipantByCode(
+    tenantId: string | null,
+    checkInCode: string,
+    meetingId?: string,
+  ) {
+    const participant = await this.prisma.meetingParticipant.findUnique({
+      where: { checkInCode },
+      include: { meeting: { include: { shifts: true } } },
     });
 
-    if (!participant || participant.meeting.tenantId !== tenantId) {
+    if (
+      !participant ||
+      participant.meeting.tenantId !== tenantId ||
+      (meetingId && participant.meetingId !== meetingId)
+    ) {
       throw new NotFoundException("Participant QR code not found");
     }
     if (participant.status === "JOINED") {
@@ -526,12 +584,17 @@ export class MeetingsService {
         message: "This participant already joined the meeting.",
       });
     }
+    this.assertMeetingDateWindow(participant.meeting);
+    const activeShift = participant.shiftId
+      ? null
+      : this.assertScanWindow(participant.meeting);
 
     return this.prisma.meetingParticipant.update({
       where: { id: participant.id },
       data: {
         status: "JOINED",
         joinedAt: new Date(),
+        shiftId: participant.shiftId ?? activeShift?.id,
         distanceMeters: 0,
       },
     });
@@ -634,6 +697,78 @@ export class MeetingsService {
     return shift;
   }
 
+  private assertScanWindow(meeting: {
+    startsAt: Date;
+    endsAt: Date;
+    shifts: { id: string; startTime: Date; endTime: Date }[];
+  }) {
+    this.assertMeetingDateWindow(meeting);
+
+    if (!meeting.shifts.length) return null;
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const activeShift = meeting.shifts.find((shift) =>
+      this.isWithinShift(nowMinutes, shift.startTime, shift.endTime),
+    );
+
+    if (!activeShift) {
+      throw new BadRequestException({
+        error: "Invalid Shift Time",
+        message: "Check-in can only be confirmed during an active meeting shift.",
+      });
+    }
+
+    return activeShift;
+  }
+
+  private assertMeetingDateWindow(meeting: { startsAt: Date; endsAt: Date }) {
+    const now = new Date();
+    const meetingStartDate = this.startOfDay(meeting.startsAt);
+    const meetingEndDate = this.endOfDay(meeting.endsAt);
+
+    if (now < meetingStartDate) {
+      throw new BadRequestException({
+        error: "Meeting Not Started",
+        message: "This meeting has not started yet.",
+      });
+    }
+
+    if (now > meetingEndDate) {
+      throw new BadRequestException({
+        error: "Meeting Ended",
+        message: "This meeting has already ended.",
+      });
+    }
+  }
+
+  private isWithinShift(nowMinutes: number, startTime: Date, endTime: Date) {
+    const startMinutes = this.toMinutes(startTime);
+    const endMinutes = this.toMinutes(endTime);
+
+    if (startMinutes <= endMinutes) {
+      return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+    }
+
+    return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+  }
+
+  private toMinutes(time: Date) {
+    return time.getUTCHours() * 60 + time.getUTCMinutes();
+  }
+
+  private startOfDay(date: Date) {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  private endOfDay(date: Date) {
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }
+
   private toTimeDate(value: string) {
     const time = value.length === 5 ? `${value}:00` : value;
     return new Date(`1970-01-01T${time}.000Z`);
@@ -641,6 +776,25 @@ export class MeetingsService {
 
   private toParticipantQrImage(code: string) {
     return QRCode.toDataURL(code);
+  }
+
+  private async toParticipantCardImage(input: {
+    fullNameEn: string;
+    fullNameKm?: string | null;
+    organization?: string | null;
+    checkInCode: string;
+  }) {
+    const buffer = await this.attendeeCard.renderPng({
+      fullNameEn: input.fullNameEn,
+      fullNameKm: input.fullNameKm,
+      organization: input.organization,
+      checkInCode: input.checkInCode,
+    });
+    return `data:image/png;base64,${buffer.toString("base64")}`;
+  }
+
+  private toParticipantQrUrl(code: string) {
+    return `${this.attendanceAppUrl()}/en/participant-qr/${code}`;
   }
 
   private attendanceAppUrl() {

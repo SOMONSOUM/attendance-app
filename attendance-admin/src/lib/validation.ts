@@ -11,7 +11,7 @@ export const userSchema = z.object({
   fullNameEn: z.string().trim().min(1, "Full name is required."),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
   position: z.string().optional(),
-  department: z.string().optional(),
+  organization: z.string().optional(),
   roleName: z.string().trim().min(1, "Role is required.").optional(),
 });
 
@@ -146,7 +146,8 @@ const meetingParticipantSchema = z.object({
   fullNameKm: z.string().nullable().optional(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
   position: z.string().nullable().optional(),
-  department: z.string().nullable().optional(),
+  organization: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable().optional(),
   email: z
     .string()
     .trim()
@@ -185,6 +186,16 @@ export const meetingSchema = z
           latitude: coordinateValueSchema,
           longitude: coordinateValueSchema,
           radiusMeters: z.number().min(0).max(5000).optional(),
+        }),
+      )
+      .optional(),
+    shifts: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          name: z.string().trim().min(1, "Shift name is required."),
+          startTime: timeSchema,
+          endTime: timeSchema,
         }),
       )
       .optional(),

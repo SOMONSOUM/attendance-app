@@ -94,12 +94,17 @@ async function refreshSession(refreshToken: string) {
 }
 
 async function buildResponse(apiResponse: Response) {
-  const response = new NextResponse(await apiResponse.text(), {
+  const responseHeaders = new Headers();
+  const contentType = apiResponse.headers.get("Content-Type");
+  const contentDisposition = apiResponse.headers.get("Content-Disposition");
+  if (contentType) responseHeaders.set("Content-Type", contentType);
+  if (contentDisposition) {
+    responseHeaders.set("Content-Disposition", contentDisposition);
+  }
+
+  const response = new NextResponse(await apiResponse.arrayBuffer(), {
     status: apiResponse.status,
-    headers: {
-      "Content-Type":
-        apiResponse.headers.get("Content-Type") ?? "application/json",
-    },
+    headers: responseHeaders,
   });
 
   if (apiResponse.status === 401) {

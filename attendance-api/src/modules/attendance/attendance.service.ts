@@ -8,6 +8,7 @@ import { EventMode, Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import { AttendanceRepository } from "./attendance.repository";
+import { AttendeeCardService } from "./attendee-card.service";
 import { JoinEventDto } from "./dto";
 import {
   paginated,
@@ -17,7 +18,10 @@ import {
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: AttendanceRepository) {}
+  constructor(
+    private readonly prisma: AttendanceRepository,
+    private readonly attendeeCard: AttendeeCardService,
+  ) {}
 
   async joinByCode(code: string, dto: JoinEventDto) {
     const qr = await this.prisma.eventQrCode.findUnique({
@@ -79,7 +83,7 @@ export class AttendanceService {
           fullNameKm: dto.fullNameKm,
           gender: dto.gender,
           position: dto.position,
-          department: dto.department,
+          phoneNumber: dto.phoneNumber,
           latitude: dto.latitude ?? 0,
           longitude: dto.longitude ?? 0,
           distanceMeters,
@@ -118,7 +122,7 @@ export class AttendanceService {
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
         position: dto.position,
-        department: dto.department,
+        phoneNumber: dto.phoneNumber,
         checkInCode,
         source:
           qr.event.mode === "OPEN_REGISTRATION"
@@ -130,7 +134,49 @@ export class AttendanceService {
     return {
       ...registration,
       qrImage: await this.toAttendeeQrImage(checkInCode),
+      cardImage: await this.toAttendeeCardImage({
+        fullNameEn: registration.fullNameEn,
+        fullNameKm: registration.fullNameKm,
+        organization: registration.organization,
+        checkInCode,
+      }),
     };
+  }
+
+  async registrationCard(
+    tenantId: string | null,
+    eventId: string,
+    registrationId: string,
+  ) {
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: { id: registrationId, eventId, event: { tenantId } },
+    });
+    if (!registration?.checkInCode) {
+      throw new NotFoundException("Registration QR code not found");
+    }
+
+    return this.attendeeCard.renderPng({
+      fullNameEn: registration.fullNameEn,
+      fullNameKm: registration.fullNameKm,
+      organization: registration.organization,
+      checkInCode: registration.checkInCode,
+    });
+  }
+
+  async registrationCardByCode(checkInCode: string) {
+    const registration = await this.prisma.eventRegistration.findUnique({
+      where: { checkInCode },
+    });
+    if (!registration?.checkInCode) {
+      throw new NotFoundException("Registration QR code not found");
+    }
+
+    return this.attendeeCard.renderPng({
+      fullNameEn: registration.fullNameEn,
+      fullNameKm: registration.fullNameKm,
+      organization: registration.organization,
+      checkInCode: registration.checkInCode,
+    });
   }
 
   async list(
@@ -195,7 +241,7 @@ export class AttendanceService {
         fullNameKm: registration.fullNameKm,
         gender: registration.gender,
         position: registration.position,
-        department: registration.department,
+        phoneNumber: registration.phoneNumber,
         checkInCode: registration.checkInCode,
         joined: Boolean(attendance),
         status: attendance?.status ?? "NOT_YET",
@@ -224,7 +270,7 @@ export class AttendanceService {
           fullNameKm: attendance.fullNameKm,
           gender: attendance.gender,
           position: attendance.position,
-          department: attendance.department,
+          phoneNumber: attendance.phoneNumber,
           joined: true,
           status: attendance.status,
           joinedAt: attendance.createdAt,
@@ -251,6 +297,7 @@ export class AttendanceService {
     });
 
     if (!registration) throw new NotFoundException("Registration not found");
+    this.assertEventDateWindow(event);
     const activeShift = registration.shiftId
       ? null
       : this.assertScanWindow(event);
@@ -277,7 +324,7 @@ export class AttendanceService {
         fullNameKm: registration.fullNameKm,
         gender: registration.gender,
         position: registration.position,
-        department: registration.department,
+        phoneNumber: registration.phoneNumber,
         latitude: 0,
         longitude: 0,
         distanceMeters: 0,
@@ -285,16 +332,25 @@ export class AttendanceService {
     });
   }
 
-  async joinRegistrationByCode(tenantId: string | null, checkInCode: string) {
+  async joinRegistrationByCode(
+    tenantId: string | null,
+    checkInCode: string,
+    eventId?: string,
+  ) {
     const registration = await this.prisma.eventRegistration.findUnique({
       where: { checkInCode },
       include: { event: { include: { shifts: true } } },
     });
 
-    if (!registration || registration.event.tenantId !== tenantId) {
+    if (
+      !registration ||
+      registration.event.tenantId !== tenantId ||
+      (eventId && registration.eventId !== eventId)
+    ) {
       throw new NotFoundException("Registration QR code not found");
     }
 
+    this.assertEventDateWindow(registration.event);
     const activeShift = registration.shiftId
       ? null
       : this.assertScanWindow(registration.event);
@@ -320,7 +376,7 @@ export class AttendanceService {
         fullNameKm: registration.fullNameKm,
         gender: registration.gender,
         position: registration.position,
-        department: registration.department,
+        phoneNumber: registration.phoneNumber,
         latitude: 0,
         longitude: 0,
         distanceMeters: 0,
@@ -346,6 +402,29 @@ export class AttendanceService {
 
   private toAttendeeQrImage(code: string) {
     return QRCode.toDataURL(code);
+  }
+
+  private async toAttendeeCardImage(input: {
+    fullNameEn: string;
+    fullNameKm?: string | null;
+    organization?: string | null;
+    checkInCode: string;
+  }) {
+    const buffer = await this.attendeeCard.renderPng({
+      fullNameEn: input.fullNameEn,
+      fullNameKm: input.fullNameKm,
+      organization: input.organization,
+      checkInCode: input.checkInCode,
+    });
+    return `data:image/png;base64,${buffer.toString("base64")}`;
+  }
+
+  private toAttendeeQrUrl(code: string) {
+    return `${this.attendanceAppUrl()}/en/attendee-qr/${code}`;
+  }
+
+  private attendanceAppUrl() {
+    return process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000";
   }
 
   private toQrCode() {
@@ -424,6 +503,27 @@ export class AttendanceService {
     endsAt: Date;
     shifts: { id: string; startTime: Date; endTime: Date }[];
   }) {
+    this.assertEventDateWindow(event);
+
+    if (!event.shifts.length) return null;
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const activeShift = event.shifts.find((shift) =>
+      this.isWithinShift(nowMinutes, shift.startTime, shift.endTime),
+    );
+
+    if (!activeShift) {
+      throw new BadRequestException({
+        error: "Invalid Shift Time",
+        message: "Attendance can only be confirmed during an active shift.",
+      });
+    }
+
+    return activeShift;
+  }
+
+  private assertEventDateWindow(event: { startsAt: Date; endsAt: Date }) {
     const now = new Date();
     const eventStartDate = this.startOfDay(event.startsAt);
     const eventEndDate = this.endOfDay(event.endsAt);
@@ -441,22 +541,6 @@ export class AttendanceService {
         message: "This event has already ended.",
       });
     }
-
-    if (!event.shifts.length) return null;
-
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const activeShift = event.shifts.find((shift) =>
-      this.isWithinShift(nowMinutes, shift.startTime, shift.endTime),
-    );
-
-    if (!activeShift) {
-      throw new BadRequestException({
-        error: "Invalid Shift Time",
-        message: "Attendance can only be confirmed during an active shift.",
-      });
-    }
-
-    return activeShift;
   }
 
   private isWithinShift(nowMinutes: number, startTime: Date, endTime: Date) {

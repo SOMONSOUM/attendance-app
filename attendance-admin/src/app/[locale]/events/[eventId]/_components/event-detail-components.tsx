@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, ExternalLink, MapPin, QrCode, type LucideIcon } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { EmptyState, StatusPill } from "@/components/admin/admin-shell";
@@ -371,10 +371,12 @@ export function PersonalQrButton({
   name,
   code,
   fileName,
+  cardPath,
 }: {
   name: string;
   code?: string | null;
   fileName: string;
+  cardPath?: string;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const label = `Personal QR for ${name}`;
@@ -398,6 +400,7 @@ export function PersonalQrButton({
         onOpenChange={setPreviewOpen}
         title={name}
         code={code ?? undefined}
+        cardPath={cardPath}
         fileName={fileName}
       />
     </>
@@ -410,6 +413,7 @@ function QrPreviewDialog({
   title,
   code,
   qrUrl,
+  cardPath,
   fileName,
 }: {
   open: boolean;
@@ -417,10 +421,52 @@ function QrPreviewDialog({
   title: string;
   code?: string;
   qrUrl?: string;
+  cardPath?: string;
   fileName: string;
 }) {
   const qrRef = useRef<HTMLCanvasElement>(null);
   const qrValue = qrUrl ?? code;
+  const [cardPreviewUrl, setCardPreviewUrl] = useState<string | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !cardPath) return;
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    setCardLoading(true);
+    setCardError(null);
+    setCardPreviewUrl(null);
+
+    fetch(cardPath, { credentials: "include" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Unable to load attendee card.");
+        }
+        return response.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setCardPreviewUrl(objectUrl);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setCardError(
+          error instanceof Error ? error.message : "Unable to load attendee card.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setCardLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [cardPath, open]);
 
   return (
     <Dialog
@@ -428,8 +474,23 @@ function QrPreviewDialog({
       onOpenChange={onOpenChange}
       title={`${title} QR`}
       description={qrValue ?? "QR code is still being generated."}
+      contentClassName={cardPath ? "sm:max-w-[min(92vw,720px)]" : undefined}
     >
       <div className="grid justify-items-center gap-4">
+        {cardPath ? (
+          cardPreviewUrl ? (
+            <img
+              src={cardPreviewUrl}
+              alt={`${title} attendee card`}
+              className="max-h-[82vh] w-auto max-w-full rounded-md bg-[#061f5d] object-contain shadow-soft"
+              data-testid="attendee-card-preview"
+            />
+          ) : (
+            <div className="grid min-h-72 w-full max-w-sm place-items-center rounded-md border border-dashed border-border bg-muted px-4 text-center text-sm text-muted-fg">
+              {cardLoading ? "Loading attendee card" : cardError ?? "Unable to load attendee card."}
+            </div>
+          )
+        ) : (
         <div className="rounded-md border border-border bg-white p-4">
           {qrValue ? (
             <QRCodeCanvas
@@ -445,6 +506,7 @@ function QrPreviewDialog({
             </div>
           )}
         </div>
+        )}
         <DialogFooter className="w-full">
           <Button
             type="button"
@@ -455,8 +517,10 @@ function QrPreviewDialog({
           </Button>
           <Button
             type="button"
-            disabled={!qrValue}
-            onClick={() => downloadCanvas(qrRef.current, fileName)}
+            disabled={!qrValue && !cardPath}
+            onClick={() =>
+              cardPath ? downloadImage(cardPath, fileName) : downloadCanvas(qrRef.current, fileName)
+            }
           >
             <Download size={14} />
             Download
@@ -568,4 +632,17 @@ function downloadDataUrl(dataUrl: string, filename: string) {
 function downloadCanvas(canvas: HTMLCanvasElement | null, filename: string) {
   if (!canvas) return;
   downloadDataUrl(canvas.toDataURL("image/png"), filename);
+}
+
+async function downloadImage(src: string, filename: string) {
+  const response = await fetch(src, { credentials: "include" });
+  if (!response.ok) return;
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename.replace(/[^\w.-]+/g, "-").toLowerCase();
+  link.click();
+  URL.revokeObjectURL(url);
 }

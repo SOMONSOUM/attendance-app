@@ -11,11 +11,13 @@ export function DatePicker({
   value,
   onChange,
   placeholder = "Pick a date",
+  ariaLabel,
   className,
 }: {
   value?: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
   className?: string;
 }) {
   const selectedDate = parseDate(value);
@@ -27,6 +29,7 @@ export function DatePicker({
         <Button
           type="button"
           variant="outline"
+          aria-label={ariaLabel ?? placeholder}
           className={cn(
             "h-11 w-full justify-start px-3 text-left font-normal",
             !selectedDate && "text-muted-fg",

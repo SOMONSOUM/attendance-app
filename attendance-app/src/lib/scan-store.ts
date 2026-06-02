@@ -6,7 +6,8 @@ export type ScanRegistration = {
   fullNameKm?: string;
   gender?: "MALE" | "FEMALE" | "OTHER";
   position?: string;
-  department?: string;
+  organization?: string;
+  phoneNumber?: string;
 };
 
 type ScanState = {

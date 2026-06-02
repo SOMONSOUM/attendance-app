@@ -17,7 +17,9 @@ type UploadRow = {
   "Fullname Khmer"?: string;
   Gender?: string;
   Position?: string;
-  Department?: string;
+  Organization?: string;
+  "Phone Number"?: string;
+  Phone?: string;
 };
 
 type EventWithSummary = Event & {
@@ -377,7 +379,7 @@ export class EventsService {
         fullNameKm: row["Fullname Khmer"]?.trim(),
         gender: row.Gender ? genderMap[row.Gender.toLowerCase()] : undefined,
         position: row.Position?.trim(),
-        department: row.Department?.trim(),
+        phoneNumber: (row["Phone Number"] ?? row.Phone)?.trim(),
         checkInCode: this.toQrCode(),
       }));
 
@@ -401,7 +403,8 @@ export class EventsService {
           OR: [
             { fullNameEn: { contains: token } },
             { fullNameKm: { contains: token } },
-            { department: { contains: token } },
+            { organization: { contains: token } },
+            { phoneNumber: { contains: token } },
           ],
         })),
       },
@@ -430,7 +433,7 @@ export class EventsService {
         fullNameKm: registration.fullNameKm,
         gender: registration.gender,
         position: registration.position,
-        department: registration.department,
+        phoneNumber: registration.phoneNumber,
         checkInCode: this.toQrCode(),
         source: `COPY:${sourceEventId}`,
       })),
@@ -461,7 +464,7 @@ export class EventsService {
         fullNameKm: row.fullNameKm,
         gender: row.gender,
         position: row.position,
-        department: row.department,
+        phoneNumber: row.phoneNumber,
         checkInCode: this.toQrCode(),
         source: `IMPORT:${importId}`,
       })),

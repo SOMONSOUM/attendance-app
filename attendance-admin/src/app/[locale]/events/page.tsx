@@ -22,6 +22,7 @@ import {
   TableShell,
 } from "@/components/admin/admin-shell";
 import { LocationPicker } from "@/components/admin/location-picker";
+import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -118,11 +119,31 @@ export default function EventsPage() {
   const {
     handleSubmit,
     reset,
+    trigger,
     watch,
     formState: { errors },
   } = formMethods;
   const form = watch();
   const setForm = (nextForm: EventForm) => reset(nextForm);
+
+  async function goToStep(nextStep: number) {
+    if (nextStep <= step) {
+      setStep(nextStep);
+      return;
+    }
+    if (await validateCurrentStep()) {
+      setStep(Math.min(nextStep, wizardSteps.length - 1));
+    }
+  }
+
+  function validateCurrentStep() {
+    const stepFields = [
+      ["name"] as const,
+      ["mode", "places", "separateQrByPlace", "requireLocation", "locationName"] as const,
+      ["startsAt", "endsAt", "shifts", "theme"] as const,
+    ];
+    return trigger(stepFields[step], { shouldFocus: true });
+  }
   const [registrationFile, setRegistrationFile] = useState<File | null>(null);
   const [page, setPage] = useState(1);
   const [placeRegistrationFiles, setPlaceRegistrationFiles] = useState<
@@ -336,7 +357,7 @@ export default function EventsPage() {
             </Button>
           </SectionToolbar>
           {eventsQuery.isLoading ? (
-            <div className="p-5 text-sm text-muted-fg">Loading events...</div>
+            <TableSkeleton columns={8} />
           ) : events.length ? (
             <>
               <Table>
@@ -463,7 +484,10 @@ export default function EventsPage() {
                 onSubmit={handleSubmit(() => saveMutation.mutate())}
               >
                 <div className="border-b border-border p-4">
-                  <WizardSteps step={step} onStepChange={setStep} />
+                  <WizardSteps
+                    step={step}
+                    onStepChange={(nextStep) => void goToStep(nextStep)}
+                  />
                 </div>
                 <div className="grid gap-4 overflow-y-auto p-4">
                   {step === 0 ? (
@@ -933,7 +957,7 @@ export default function EventsPage() {
                           ) : null}
                           <p className="text-xs text-muted-fg">
                             Columns: Fullname English, Fullname Khmer, Gender,
-                            Position, Department.
+                            Position, Organization.
                           </p>
                         </div>
                       ) : null}
@@ -1088,7 +1112,7 @@ export default function EventsPage() {
                     type="button"
                     onClick={() => {
                       if (step < 2) {
-                        setStep(step + 1);
+                        void goToStep(step + 1);
                         return;
                       }
                       void handleSubmit(() => saveMutation.mutate())();
