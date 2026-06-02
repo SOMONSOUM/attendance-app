@@ -153,7 +153,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       "--event-primary-foreground": readableForeground(primaryColor),
       "--event-background": event.theme?.backgroundColor ?? "#fbfafc",
       "--radius": `${event.theme?.radius ?? 8}px`,
-      fontFamily: `${event.theme?.fontFamily ?? "Inter"}, "Noto Sans Khmer", system-ui, sans-serif`,
+      fontFamily: `${event.theme?.fontFamily ?? "Google Sans"}, system-ui, sans-serif`,
       fontSize: `${event.theme?.fontSize ?? 16}px`,
       backgroundImage: backgroundImageUrl
         ? `linear-gradient(var(--scan-image-overlay), var(--scan-image-overlay)), url(${backgroundImageUrl})`

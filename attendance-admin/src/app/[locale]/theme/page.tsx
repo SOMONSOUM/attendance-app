@@ -27,7 +27,7 @@ export default function ThemePage() {
             <Field label="Primary color" placeholder="#5b3fd5" />
             <Field
               label="Font family"
-              placeholder="Inter, Koh Santepheap, Noto Sans Khmer"
+              placeholder="Google Sans"
             />
             <Field label="Font size" placeholder="16" />
             <Field label="Radius" placeholder="8" />

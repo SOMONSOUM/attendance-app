@@ -78,7 +78,7 @@ const initialForm: EventForm = {
     primaryColor: "#5b3fd5",
     backgroundColor: "#fbfafc",
     backgroundImageUrl: "",
-    fontFamily: "Inter",
+    fontFamily: "Google Sans",
     fontSize: 16,
     radius: 8,
     appearance: "system",
@@ -1034,13 +1034,7 @@ export default function EventsPage() {
                               })
                             }
                           >
-                            <option value="Inter">Inter</option>
-                            <option value="Noto Sans Khmer">
-                              Noto Sans Khmer
-                            </option>
-                            <option value="Koh Santepheap">
-                              Koh Santepheap
-                            </option>
+                            <option value="Google Sans">Google Sans</option>
                             <option value="system-ui">System UI</option>
                           </Select>
                         </div>

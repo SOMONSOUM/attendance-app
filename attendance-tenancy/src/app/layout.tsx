@@ -1,15 +1,11 @@
-import { Google_Sans, Noto_Sans_Khmer } from "next/font/google";
+import { Google_Sans } from "next/font/google";
 import "./globals.css";
 
 const googleSans = Google_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
   variable: "--font-google-sans",
-});
-
-const notoSansKhmer = Noto_Sans_Khmer({
-  subsets: ["khmer"],
-  variable: "--font-google-khmer",
 });
 
 export default function RootLayout({
@@ -17,7 +13,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="km" suppressHydrationWarning>
-      <body className={`${googleSans.variable} ${notoSansKhmer.variable}`}>
+      <body
+        className={`${googleSans.className} ${googleSans.variable}`}
+      >
         {children}
       </body>
     </html>

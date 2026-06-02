@@ -17,6 +17,21 @@ test("renders the localized public entry page", async ({ page }) => {
   await expect(page.locator("body")).not.toContainText("Application error");
 });
 
+test("uses Google Sans as the global font family", async ({ page }) => {
+  await page.goto("/en");
+
+  const font = await page.evaluate(() => {
+    const styles = getComputedStyle(document.body);
+    return {
+      body: styles.fontFamily,
+      googleSans: styles.getPropertyValue("--font-google-sans"),
+    };
+  });
+
+  expect(font.googleSans).toMatch(/Google_Sans|Google Sans/i);
+  expect(font.body).toMatch(/Google_Sans|Google Sans/i);
+});
+
 test("renders a seeded bulk event QR screen and searches attendees", async ({
   page,
 }) => {

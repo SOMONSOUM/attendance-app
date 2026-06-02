@@ -30,6 +30,21 @@ test("shows client-side validation on empty login submit", async ({ page }) => {
   await expect(page.getByText(/invalid|required|email/i).first()).toBeVisible();
 });
 
+test("uses Google Sans as the global font family", async ({ page }) => {
+  await page.goto("/en/login");
+
+  const font = await page.evaluate(() => {
+    const styles = getComputedStyle(document.body);
+    return {
+      body: styles.fontFamily,
+      googleSans: styles.getPropertyValue("--font-google-sans"),
+    };
+  });
+
+  expect(font.googleSans).toMatch(/Google_Sans|Google Sans/i);
+  expect(font.body).toMatch(/Google_Sans|Google Sans/i);
+});
+
 test.describe("authenticated admin screens", () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page);
