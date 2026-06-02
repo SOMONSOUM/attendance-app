@@ -14,7 +14,11 @@ import {
   Min,
   ValidateNested,
 } from "class-validator";
-import { EventPlaceDto, EventShiftDto, EventThemeDto } from "./create-event.dto";
+import {
+  EventPlaceDto,
+  EventShiftDto,
+  EventThemeDto,
+} from "./create-event.dto";
 
 export class UpdateEventDto {
   @ApiPropertyOptional({ example: "Khmer Tech Summit 2026" })

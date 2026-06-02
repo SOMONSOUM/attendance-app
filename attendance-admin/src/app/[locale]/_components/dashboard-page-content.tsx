@@ -4,7 +4,6 @@ import {
   Activity,
   CalendarPlus,
   CheckCircle2,
-  Clock,
   QrCode,
   TrendingUp,
   Users,
@@ -32,11 +31,24 @@ import {
 import {
   eventKeys,
   listEvents,
-  listUsers,
+  listMeetings,
+  meetingKeys,
   type EventRecord,
-  type UserRecord,
+  type MeetingRecord,
 } from "@/lib/admin-data";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+
+type DashboardSession = {
+  id: string;
+  kind: "event" | "meeting";
+  name: string;
+  mode: string;
+  startsAt: string;
+  endsAt: string;
+  totalUsers: number;
+  checkedIn: number;
+  hasQr: boolean;
+};
 
 export function DashboardPageContent() {
   const t = useTranslations("dashboard");
@@ -47,38 +59,33 @@ export function DashboardPageContent() {
     queryKey: eventKeys.all,
     queryFn: () => listEvents({ pageSize: 100 }),
   });
-  const usersQuery = useQuery({
-    queryKey: ["dashboard-users"],
-    queryFn: () => listUsers({ pageSize: 100 }),
+  const meetingsQuery = useQuery({
+    queryKey: meetingKeys.all,
+    queryFn: () => listMeetings({ pageSize: 100 }),
   });
   const events = eventsQuery.data?.items ?? [];
-  const users = usersQuery.data?.items ?? [];
-  const liveEvents = events.filter((event) => eventPhase(event) === "live");
-  const upcomingEvents = events.filter((event) => eventPhase(event) === "ready");
-  const closedEvents = events.filter((event) => eventPhase(event) === "closed");
-  const totalExpected = events.reduce(
-    (sum, event) => sum + (event.summary?.totalUsers ?? 0),
+  const meetings = meetingsQuery.data?.items ?? [];
+  const sessions = [
+    ...events.map((event) => eventSession(event)),
+    ...meetings.map((meeting) => meetingSession(meeting)),
+  ].sort(
+    (a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime(),
+  );
+  const liveSessions = sessions.filter((session) => sessionPhase(session) === "live");
+  const upcomingSessions = sessions.filter(
+    (session) => sessionPhase(session) === "ready",
+  );
+  const totalExpected = sessions.reduce(
+    (sum, session) => sum + session.totalUsers,
     0,
   );
-  const checkedIn = events.reduce(
-    (sum, event) => sum + (event.summary?.checkedIn ?? 0),
+  const checkedIn = sessions.reduce(
+    (sum, session) => sum + session.checkedIn,
     0,
   );
   const remaining = Math.max(totalExpected - checkedIn, 0);
   const joinRate = totalExpected ? Math.round((checkedIn / totalExpected) * 100) : 0;
-  const recentAttendances = events
-    .flatMap((event) =>
-      (event.recentAttendances ?? []).map((attendance) => ({
-        ...attendance,
-        eventName: event.name,
-      })),
-    )
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 6);
-  const nextEvents = [...liveEvents, ...upcomingEvents]
+  const nextSessions = [...liveSessions, ...upcomingSessions]
     .sort(
       (a, b) =>
         new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
@@ -91,12 +98,20 @@ export function DashboardPageContent() {
       title={t("title")}
       description={t("description")}
       action={
-        <Button asChild>
-          <a href={`/${locale}/events`}>
-            <CalendarPlus size={16} />
-            {t("createEvent")}
-          </a>
-        </Button>
+        <>
+          <Button asChild>
+            <a href={`/${locale}/events`}>
+              <CalendarPlus size={16} />
+              {t("createEvent")}
+            </a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={`/${locale}/meetings`}>
+              <Users size={16} />
+              Create meeting
+            </a>
+          </Button>
+        </>
       }
     >
       <div className="space-y-5">
@@ -107,11 +122,11 @@ export function DashboardPageContent() {
                 <div>
                   <CardTitle>Attendance overview</CardTitle>
                   <p className="mt-1 text-sm text-muted-fg">
-                    Live progress across active and recent event workflows.
+                    Live progress across event and meeting workflows.
                   </p>
                 </div>
-                <StatusPill tone={liveEvents.length ? "green" : "blue"}>
-                  {liveEvents.length} live
+                <StatusPill tone={liveSessions.length ? "green" : "blue"}>
+                  {liveSessions.length} live
                 </StatusPill>
               </div>
             </CardHeader>
@@ -126,13 +141,13 @@ export function DashboardPageContent() {
                 <OverviewMetric
                   label="Expected"
                   value={totalExpected}
-                  detail={`${users.length} admin users`}
+                  detail={`${events.length} events / ${meetings.length} meetings`}
                   icon={Users}
                 />
                 <OverviewMetric
                   label="Join rate"
                   value={`${joinRate}%`}
-                  detail={`${events.length} total events`}
+                  detail={`${sessions.length} total sessions`}
                   icon={TrendingUp}
                 />
               </div>
@@ -156,49 +171,55 @@ export function DashboardPageContent() {
               <CardTitle>Operations</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 p-4">
-              <MixRow label="Live events" value={liveEvents.length} icon={Activity} />
-              <MixRow label="Upcoming events" value={upcomingEvents.length} icon={Clock} />
-              <MixRow label="Closed events" value={closedEvents.length} icon={CheckCircle2} />
+              <MixRow label="Live sessions" value={liveSessions.length} icon={Activity} />
+              <MixRow label="Events" value={events.length} icon={CalendarPlus} />
+              <MixRow label="Meetings" value={meetings.length} icon={Users} />
               <MixRow
-                label="Events with QR"
-                value={events.filter((event) => event.qrCodes?.length).length}
+                label="Sessions with QR"
+                value={sessions.filter((session) => session.hasQr).length}
                 icon={QrCode}
               />
             </CardContent>
           </Card>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
+        <section>
           <TableShell>
-            <SectionToolbar title="Events needing attention" />
-            {nextEvents.length ? (
+            <SectionToolbar title="Events and meetings needing attention" />
+            {nextSessions.length ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Event</TableHead>
+                    <TableHead>Session</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Schedule</TableHead>
                     <TableHead>Attendance</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {nextEvents.map((event) => (
-                    <TableRow key={event.id}>
+                  {nextSessions.map((session) => (
+                    <TableRow key={session.id}>
                       <TableCell>
-                        <div className="font-medium">{event.name}</div>
+                        <div className="font-medium">{session.name}</div>
                         <div className="text-xs text-muted-fg">
-                          {registrationModeLabel(event.mode, common)}
+                          {registrationModeLabel(session.mode, common)}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        <StatusPill tone={session.kind === "meeting" ? "blue" : "purple"}>
+                          {session.kind === "meeting" ? "Meeting" : "Event"}
+                        </StatusPill>
+                      </TableCell>
                       <TableCell className="text-muted-fg">
-                        {formatDate(event.startsAt)}
+                        {formatDate(session.startsAt)}
                       </TableCell>
                       <TableCell>
-                        <ProgressText event={event} />
+                        <ProgressText session={session} />
                       </TableCell>
                       <TableCell>
-                        <StatusPill tone={eventTone(event)}>
-                          {eventStatus(event, common)}
+                        <StatusPill tone={sessionTone(session)}>
+                          {sessionStatus(session, common)}
                         </StatusPill>
                       </TableCell>
                     </TableRow>
@@ -208,48 +229,19 @@ export function DashboardPageContent() {
             ) : (
               <EmptyState
                 title="No active schedule"
-                text="Create or schedule an event to start tracking attendance."
+                text="Create or schedule an event or meeting to start tracking attendance."
               />
             )}
           </TableShell>
-
-          <Card>
-            <CardHeader className="border-b border-border p-4">
-              <CardTitle>{t("recentCheckIns")}</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2 p-4">
-              {recentAttendances.length ? (
-                recentAttendances.map((attendance) => (
-                  <div
-                    key={attendance.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border bg-background p-3 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{attendance.fullNameEn}</p>
-                      <p className="truncate text-xs text-muted-fg">
-                        {attendance.eventName}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-xs text-muted-fg">
-                      {formatTime(attendance.createdAt)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-fg">
-                  {t("noRecentCheckIns")}
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </section>
 
         <TableShell>
-          <SectionToolbar title={t("recentEvents")} />
+          <SectionToolbar title="Recent events and meetings" />
           <Table>
             <TableHeader>
               <TableRow className="border-t-0">
-                <TableHead>{t("eventName")}</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>{t("registrationMode")}</TableHead>
                 <TableHead>{t("schedule")}</TableHead>
                 <TableHead>{t("attendance")}</TableHead>
@@ -257,31 +249,36 @@ export function DashboardPageContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {events.slice(0, 8).map((event) => (
-                <TableRow key={event.id}>
-                  <TableCell className="font-medium">{event.name}</TableCell>
-                  <TableCell className="text-muted-fg">
-                    {registrationModeLabel(event.mode, common)}
+              {sessions.slice(0, 8).map((session) => (
+                <TableRow key={session.id}>
+                  <TableCell className="font-medium">{session.name}</TableCell>
+                  <TableCell>
+                    <StatusPill tone={session.kind === "meeting" ? "blue" : "purple"}>
+                      {session.kind === "meeting" ? "Meeting" : "Event"}
+                    </StatusPill>
                   </TableCell>
                   <TableCell className="text-muted-fg">
-                    {formatDate(event.startsAt)}
+                    {registrationModeLabel(session.mode, common)}
                   </TableCell>
                   <TableCell className="text-muted-fg">
-                    {event.summary?.checkedIn ?? 0}/{event.summary?.totalUsers ?? 0}
+                    {formatDate(session.startsAt)}
+                  </TableCell>
+                  <TableCell className="text-muted-fg">
+                    {session.checkedIn}/{session.totalUsers}
                   </TableCell>
                   <TableCell>
-                    <StatusPill tone={eventTone(event)}>
-                      {eventStatus(event, common)}
+                    <StatusPill tone={sessionTone(session)}>
+                      {sessionStatus(session, common)}
                     </StatusPill>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {!events.length ? (
+          {!sessions.length ? (
             <EmptyState
-              title="No events yet"
-              text="Create your first event to see dashboard activity."
+              title="No schedule yet"
+              text="Create your first event or meeting to see dashboard activity."
             />
           ) : null}
         </TableShell>
@@ -313,9 +310,9 @@ function OverviewMetric({
   );
 }
 
-function ProgressText({ event }: { event: EventRecord }) {
-  const total = event.summary?.totalUsers ?? 0;
-  const checkedIn = event.summary?.checkedIn ?? 0;
+function ProgressText({ session }: { session: DashboardSession }) {
+  const total = session.totalUsers;
+  const checkedIn = session.checkedIn;
   const rate = total ? Math.round((checkedIn / total) * 100) : 0;
   return (
     <div className="min-w-28">
@@ -332,28 +329,62 @@ function ProgressText({ event }: { event: EventRecord }) {
   );
 }
 
-function eventStatus(
-  event: { startsAt: string; endsAt: string },
+function sessionStatus(
+  session: { startsAt: string; endsAt: string },
   t: ReturnType<typeof useTranslations<"common">>,
 ) {
   const now = Date.now();
-  if (new Date(event.startsAt).getTime() > now) return t("ready");
-  if (new Date(event.endsAt).getTime() < now) return t("closed");
+  if (new Date(session.startsAt).getTime() > now) return t("ready");
+  if (new Date(session.endsAt).getTime() < now) return t("closed");
   return t("live");
 }
 
-function eventTone(event: { startsAt: string; endsAt: string }) {
-  const status = eventPhase(event);
+function sessionTone(session: { startsAt: string; endsAt: string }) {
+  const status = sessionPhase(session);
   if (status === "live") return "green";
   if (status === "ready") return "purple";
   return "amber";
 }
 
-function eventPhase(event: { startsAt: string; endsAt: string }) {
+function sessionPhase(session: { startsAt: string; endsAt: string }) {
   const now = Date.now();
-  if (new Date(event.startsAt).getTime() > now) return "ready";
-  if (new Date(event.endsAt).getTime() < now) return "closed";
+  if (new Date(session.startsAt).getTime() > now) return "ready";
+  if (new Date(session.endsAt).getTime() < now) return "closed";
   return "live";
+}
+
+function eventSession(event: EventRecord): DashboardSession {
+  return {
+    id: `event-${event.id}`,
+    kind: "event",
+    name: event.name,
+    mode: event.mode,
+    startsAt: event.startsAt,
+    endsAt: event.endsAt,
+    totalUsers: event.summary?.totalUsers ?? event._count?.registrations ?? 0,
+    checkedIn: event.summary?.checkedIn ?? event._count?.attendances ?? 0,
+    hasQr:
+      Boolean(event.qrCodes?.length) ||
+      Boolean(event.places?.some((place) => place.qrCodes?.length)),
+  };
+}
+
+function meetingSession(meeting: MeetingRecord): DashboardSession {
+  const participants = meeting.participants ?? [];
+  return {
+    id: `meeting-${meeting.id}`,
+    kind: "meeting",
+    name: meeting.name,
+    mode: meeting.mode,
+    startsAt: meeting.startsAt,
+    endsAt: meeting.endsAt,
+    totalUsers: meeting._count?.participants ?? participants.length,
+    checkedIn: participants.filter((participant) => participant.status === "JOINED")
+      .length,
+    hasQr:
+      Boolean(meeting.qrCodes?.length) ||
+      Boolean(meeting.places?.some((place) => place.qrCodes?.length)),
+  };
 }
 
 function registrationModeLabel(

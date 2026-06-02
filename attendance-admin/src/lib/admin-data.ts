@@ -118,6 +118,7 @@ export type MeetingParticipant = {
   email?: string | null;
   status?: "INVITED" | "JOINED" | "CANCELLED";
   joinedAt?: string | null;
+  checkInCode?: string | null;
   placeId?: string | null;
   shiftId?: string | null;
 };
@@ -278,6 +279,7 @@ export type EventRosterRecord = {
   joined: boolean;
   status: "JOINED" | "CANCELLED" | "NOT_YET";
   joinedAt?: string | null;
+  checkInCode?: string | null;
 };
 
 export type RegistrationImportRecord = {
@@ -441,10 +443,12 @@ export function deleteMeeting(id: string) {
 export function getMeetingQr(id: string) {
   return api<{
     code: string;
+    qrUrl: string;
     qrImage: string;
     qrCodes?: Array<{
       id: string;
       code: string;
+      qrUrl: string;
       placeId?: string | null;
       placeName?: string | null;
       qrImage: string;
@@ -488,10 +492,12 @@ export function cancelMeetingParticipant(
 export function getEventQr(id: string) {
   return api<{
     code: string;
+    qrUrl: string;
     qrImage: string;
     qrCodes?: Array<{
       id: string;
       code: string;
+      qrUrl: string;
       placeId?: string | null;
       placeName?: string | null;
       qrImage: string;

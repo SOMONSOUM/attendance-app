@@ -46,4 +46,5 @@ export class JoinEventDto {
   @IsOptional()
   @IsString()
   department?: string;
+
 }

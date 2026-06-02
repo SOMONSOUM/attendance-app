@@ -283,11 +283,13 @@ export class MeetingsService {
     if (!qrs.length) throw new NotFoundException("Meeting QR code not found");
     return {
       code: qrs[0].code,
+      qrUrl: this.toMeetingScanUrl(qrs[0].code),
       qrImage: await this.toQrImage(qrs[0].code),
       qrCodes: await Promise.all(
         qrs.map(async (qr) => ({
           id: qr.id,
           code: qr.code,
+          qrUrl: this.toMeetingScanUrl(qr.code),
           placeId: qr.placeId,
           placeName: qr.place?.name ?? null,
           qrImage: await this.toQrImage(qr.code),
@@ -617,9 +619,11 @@ export class MeetingsService {
   }
 
   private toQrImage(code: string) {
-    return QRCode.toDataURL(
-      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/meeting-scan/${code}`,
-    );
+    return QRCode.toDataURL(this.toMeetingScanUrl(code));
+  }
+
+  private toMeetingScanUrl(code: string) {
+    return `${this.attendanceAppUrl()}/en/meeting-scan/${code}`;
   }
 
   private async assertShift(meetingId: string, shiftId: string) {
@@ -637,6 +641,13 @@ export class MeetingsService {
 
   private toParticipantQrImage(code: string) {
     return QRCode.toDataURL(code);
+  }
+
+  private attendanceAppUrl() {
+    return (process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000").replace(
+      /\/$/,
+      "",
+    );
   }
 
   private toQrCode() {

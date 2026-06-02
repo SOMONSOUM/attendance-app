@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { EventMode, Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import { AttendanceRepository } from "./attendance.repository";
@@ -27,7 +27,6 @@ export class AttendanceService {
     if (!qr?.active || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
     const activeShift = this.assertScanWindow(qr.event);
-    const distanceMeters = this.assertLocation(qr.place, dto);
     const registration = dto.registrationId
       ? await this.prisma.eventRegistration.findFirst({
         where: {
@@ -40,7 +39,18 @@ export class AttendanceService {
     if (dto.registrationId && !registration) {
       throw new NotFoundException("Registration not found for this QR code");
     }
+    if (qr.event.mode === EventMode.BULK_REGISTRATION && registration) {
+      if (!registration.checkInCode) {
+        throw new NotFoundException("Registration QR code not found");
+      }
 
+      return {
+        ...registration,
+        qrImage: await this.toAttendeeQrImage(registration.checkInCode),
+      };
+    }
+
+    const distanceMeters = this.assertLocation(qr.place, dto);
     const existingAttendance = await this.prisma.attendance.findFirst({
       where: {
         eventId: qr.eventId,
@@ -186,6 +196,7 @@ export class AttendanceService {
         gender: registration.gender,
         position: registration.position,
         department: registration.department,
+        checkInCode: registration.checkInCode,
         joined: Boolean(attendance),
         status: attendance?.status ?? "NOT_YET",
         joinedAt: attendance?.createdAt ?? null,

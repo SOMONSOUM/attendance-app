@@ -7,9 +7,11 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   CalendarDays,
+  Check,
   UserCheck,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -50,6 +52,7 @@ import {
   LocationRequirementBadge,
   MeetingDetailsCard,
   MetricCard,
+  PersonalQrButton,
   PlacesEmptyState,
   QrPlaceCard,
   SingleQrCard,
@@ -311,6 +314,7 @@ export default function MeetingDetailPage() {
                         joined={place.joined}
                         rate={place.rate}
                         code={place.qr?.code}
+                        qrUrl={place.qr?.qrUrl}
                         qrImage={place.qr?.qrImage}
                         fileName={`${meeting.name}-${place.name}.png`}
                         href={`/${locale}/meetings/${meeting.id}?placeId=${place.id}`}
@@ -330,6 +334,7 @@ export default function MeetingDetailPage() {
                   <SingleQrCard
                     name={meeting.name}
                     code={qrQuery.data?.code}
+                    qrUrl={qrQuery.data?.qrUrl}
                     qrImage={qrQuery.data?.qrImage}
                     labels={singleQrLabels(t)}
                   />
@@ -415,7 +420,7 @@ export default function MeetingDetailPage() {
                       <TableHead>{common("department")}</TableHead>
                       <TableHead>{common("status")}</TableHead>
                       <TableHead>{t("joinedTime")}</TableHead>
-                      <TableHead>{common("actions")}</TableHead>
+                      <TableHead className="text-right">{common("actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -453,31 +458,44 @@ export default function MeetingDetailPage() {
                             ? formatDateTime(participant.joinedAt)
                             : "-"}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-2">
-                            {participant.status === "JOINED" && participant.id ? (
-                              <Button
-                                variant="outline"
-                                className="h-8"
-                                disabled={cancelMutation.isPending}
-                                onClick={() =>
-                                  cancelMutation.mutate(participant.id!)
-                                }
-                              >
-                                {t("cancelJoin")}
-                              </Button>
-                            ) : participant.id ? (
-                              <Button
-                                variant="outline"
-                                className="h-8"
-                                disabled={joinMutation.isPending}
-                                onClick={() =>
-                                  joinMutation.mutate(participant.id!)
-                                }
-                              >
-                                <UserCheck size={14} />
-                                {common("join")}
-                              </Button>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {participant.id ? (
+                              <>
+                                <PersonalQrButton
+                                  name={participant.fullNameEn}
+                                  code={participant.checkInCode}
+                                  fileName={`${meeting.name}-${participant.fullNameEn}.png`}
+                                />
+                                {participant.status === "JOINED" ? (
+                                  <Button
+                                    variant="destructive"
+                                    size="icon-sm"
+                                    className="shrink-0"
+                                    disabled={cancelMutation.isPending}
+                                    onClick={() =>
+                                      cancelMutation.mutate(participant.id!)
+                                    }
+                                    aria-label={`Cancel check-in for ${participant.fullNameEn}`}
+                                    title={`Cancel check-in for ${participant.fullNameEn}`}
+                                  >
+                                    <X />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="icon-sm"
+                                    className="shrink-0"
+                                    disabled={joinMutation.isPending}
+                                    onClick={() =>
+                                      joinMutation.mutate(participant.id!)
+                                    }
+                                    aria-label={`Check in ${participant.fullNameEn}`}
+                                    title={`Check in ${participant.fullNameEn}`}
+                                  >
+                                    <Check />
+                                  </Button>
+                                )}
+                              </>
                             ) : (
                               <span className="text-sm text-muted-fg">-</span>
                             )}

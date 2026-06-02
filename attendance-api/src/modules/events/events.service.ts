@@ -319,11 +319,13 @@ export class EventsService {
     if (!qrs.length) throw new NotFoundException("QR code not found");
     return {
       code: qrs[0].code,
+      qrUrl: this.toEventScanUrl(qrs[0].code),
       qrImage: await this.toQrImage(qrs[0].code),
       qrCodes: await Promise.all(
         qrs.map(async (qr) => ({
           id: qr.id,
           code: qr.code,
+          qrUrl: this.toEventScanUrl(qr.code),
           placeId: qr.placeId,
           placeName: qr.place?.name ?? null,
           qrImage: await this.toQrImage(qr.code),
@@ -469,8 +471,17 @@ export class EventsService {
   }
 
   private toQrImage(code: string) {
-    return QRCode.toDataURL(
-      `${process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000"}/en/scan/${code}`,
+    return QRCode.toDataURL(this.toEventScanUrl(code));
+  }
+
+  private toEventScanUrl(code: string) {
+    return `${this.attendanceAppUrl()}/en/scan/${code}`;
+  }
+
+  private attendanceAppUrl() {
+    return (process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000").replace(
+      /\/$/,
+      "",
     );
   }
 

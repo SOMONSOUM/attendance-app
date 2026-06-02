@@ -168,6 +168,7 @@ export function QrPlaceCard({
   joined,
   rate,
   code,
+  qrUrl,
   qrImage,
   fileName,
   href,
@@ -183,6 +184,7 @@ export function QrPlaceCard({
   joined: number;
   rate: number;
   code?: string;
+  qrUrl?: string;
   qrImage?: string;
   fileName: string;
   href: string;
@@ -285,6 +287,7 @@ export function QrPlaceCard({
         onOpenChange={setPreviewOpen}
         title={name}
         code={code}
+        qrUrl={qrUrl}
         fileName={fileName}
       />
     </div>
@@ -294,11 +297,13 @@ export function QrPlaceCard({
 export function SingleQrCard({
   name,
   code,
+  qrUrl,
   qrImage,
   labels,
 }: {
   name: string;
   code?: string;
+  qrUrl?: string;
   qrImage?: string;
   labels: {
     title: string;
@@ -355,9 +360,47 @@ export function SingleQrCard({
         onOpenChange={setPreviewOpen}
         title={name}
         code={code}
+        qrUrl={qrUrl}
         fileName={`${name}.png`}
       />
     </div>
+  );
+}
+
+export function PersonalQrButton({
+  name,
+  code,
+  fileName,
+}: {
+  name: string;
+  code?: string | null;
+  fileName: string;
+}) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const label = `Personal QR for ${name}`;
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        className="shrink-0"
+        disabled={!code}
+        onClick={() => setPreviewOpen(true)}
+        aria-label={label}
+        title={label}
+      >
+        <QrCode />
+      </Button>
+      <QrPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title={name}
+        code={code ?? undefined}
+        fileName={fileName}
+      />
+    </>
   );
 }
 
@@ -366,29 +409,32 @@ function QrPreviewDialog({
   onOpenChange,
   title,
   code,
+  qrUrl,
   fileName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   code?: string;
+  qrUrl?: string;
   fileName: string;
 }) {
   const qrRef = useRef<HTMLCanvasElement>(null);
+  const qrValue = qrUrl ?? code;
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       title={`${title} QR`}
-      description={code ?? "QR code is still being generated."}
+      description={qrValue ?? "QR code is still being generated."}
     >
       <div className="grid justify-items-center gap-4">
         <div className="rounded-md border border-border bg-white p-4">
-          {code ? (
+          {qrValue ? (
             <QRCodeCanvas
               ref={qrRef}
-              value={code}
+              value={qrValue}
               size={240}
               level="H"
               includeMargin
@@ -409,7 +455,7 @@ function QrPreviewDialog({
           </Button>
           <Button
             type="button"
-            disabled={!code}
+            disabled={!qrValue}
             onClick={() => downloadCanvas(qrRef.current, fileName)}
           >
             <Download size={14} />

@@ -7,11 +7,13 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   BarChart3,
+  Check,
   Clock,
   RotateCcw,
   UserCheck,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -52,6 +54,7 @@ import {
   EventDetailsCard,
   LocationRequirementBadge,
   MetricCard,
+  PersonalQrButton,
   PlacesEmptyState,
   QrPlaceCard,
   SingleQrCard,
@@ -337,6 +340,7 @@ export default function EventDetailPage() {
                           joined={place.joined}
                           rate={place.rate}
                           code={place.qr?.code}
+                          qrUrl={place.qr?.qrUrl}
                           qrImage={place.qr?.qrImage}
                           fileName={`${event.name}-${place.name}.png`}
                           href={`/${locale}/events/${event.id}?placeId=${place.id}`}
@@ -356,6 +360,7 @@ export default function EventDetailPage() {
                   <SingleQrCard
                     name={event.name}
                     code={qrQuery.data?.code}
+                    qrUrl={qrQuery.data?.qrUrl}
                     qrImage={qrQuery.data?.qrImage}
                     labels={singleQrLabels(t, "event")}
                   />
@@ -476,7 +481,7 @@ export default function EventDetailPage() {
                       <TableHead>{t("shift")}</TableHead>
                       <TableHead>{common("joined")}</TableHead>
                       <TableHead>{t("joinedTime")}</TableHead>
-                      <TableHead>{common("action")}</TableHead>
+                      <TableHead className="text-right">{common("action")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -519,27 +524,56 @@ export default function EventDetailPage() {
                             ? formatDateTime(row.joinedAt)
                             : "-"}
                         </TableCell>
-                        <TableCell>
-                          {row.joined && row.attendanceId ? (
+                        <TableCell className="text-right">
+                          {row.registrationId ? (
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <PersonalQrButton
+                                name={row.fullNameEn}
+                                code={row.checkInCode}
+                                fileName={`${event.name}-${row.fullNameEn}.png`}
+                              />
+                              {row.joined && row.attendanceId ? (
+                                <Button
+                                  variant="destructive"
+                                  size="icon-sm"
+                                  className="shrink-0"
+                                  disabled={cancelMutation.isPending}
+                                  onClick={() =>
+                                    cancelMutation.mutate(row.attendanceId!)
+                                  }
+                                  aria-label={`Cancel check-in for ${row.fullNameEn}`}
+                                  title={`Cancel check-in for ${row.fullNameEn}`}
+                                >
+                                  <X />
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="icon-sm"
+                                  className="shrink-0"
+                                  disabled={joinMutation.isPending}
+                                  onClick={() =>
+                                    joinMutation.mutate(row.registrationId!)
+                                  }
+                                  aria-label={`Check in ${row.fullNameEn}`}
+                                  title={`Check in ${row.fullNameEn}`}
+                                >
+                                  <Check />
+                                </Button>
+                              )}
+                            </div>
+                          ) : row.joined && row.attendanceId ? (
                             <Button
-                              variant="outline"
-                              className="h-8"
+                              variant="destructive"
+                              size="icon-sm"
+                              className="shrink-0"
                               disabled={cancelMutation.isPending}
                               onClick={() =>
                                 cancelMutation.mutate(row.attendanceId!)
                               }
+                              aria-label={`Cancel check-in for ${row.fullNameEn}`}
+                              title={`Cancel check-in for ${row.fullNameEn}`}
                             >
-                              {t("cancelJoin")}
-                            </Button>
-                          ) : row.registrationId ? (
-                            <Button
-                              className="h-8"
-                              disabled={joinMutation.isPending}
-                              onClick={() =>
-                                joinMutation.mutate(row.registrationId!)
-                              }
-                            >
-                              {t("joinEvent")}
+                              <X />
                             </Button>
                           ) : (
                             <span className="text-sm text-muted-fg">-</span>

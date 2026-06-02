@@ -224,16 +224,14 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
 
     setBusy(true);
     setStatus(
-      event.mode === "BULK_REGISTRATION" && event.requireLocation
-        ? "Requesting your current location..."
-        : event.mode === "BULK_REGISTRATION"
-          ? t("checkingLocation")
-          : "Registering attendee...",
+      event.mode === "BULK_REGISTRATION"
+        ? "Preparing your personal QR..."
+        : "Registering attendee...",
     );
 
     try {
       const position =
-        event.mode === "BULK_REGISTRATION" && event.requireLocation
+        event.mode !== "BULK_REGISTRATION" && event.requireLocation
           ? await getCurrentLocation()
           : null;
       const payload = {

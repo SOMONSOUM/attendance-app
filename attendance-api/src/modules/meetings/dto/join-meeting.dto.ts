@@ -56,4 +56,5 @@ export class JoinMeetingDto {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+
 }
