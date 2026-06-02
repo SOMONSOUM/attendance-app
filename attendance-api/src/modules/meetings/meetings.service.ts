@@ -31,6 +31,14 @@ const genderMap: Record<string, Gender> = {
   other: "OTHER",
 };
 
+type ScheduleStatus = "LIVE" | "UPCOMING" | "ENDED";
+type ScheduleShift = { startTime: Date; endTime: Date };
+type Schedulable = {
+  startsAt: Date;
+  endsAt: Date;
+  shifts?: ScheduleShift[];
+};
+
 @Injectable()
 export class MeetingsService {
   constructor(
@@ -448,7 +456,9 @@ export class MeetingsService {
   async joinByCode(code: string, dto: JoinMeetingDto) {
     const meeting = await this.getPublicByCode(code);
     this.assertMeetingDateWindow(meeting);
-    const activeShift = dto.shiftId ? null : this.assertScanWindow(meeting);
+    const activeShift = dto.shiftId
+      ? this.assertActiveShift(meeting, dto.shiftId)
+      : this.assertScanWindow(meeting);
 
     if (meeting.mode === EventMode.BULK_REGISTRATION) {
       const distanceMeters = this.assertLocation(
@@ -476,12 +486,16 @@ export class MeetingsService {
           message: "This participant already joined the meeting.",
         });
       }
+      const participantShift = participant.shiftId
+        ? this.assertActiveShift(meeting, participant.shiftId)
+        : activeShift;
 
       return this.prisma.meetingParticipant.update({
         where: { id: participant.id },
         data: {
           status: "JOINED",
           joinedAt: new Date(),
+          shiftId: participant.shiftId ?? participantShift?.id,
           latitude: dto.latitude,
           longitude: dto.longitude,
           distanceMeters,
@@ -586,7 +600,7 @@ export class MeetingsService {
     }
     this.assertMeetingDateWindow(participant.meeting);
     const activeShift = participant.shiftId
-      ? null
+      ? this.assertActiveShift(participant.meeting, participant.shiftId)
       : this.assertScanWindow(participant.meeting);
 
     return this.prisma.meetingParticipant.update({
@@ -720,6 +734,30 @@ export class MeetingsService {
     }
 
     return activeShift;
+  }
+
+  private assertActiveShift(
+    meeting: {
+      startsAt: Date;
+      endsAt: Date;
+      shifts: { id: string; startTime: Date; endTime: Date }[];
+    },
+    shiftId: string,
+  ) {
+    this.assertMeetingDateWindow(meeting);
+    const shift = meeting.shifts.find((item) => item.id === shiftId);
+    if (!shift) throw new NotFoundException("Meeting shift not found");
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (this.isWithinShift(nowMinutes, shift.startTime, shift.endTime)) {
+      return shift;
+    }
+
+    throw new BadRequestException({
+      error: "Invalid Shift Time",
+      message: "Check-in can only be confirmed during the assigned meeting shift.",
+    });
   }
 
   private assertMeetingDateWindow(meeting: { startsAt: Date; endsAt: Date }) {
@@ -899,10 +937,11 @@ export class MeetingsService {
     };
   }
 
-  private withPrimaryPlace<T extends { places?: Array<Record<string, any>> }>(
+  private withPrimaryPlace<T extends Schedulable & { places?: Array<Record<string, any>> }>(
     meeting: T,
   ) {
     const primaryPlace = meeting.places?.[0];
+    const schedule = this.scheduleState(meeting);
     return {
       ...meeting,
       requireLocation: primaryPlace?.requireLocation ?? false,
@@ -910,7 +949,72 @@ export class MeetingsService {
       latitude: primaryPlace?.latitude ?? null,
       longitude: primaryPlace?.longitude ?? null,
       radiusMeters: primaryPlace?.radiusMeters ?? 0,
+      scheduleStatus: schedule.status,
+      scheduleSortAt: schedule.sortAt,
     };
+  }
+
+  private scheduleState(item: Schedulable): {
+    status: ScheduleStatus;
+    sortAt: Date | null;
+  } {
+    const now = new Date();
+    const shifts = item.shifts ?? [];
+
+    if (!shifts.length) {
+      const start = this.startOfDay(item.startsAt);
+      const end = this.endOfDay(item.endsAt);
+      if (now < start) return { status: "UPCOMING", sortAt: start };
+      if (now > end) return { status: "ENDED", sortAt: end };
+      return { status: "LIVE", sortAt: start };
+    }
+
+    const occurrences = this.shiftOccurrences(item);
+    const active = occurrences.find(
+      (occurrence) => now >= occurrence.start && now <= occurrence.end,
+    );
+    if (active) return { status: "LIVE", sortAt: active.start };
+
+    const next = occurrences.find((occurrence) => occurrence.start > now);
+    if (next) return { status: "UPCOMING", sortAt: next.start };
+
+    const last = occurrences.at(-1);
+    return { status: "ENDED", sortAt: last?.end ?? this.endOfDay(item.endsAt) };
+  }
+
+  private shiftOccurrences(item: Schedulable) {
+    const firstDay = this.startOfDay(item.startsAt);
+    const lastDay = this.startOfDay(item.endsAt);
+    const occurrences: Array<{ start: Date; end: Date }> = [];
+
+    for (
+      let day = new Date(firstDay);
+      day <= lastDay;
+      day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
+    ) {
+      for (const shift of item.shifts ?? []) {
+        const start = new Date(day);
+        start.setHours(
+          shift.startTime.getUTCHours(),
+          shift.startTime.getUTCMinutes(),
+          0,
+          0,
+        );
+
+        const end = new Date(day);
+        end.setHours(
+          shift.endTime.getUTCHours(),
+          shift.endTime.getUTCMinutes(),
+          0,
+          0,
+        );
+        if (end <= start) end.setDate(end.getDate() + 1);
+
+        occurrences.push({ start, end });
+      }
+    }
+
+    return occurrences.sort((a, b) => a.start.getTime() - b.start.getTime());
   }
 
   private async toMeetingChairpersonData(

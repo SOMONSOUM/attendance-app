@@ -59,6 +59,7 @@ import {
   type PlaceRecord,
   listMeetings,
   updateMeeting,
+  uploadMeetingParticipants,
   uploadMeetingRegistrationImport,
 } from "@/lib/admin-data";
 import { meetingSchema } from "@/lib/validation";
@@ -118,6 +119,12 @@ export default function MeetingsPage() {
   const [form, setForm] = useState<MeetingForm>(initialForm);
   const [participantFile, setParticipantFile] = useState<File | null>(null);
   const [sourceImportId, setSourceImportId] = useState("");
+  const [placeParticipantFiles, setPlaceParticipantFiles] = useState<
+    Record<number, File | null>
+  >({});
+  const [placeParticipantImportIds, setPlaceParticipantImportIds] = useState<
+    Record<number, string>
+  >({});
   const [deleteTarget, setDeleteTarget] = useState<MeetingRecord | null>(null);
   const [page, setPage] = useState(1);
   const [step, setStep] = useState(0);
@@ -165,12 +172,29 @@ export default function MeetingsPage() {
       const meeting = await savedMeeting;
 
       if (isBulkRegistrationMode(form.mode)) {
-        if (sourceImportId) {
+        if (!form.separateQrByPlace && sourceImportId) {
           await copyMeetingRegistrationImport(meeting.id, sourceImportId);
-        } else if (participantFile) {
+        } else if (!form.separateQrByPlace && participantFile) {
           const uploaded =
             await uploadMeetingRegistrationImport(participantFile);
           await copyMeetingRegistrationImport(meeting.id, uploaded.id);
+        }
+        if (form.separateQrByPlace) {
+          for (const [index, place] of (meeting.places ?? []).entries()) {
+            if (!place.id) continue;
+            const file = placeParticipantFiles[index];
+            const importId = placeParticipantImportIds[index];
+
+            if (importId) {
+              await copyMeetingRegistrationImport(
+                meeting.id,
+                importId,
+                place.id,
+              );
+            } else if (file) {
+              await uploadMeetingParticipants(meeting.id, file, place.id);
+            }
+          }
         }
       }
 
@@ -198,6 +222,8 @@ export default function MeetingsPage() {
     setForm(initialForm);
     setParticipantFile(null);
     setSourceImportId("");
+    setPlaceParticipantFiles({});
+    setPlaceParticipantImportIds({});
     setStepError("");
     setStep(0);
   }
@@ -241,6 +267,8 @@ export default function MeetingsPage() {
     });
     setParticipantFile(null);
     setSourceImportId("");
+    setPlaceParticipantFiles({});
+    setPlaceParticipantImportIds({});
     setStepError("");
     setStep(0);
   }
@@ -305,6 +333,21 @@ export default function MeetingsPage() {
     updatePlace(index, catalogPlaceToMeetingPlace(catalogPlace));
   }
 
+  function changeQrMode(separateQrByPlace: boolean) {
+    setForm({
+      ...form,
+      separateQrByPlace,
+      places:
+        separateQrByPlace && !form.places?.length
+          ? [{ ...emptyPlace }]
+          : form.places,
+    });
+    if (!separateQrByPlace) {
+      setPlaceParticipantFiles({});
+      setPlaceParticipantImportIds({});
+    }
+  }
+
   function applyCatalogChairperson(index: number, chairpersonId: string) {
     if (!chairpersonId) {
       updateChairperson(index, {
@@ -337,6 +380,8 @@ export default function MeetingsPage() {
     if (!isBulkRegistrationMode(mode)) {
       setParticipantFile(null);
       setSourceImportId("");
+      setPlaceParticipantFiles({});
+      setPlaceParticipantImportIds({});
     }
   }
 
@@ -577,16 +622,7 @@ export default function MeetingsPage() {
                       <Select
                         value={form.separateQrByPlace ? "separate" : "single"}
                         onChange={(event) =>
-                          setForm({
-                            ...form,
-                            separateQrByPlace:
-                              event.target.value === "separate",
-                            places:
-                              event.target.value === "separate" &&
-                              !form.places?.length
-                                ? [{ ...emptyPlace }]
-                                : form.places,
-                          })
+                          changeQrMode(event.target.value === "separate")
                         }
                       >
                         <option value="single">
@@ -599,11 +635,18 @@ export default function MeetingsPage() {
                     </Field>
 
                     {form.separateQrByPlace ? (
-                      <div className="grid gap-3">
-                        <div className="flex items-center justify-between gap-3">
+                      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+                        <div>
                           <h3 className="text-sm font-semibold">
-                            Meeting places
+                            QR code setup
                           </h3>
+                          <p className="mt-1 text-xs text-muted-fg">
+                            Use one QR for the whole meeting, or create separate
+                            QR codes for each place, hall, or room.
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <Label>Places / halls / rooms</Label>
                           <Button
                             type="button"
                             variant="outline"
@@ -613,7 +656,10 @@ export default function MeetingsPage() {
                                 ...form,
                                 places: [
                                   ...(form.places ?? []),
-                                  { ...emptyPlace },
+                                  {
+                                    ...emptyPlace,
+                                    name: `Place ${(form.places?.length ?? 0) + 1}`,
+                                  },
                                 ],
                               })
                             }
@@ -685,6 +731,15 @@ export default function MeetingsPage() {
                                 })
                               }
                             />
+                            <Input
+                              placeholder="Place description"
+                              value={place.description ?? ""}
+                              onChange={(event) =>
+                                updatePlace(index, {
+                                  description: event.target.value,
+                                })
+                              }
+                            />
                             {form.mode !== "PRE_REGISTRATION" ? (
                               <LocationPicker
                                 value={{
@@ -712,6 +767,73 @@ export default function MeetingsPage() {
                                 }
                                 title={`${place.name || `Place ${index + 1}`} location check-in`}
                               />
+                            ) : null}
+                            {isBulkRegistrationMode(form.mode) ? (
+                              <div className="grid gap-3">
+                                <div className="grid gap-2">
+                                  <Label>Saved participant import</Label>
+                                  <Select
+                                    value={
+                                      placeParticipantImportIds[index] ?? ""
+                                    }
+                                    onChange={(event) => {
+                                      const importId = event.target.value;
+                                      setPlaceParticipantImportIds({
+                                        ...placeParticipantImportIds,
+                                        [index]: importId,
+                                      });
+                                      if (importId) {
+                                        setPlaceParticipantFiles({
+                                          ...placeParticipantFiles,
+                                          [index]: null,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <option value="">
+                                      Do not use saved import
+                                    </option>
+                                    {meetingImports.map((item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {item.originalName} ({item.rowCount}{" "}
+                                        participants)
+                                      </option>
+                                    ))}
+                                  </Select>
+                                </div>
+                                <label className="grid gap-2 text-sm font-medium">
+                                  Upload Excel for this place
+                                  <Input
+                                    type="file"
+                                    accept=".xlsx,.xls"
+                                    disabled={Boolean(
+                                      placeParticipantImportIds[index],
+                                    )}
+                                    onChange={(event) =>
+                                      setPlaceParticipantFiles({
+                                        ...placeParticipantFiles,
+                                        [index]:
+                                          event.target.files?.[0] ?? null,
+                                      })
+                                    }
+                                  />
+                                </label>
+                                {placeParticipantImportIds[index] ? (
+                                  <p className="text-xs text-muted-fg">
+                                    Using saved import:{" "}
+                                    {meetingImports.find(
+                                      (item) =>
+                                        item.id ===
+                                        placeParticipantImportIds[index],
+                                    )?.originalName ?? "Selected import"}
+                                  </p>
+                                ) : placeParticipantFiles[index] ? (
+                                  <p className="text-xs text-muted-fg">
+                                    Selected file:{" "}
+                                    {placeParticipantFiles[index]?.name}
+                                  </p>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
                         ))}
@@ -1386,16 +1508,29 @@ function normalizeTime(value: string) {
   return value.length === 5 ? value : value.slice(0, 5);
 }
 
-function meetingStatus(meeting: { startsAt: string; endsAt: string }) {
-  const now = Date.now();
-  if (new Date(meeting.startsAt).getTime() > now) return "Ready";
-  if (new Date(meeting.endsAt).getTime() < now) return "Closed";
-  return "Live";
+function meetingStatus(meeting: {
+  scheduleStatus?: MeetingRecord["scheduleStatus"];
+  startsAt: string;
+  endsAt: string;
+  shifts?: EventShift[];
+}) {
+  return scheduleStatusLabel(meeting.scheduleStatus);
 }
 
-function meetingTone(meeting: { startsAt: string; endsAt: string }) {
-  const status = meetingStatus(meeting);
-  if (status === "Live") return "green";
-  if (status === "Ready") return "blue";
+function meetingTone(meeting: {
+  scheduleStatus?: MeetingRecord["scheduleStatus"];
+  startsAt: string;
+  endsAt: string;
+  shifts?: EventShift[];
+}) {
+  const status = meeting.scheduleStatus;
+  if (status === "LIVE") return "green";
+  if (status === "UPCOMING") return "blue";
   return "amber";
+}
+
+function scheduleStatusLabel(status?: MeetingRecord["scheduleStatus"]) {
+  if (status === "LIVE") return "Live";
+  if (status === "ENDED") return "Closed";
+  return "Ready";
 }

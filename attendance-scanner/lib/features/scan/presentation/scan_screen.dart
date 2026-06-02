@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../../../core/platform/device_form_factor.dart';
 import '../../../core/widgets/app_settings_actions.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -43,33 +45,33 @@ class _SelectedItemKey {
 }
 
 class _L10n {
-  String get qrScanner => 'qrScanner'.tr();
-  String get adminUser => 'adminUser'.tr();
-  String get errorTitle => 'errorTitle'.tr();
-  String get ok => 'ok'.tr();
-  String get checkInMethod => 'checkInMethod'.tr();
-  String get enterCheckInCode => 'enterCheckInCode'.tr();
-  String get typeOrPasteCode => 'typeOrPasteCode'.tr();
-  String get checkIn => 'checkIn'.tr();
-  String get or => 'or'.tr();
-  String get scanPersonalQr => 'scanPersonalQr'.tr();
-  String get attendeeQrHelp => 'attendeeQrHelp'.tr();
-  String get usbReader => 'usbReader'.tr();
-  String get checkedInSuccessfully => 'checkedInSuccessfully'.tr();
-  String get waitingForScan => 'waitingForScan'.tr();
-  String get checkInResult => 'checkInResult'.tr();
-  String get scanSuccessful => 'scanSuccessful'.tr();
-  String get scanNextAttendee => 'scanNextAttendee'.tr();
-  String get alignQrCode => 'alignQrCode'.tr();
-  String get recentCheckIns => 'recentCheckIns'.tr();
-  String get noRecentCheckIns => 'noRecentCheckIns'.tr();
-  String get noProfileYet => 'noProfileYet'.tr();
-  String get noProfileHelp => 'noProfileHelp'.tr();
-  String get fullName => 'fullName'.tr();
-  String get gender => 'gender'.tr();
-  String get phoneNumber => 'phoneNumber'.tr();
-  String get position => 'position'.tr();
-  String get organization => 'organization'.tr();
+  String get qrScanner => L.scanner.title.tr();
+  String get adminUser => L.common.adminUser.tr();
+  String get errorTitle => L.scanner.errorTitle.tr();
+  String get ok => L.common.ok.tr();
+  String get checkInMethod => L.scanner.method.tr();
+  String get enterCheckInCode => L.scanner.enterCheckInCode.tr();
+  String get typeOrPasteCode => L.scanner.typeOrPasteCode.tr();
+  String get checkIn => L.scanner.checkIn.tr();
+  String get or => L.scanner.or.tr();
+  String get scanPersonalQr => L.scanner.scanPersonalQr.tr();
+  String get attendeeQrHelp => L.scanner.attendeeQrHelp.tr();
+  String get usbReader => L.scanner.usbReader.tr();
+  String get checkedInSuccessfully => L.scanner.checkedInSuccessfully.tr();
+  String get waitingForScan => L.scanner.waitingForScan.tr();
+  String get checkInResult => L.scanner.result.tr();
+  String get scanSuccessful => L.scanner.successful.tr();
+  String get scanNextAttendee => L.scanner.scanNextAttendee.tr();
+  String get alignQrCode => L.scanner.alignQrCode.tr();
+  String get recentCheckIns => L.scanner.recentCheckIns.tr();
+  String get noRecentCheckIns => L.scanner.noRecentCheckIns.tr();
+  String get noProfileYet => L.scanner.noProfileYet.tr();
+  String get noProfileHelp => L.scanner.noProfileHelp.tr();
+  String get fullName => L.scanner.fullName.tr();
+  String get gender => L.scanner.gender.tr();
+  String get phoneNumber => L.scanner.phoneNumber.tr();
+  String get position => L.scanner.position.tr();
+  String get organization => L.scanner.organization.tr();
 }
 
 class ScanScreen extends ConsumerStatefulWidget {
@@ -358,27 +360,26 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     if (!mounted) return;
     final tone = _scanDialogTone(message);
     final translatedMessage = _localizedScanMessage(message);
+    BuildContext? dialogContext;
+    final timer = Timer(const Duration(seconds: 5), () {
+      final context = dialogContext;
+      if (context != null && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        icon: CircleAvatar(
-          backgroundColor: tone.color.withValues(alpha: 0.14),
-          foregroundColor: tone.color,
-          child: Icon(tone.icon),
-        ),
-        title: Text(tone.title),
-        content: Text(
-          translatedMessage,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(_L10n().ok),
-          ),
-        ],
-      ),
-    );
+      builder: (context) {
+        dialogContext = context;
+        return _GlassNoticeDialog(
+          icon: tone.icon,
+          tone: tone.color,
+          title: tone.title,
+          message: translatedMessage,
+          actionLabel: _L10n().ok,
+        );
+      },
+    ).whenComplete(timer.cancel);
     if (!mounted) return;
     if (supportsCameraScanning) {
       setState(() => _cameraPaused = false);
@@ -403,28 +404,16 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       _endedDialogOpen = true;
       showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          icon: CircleAvatar(
-            backgroundColor: const Color(0xFFD97706).withValues(alpha: 0.14),
-            foregroundColor: const Color(0xFFD97706),
-            child: const Icon(Icons.event_busy_rounded),
-          ),
-          title: Text(
-            item.kind == EventMeetingKind.meeting
-                ? 'meetingEndedTitle'.tr()
-                : 'eventEndedTitle'.tr(),
-          ),
-          content: Text(
-            item.kind == EventMeetingKind.meeting
-                ? 'meetingEndedNotice'.tr()
-                : 'eventEndedNotice'.tr(),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(_L10n().ok),
-            ),
-          ],
+        builder: (context) => _GlassNoticeDialog(
+          icon: Icons.event_busy_rounded,
+          tone: const Color(0xFFD97706),
+          title: item.kind == EventMeetingKind.meeting
+              ? L.checkIn.meetingEndedTitle.tr()
+              : L.checkIn.eventEndedTitle.tr(),
+          message: item.kind == EventMeetingKind.meeting
+              ? L.checkIn.meetingEndedNotice.tr()
+              : L.checkIn.eventEndedNotice.tr(),
+          actionLabel: _L10n().ok,
         ),
       ).whenComplete(() => _endedDialogOpen = false);
     });
@@ -450,14 +439,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 
   if (unavailable) {
     return (
-      title: 'checkInUnavailableTitle'.tr(),
+      title: L.checkIn.unavailableTitle.tr(),
       icon: Icons.event_busy_rounded,
       color: const Color(0xFFD97706),
     );
   }
   if (alreadyCheckedIn) {
     return (
-      title: 'alreadyCheckedInTitle'.tr(),
+      title: L.checkIn.alreadyCheckedInTitle.tr(),
       icon: Icons.warning_amber_rounded,
       color: const Color(0xFFD97706),
     );
@@ -471,23 +460,23 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
 }
 
 String _localizedScanMessage(String message) {
-  return _translationKeys.contains(message) ? message.tr() : message;
+  return _translationKeys[message]?.tr() ?? message;
 }
 
-const _translationKeys = {
-  'invalidEventQrForMeeting',
-  'invalidMeetingQrForEvent',
-  'checkInResponseUnread',
-  'checkInFailedGeneric',
-  'meetingNotStartedMessage',
-  'eventNotStartedMessage',
-  'meetingEndedMessage',
-  'eventEndedMessage',
-  'activeShiftMessage',
-  'alreadyCheckedInMessage',
-  'invalidQrMessage',
-  'locationRequiredMessage',
-  'serverConnectionMessage',
-  'badCertificateMessage',
-  'checkInCancelledMessage',
+final _translationKeys = {
+  'invalidEventQrForMeeting': L.checkIn.invalidEventQrForMeeting,
+  'invalidMeetingQrForEvent': L.checkIn.invalidMeetingQrForEvent,
+  'checkInResponseUnread': L.checkIn.responseUnread,
+  'checkInFailedGeneric': L.checkIn.failedGeneric,
+  'meetingNotStartedMessage': L.checkIn.meetingNotStartedMessage,
+  'eventNotStartedMessage': L.checkIn.eventNotStartedMessage,
+  'meetingEndedMessage': L.checkIn.meetingEndedMessage,
+  'eventEndedMessage': L.checkIn.eventEndedMessage,
+  'activeShiftMessage': L.checkIn.activeShiftMessage,
+  'alreadyCheckedInMessage': L.checkIn.alreadyCheckedInMessage,
+  'invalidQrMessage': L.checkIn.invalidQrMessage,
+  'locationRequiredMessage': L.checkIn.locationRequiredMessage,
+  'serverConnectionMessage': L.checkIn.serverConnectionMessage,
+  'badCertificateMessage': L.checkIn.badCertificateMessage,
+  'checkInCancelledMessage': L.checkIn.cancelledMessage,
 };

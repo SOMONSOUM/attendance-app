@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../state/auth_controller.dart';
 import '../widgets/profile_menu.dart';
@@ -14,11 +15,11 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).user;
     final colors = Theme.of(context).colorScheme;
-    final name = user?.fullNameEn ?? 'adminUser'.tr();
+    final name = user?.fullNameEn ?? L.common.adminUser.tr();
     final email = user?.email ?? 'admin@organization.com';
 
     return Scaffold(
-      appBar: AppBar(title: Text('profile'.tr())),
+      appBar: AppBar(title: Text(L.common.profile.tr())),
       body: ResponsivePage(
         maxWidth: 860,
         child: ListView(
@@ -76,21 +77,21 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             _ProfilePanel(
-              title: 'account'.tr(),
+              title: L.profile.account.tr(),
               children: [
                 _ProfileField(
                   icon: LucideIcons.mail,
-                  label: 'emailAddress'.tr(),
+                  label: L.profile.emailAddress.tr(),
                   value: email,
                 ),
                 _ProfileField(
                   icon: LucideIcons.building2,
-                  label: 'tenant'.tr(),
+                  label: L.profile.tenant.tr(),
                   value: user?.tenantName ?? user?.tenantSlug ?? '-',
                 ),
                 _ProfileField(
                   icon: LucideIcons.shieldCheck,
-                  label: 'permissions'.tr(),
+                  label: L.profile.permissions.tr(),
                   value: user?.permissions.join(', ') ?? '-',
                 ),
               ],

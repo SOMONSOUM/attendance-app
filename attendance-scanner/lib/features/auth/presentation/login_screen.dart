@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../../../core/widgets/app_settings_actions.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../state/auth_controller.dart';
@@ -70,14 +71,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 : Column(
                     children: [
                       LoginBrandPanel.compact(
-                        title: 'appTitle'.tr(),
-                        subtitle: 'appSubtitle'.tr(),
+                        title: L.app.title.tr(),
+                        subtitle: L.app.subtitle.tr(),
                       ),
                       const Gap(16),
                       form,
                       const Gap(18),
                       Text(
-                        'appVersion'.tr(),
+                        L.app.version.tr(),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -111,8 +112,8 @@ class _DesktopLoginShell extends StatelessWidget {
             Expanded(
               flex: 4,
               child: LoginBrandPanel(
-                title: 'appTitle'.tr(),
-                subtitle: 'appSubtitle'.tr(),
+                title: L.app.title.tr(),
+                subtitle: L.app.subtitle.tr(),
               ),
             ),
             Expanded(flex: 6, child: form),

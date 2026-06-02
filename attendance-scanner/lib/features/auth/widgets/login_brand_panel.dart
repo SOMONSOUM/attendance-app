@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../../../core/widgets/scanner_logo.dart';
 
 class LoginBrandPanel extends StatelessWidget {
@@ -67,12 +68,12 @@ class LoginBrandPanel extends StatelessWidget {
             const Gap(28),
             _FeaturePill(
               icon: LucideIcons.shieldCheck,
-              label: 'secureAccess'.tr(),
+              label: L.header.secureAccess.tr(),
             ),
             const Gap(10),
             _FeaturePill(
               icon: LucideIcons.refreshCw,
-              label: 'realtimeSync'.tr(),
+              label: L.header.realtimeSync.tr(),
             ),
           ],
         ],

@@ -47,6 +47,18 @@ const coordinateValueSchema = z
   .nullable()
   .optional();
 
+const qrPlaceSchema = z.object({
+  id: z.string().optional(),
+  catalogPlaceId: z.string().nullable().optional(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  requireLocation: z.boolean().optional(),
+  locationName: z.string().nullable().optional(),
+  latitude: coordinateValueSchema,
+  longitude: coordinateValueSchema,
+  radiusMeters: z.number().min(0).max(5000).optional(),
+});
+
 export const placeSchema = z
   .object({
     name: z.string().trim().min(1, "Place name is required."),
@@ -86,19 +98,7 @@ export const eventSchema = z
     longitude: z.number().min(-180).max(180).optional(),
     radiusMeters: z.number().min(0).max(5000).optional(),
     places: z
-      .array(
-        z.object({
-          id: z.string().optional(),
-          catalogPlaceId: z.string().nullable().optional(),
-          name: z.string().trim().min(1, "Place name is required."),
-          description: z.string().nullable().optional(),
-          requireLocation: z.boolean().optional(),
-          locationName: z.string().nullable().optional(),
-          latitude: coordinateValueSchema,
-          longitude: coordinateValueSchema,
-          radiusMeters: z.number().min(0).max(5000).optional(),
-        }),
-      )
+      .array(qrPlaceSchema)
       .optional(),
     startsAt: dateOnlySchema,
     endsAt: dateOnlySchema,
@@ -125,6 +125,26 @@ export const eventSchema = z
   .refine((value) => value.endsAt >= value.startsAt, {
     message: "End date must be on or after the start date.",
     path: ["endsAt"],
+  })
+  .superRefine((value, context) => {
+    if (!value.separateQrByPlace) return;
+    const places = value.places ?? [];
+    if (!places.some((place) => place.name?.trim())) {
+      context.addIssue({
+        code: "custom",
+        message: "At least one place is required for separate QR codes.",
+        path: ["places"],
+      });
+    }
+    places.forEach((place, index) => {
+      if (!place.name?.trim()) {
+        context.addIssue({
+          code: "custom",
+          message: "Place name is required.",
+          path: ["places", index, "name"],
+        });
+      }
+    });
   });
 
 const meetingHostSchema = z.object({
@@ -175,19 +195,7 @@ export const meetingSchema = z
       .array(meetingHostSchema)
       .min(1, "At least one meeting chairperson is required."),
     places: z
-      .array(
-        z.object({
-          id: z.string().optional(),
-          catalogPlaceId: z.string().nullable().optional(),
-          name: z.string().trim().min(1, "Place name is required."),
-          description: z.string().nullable().optional(),
-          requireLocation: z.boolean().optional(),
-          locationName: z.string().nullable().optional(),
-          latitude: coordinateValueSchema,
-          longitude: coordinateValueSchema,
-          radiusMeters: z.number().min(0).max(5000).optional(),
-        }),
-      )
+      .array(qrPlaceSchema)
       .optional(),
     shifts: z
       .array(
@@ -204,6 +212,26 @@ export const meetingSchema = z
   .refine((value) => value.endsAt >= value.startsAt, {
     message: "End date must be on or after the start date.",
     path: ["endsAt"],
+  })
+  .superRefine((value, context) => {
+    if (!value.separateQrByPlace) return;
+    const places = value.places ?? [];
+    if (!places.some((place) => place.name?.trim())) {
+      context.addIssue({
+        code: "custom",
+        message: "At least one place is required for separate QR codes.",
+        path: ["places"],
+      });
+    }
+    places.forEach((place, index) => {
+      if (!place.name?.trim()) {
+        context.addIssue({
+          code: "custom",
+          message: "Place name is required.",
+          path: ["places", index, "name"],
+        });
+      }
+    });
   });
 
 export type LoginValues = z.infer<typeof loginSchema>;

@@ -48,6 +48,7 @@ import {
   getCurrentUser,
   hasPermission,
   type EventForm,
+  type EventShift,
   type EventRecord,
   listRegistrationImports,
   listEvents,
@@ -137,9 +138,17 @@ export default function EventsPage() {
   }
 
   function validateCurrentStep() {
+    const qrSetupFields = form.separateQrByPlace
+      ? (["mode", "places", "separateQrByPlace"] as const)
+      : ([
+          "mode",
+          "separateQrByPlace",
+          "requireLocation",
+          "locationName",
+        ] as const);
     const stepFields = [
       ["name"] as const,
-      ["mode", "places", "separateQrByPlace", "requireLocation", "locationName"] as const,
+      qrSetupFields,
       ["startsAt", "endsAt", "shifts", "theme"] as const,
     ];
     return trigger(stepFields[step], { shouldFocus: true });
@@ -322,6 +331,27 @@ export default function EventsPage() {
     const catalogPlace = catalogPlaces.find((place) => place.id === placeId);
     if (!catalogPlace) return;
     updatePlace(index, catalogPlaceToEventPlace(catalogPlace));
+  }
+
+  function changeQrMode(separateQrByPlace: boolean) {
+    setForm({
+      ...form,
+      separateQrByPlace,
+      places:
+        separateQrByPlace && !form.places?.length
+          ? [
+              {
+                ...emptyPlace,
+                name: "Main hall",
+                locationName: "Main hall",
+              },
+            ]
+          : form.places,
+    });
+    if (!separateQrByPlace) {
+      setPlaceRegistrationFiles({});
+      setPlaceRegistrationImportIds({});
+    }
   }
 
   function changeMode(mode: EventForm["mode"]) {
@@ -546,22 +576,7 @@ export default function EventsPage() {
                               form.separateQrByPlace ? "separate" : "single"
                             }
                             onChange={(event) =>
-                              setForm({
-                                ...form,
-                                separateQrByPlace:
-                                  event.target.value === "separate",
-                                places:
-                                  event.target.value === "separate" &&
-                                  !form.places?.length
-                                    ? [
-                                        {
-                                          ...emptyPlace,
-                                          name: "Main hall",
-                                          locationName: "Main hall",
-                                        },
-                                      ]
-                                    : form.places,
-                              })
+                              changeQrMode(event.target.value === "separate")
                             }
                           >
                             <option value="single">
@@ -1411,15 +1426,18 @@ function normalizeTime(value: string) {
 }
 
 function eventStatus(event: EventRecord) {
-  const now = Date.now();
-  if (new Date(event.startsAt).getTime() > now) return "Ready";
-  if (new Date(event.endsAt).getTime() < now) return "Closed";
-  return "Live";
+  return scheduleStatusLabel(event.scheduleStatus);
 }
 
 function eventTone(event: EventRecord) {
-  const status = eventStatus(event);
-  if (status === "Live") return "green";
-  if (status === "Ready") return "purple";
+  const status = event.scheduleStatus;
+  if (status === "LIVE") return "green";
+  if (status === "UPCOMING") return "purple";
   return "amber";
+}
+
+function scheduleStatusLabel(status?: EventRecord["scheduleStatus"]) {
+  if (status === "LIVE") return "Live";
+  if (status === "ENDED") return "Closed";
+  return "Ready";
 }

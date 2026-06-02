@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Download, ExternalLink, MapPin, QrCode, type LucideIcon } from "lucide-react";
+import { Download, ExternalLink, Loader2, MapPin, QrCode, type LucideIcon } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { EmptyState, StatusPill } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { formatShiftRange } from "@/lib/format";
+import { formatDate, formatDateRange, formatShiftRange } from "@/lib/format";
 import type { EventShift, MeetingChairperson } from "@/lib/admin-data";
 
 export type Coordinates = {
@@ -66,6 +66,8 @@ export function MeetingDetailsCard({
   locationName,
   requireLocation,
   coordinates,
+  startsAt,
+  endsAt,
   chairpersons,
   shifts,
   labels,
@@ -75,12 +77,15 @@ export function MeetingDetailsCard({
   locationName: string;
   requireLocation?: boolean;
   coordinates: Coordinates | null;
+  startsAt: string;
+  endsAt: string;
   chairpersons: MeetingChairperson[];
   shifts?: EventShift[];
   labels: {
     title: string;
     location: string;
     description: string;
+    schedule: string;
     chairpersons: string;
     shifts: string;
     noPosition: string;
@@ -125,6 +130,15 @@ export function MeetingDetailsCard({
             <p className="mt-1 text-sm text-muted-fg">{description}</p>
           </div>
         ) : null}
+        <div className="grid gap-3">
+          <p className="text-sm font-medium">{labels.schedule}</p>
+          <div className="rounded-md border border-border bg-background p-3">
+            <p className="font-medium">{formatDate(startsAt)}</p>
+            <p className="mt-1 text-sm text-muted-fg">
+              {formatDateRange(startsAt, endsAt)}
+            </p>
+          </div>
+        </div>
         {shifts?.length ? (
           <div className="grid gap-3">
             <p className="text-sm font-medium">{labels.shifts}</p>
@@ -477,39 +491,51 @@ function QrPreviewDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={`${title} QR`}
-      description={qrValue ?? "QR code is still being generated."}
-      contentClassName={cardPath ? "sm:max-w-[min(92vw,720px)]" : undefined}
+      description={cardPath ? "Preview and download the attendee QR card." : "Preview and download the QR code."}
+      contentClassName={cardPath ? "sm:max-w-[min(92vw,520px)]" : "sm:max-w-sm"}
     >
       <div className="grid justify-items-center gap-4">
         {cardPath ? (
           cardPreviewUrl ? (
-            <img
-              src={cardPreviewUrl}
-              alt={`${title} attendee card`}
-              className="max-h-[82vh] w-auto max-w-full rounded-md bg-[#061f5d] object-contain shadow-soft"
-              data-testid="attendee-card-preview"
-            />
+            <div className="rounded-md border border-border bg-muted p-2">
+              <img
+                src={cardPreviewUrl}
+                alt={`${title} attendee card`}
+                className="max-h-[62vh] w-auto max-w-full rounded bg-[#061f5d] object-contain shadow-sm"
+                data-testid="attendee-card-preview"
+              />
+            </div>
           ) : (
             <div className="grid min-h-72 w-full max-w-sm place-items-center rounded-md border border-dashed border-border bg-muted px-4 text-center text-sm text-muted-fg">
-              {cardLoading ? "Loading attendee card" : cardError ?? "Unable to load attendee card."}
+              {cardLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading attendee card
+                </span>
+              ) : (
+                cardError ?? "Unable to load attendee card."
+              )}
             </div>
           )
         ) : (
-        <div className="rounded-md border border-border bg-white p-4">
-          {qrValue ? (
-            <QRCodeCanvas
-              ref={qrRef}
-              value={qrValue}
-              size={240}
-              level="H"
-              includeMargin
-            />
-          ) : (
-            <div className="grid size-60 place-items-center text-sm text-muted-fg">
-              Loading QR
-            </div>
-          )}
-        </div>
+          <div className="rounded-md border border-border bg-white p-4">
+            {qrValue ? (
+              <QRCodeCanvas
+                ref={qrRef}
+                value={qrValue}
+                size={200}
+                level="H"
+                includeMargin
+              />
+            ) : (
+              <div className="grid size-52 place-items-center text-sm text-muted-fg">
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading QR
+                </span>
+              </div>
+            )}
+          </div>
         )}
         <DialogFooter className="w-full">
           <Button
@@ -523,7 +549,9 @@ function QrPreviewDialog({
             type="button"
             disabled={!qrValue && !cardPath}
             onClick={() =>
-              cardPath ? downloadImage(cardPath, fileName) : downloadCanvas(qrRef.current, fileName)
+              cardPath
+                ? downloadImage(cardPath, fileName)
+                : downloadCanvas(qrRef.current, fileName)
             }
           >
             <Download size={14} />

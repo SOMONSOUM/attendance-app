@@ -7,6 +7,7 @@ import '../features/auth/presentation/profile_screen.dart';
 import '../features/auth/state/auth_controller.dart';
 import '../features/home/data/event_meeting_models.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/home/presentation/unexpected_error_screen.dart';
 import '../features/scan/presentation/scan_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 
@@ -16,6 +17,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/home',
     refreshListenable: auth,
+    errorBuilder: (context, state) => UnexpectedErrorScreen(error: state.error),
     redirect: (context, state) {
       final loggingIn = state.matchedLocation == '/login';
       final offline = state.matchedLocation == '/offline';
@@ -43,6 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const OfflineScreen(),
       ),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+      GoRoute(
+        path: '/error',
+        builder: (context, state) => UnexpectedErrorScreen(error: state.extra),
+      ),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),

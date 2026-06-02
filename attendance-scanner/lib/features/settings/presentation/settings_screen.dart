@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/widgets/responsive_page.dart';
 
@@ -18,13 +19,13 @@ class SettingsScreen extends ConsumerWidget {
     final controller = ref.read(appSettingsProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: Text('settings'.tr())),
+      appBar: AppBar(title: Text(L.common.settings.tr())),
       body: ResponsivePage(
         maxWidth: 760,
         child: ListView(
           children: [
             Text(
-              'appearance'.tr(),
+              L.settings.appearance.tr(),
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -32,20 +33,20 @@ class SettingsScreen extends ConsumerWidget {
             const Gap(16),
             _Section(
               icon: LucideIcons.sunMoon,
-              title: 'theme'.tr(),
+              title: L.common.theme.tr(),
               child: SegmentedButton<ThemeMode>(
                 segments: [
                   ButtonSegment(
                     value: ThemeMode.system,
-                    label: Text('systemTheme'.tr()),
+                    label: Text(L.settings.systemTheme.tr()),
                   ),
                   ButtonSegment(
                     value: ThemeMode.light,
-                    label: Text('lightTheme'.tr()),
+                    label: Text(L.settings.lightTheme.tr()),
                   ),
                   ButtonSegment(
                     value: ThemeMode.dark,
-                    label: Text('darkTheme'.tr()),
+                    label: Text(L.settings.darkTheme.tr()),
                   ),
                 ],
                 selected: {settings.themeMode},
@@ -56,13 +57,13 @@ class SettingsScreen extends ConsumerWidget {
             const Gap(14),
             _Section(
               icon: LucideIcons.palette,
-              title: 'themeColor'.tr(),
+              title: L.settings.themeColor.tr(),
               child: Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: AppThemeColor.values.map((color) {
                   return Tooltip(
-                    message: color.name.tr(),
+                    message: appThemeColorKey(color).tr(),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: () => controller.setThemeColor(color),
@@ -88,7 +89,7 @@ class SettingsScreen extends ConsumerWidget {
             const Gap(14),
             _Section(
               icon: LucideIcons.type,
-              title: 'fontFamily'.tr(),
+              title: L.settings.fontFamily.tr(),
               child: DropdownButtonFormField<AppFontFamily>(
                 initialValue: settings.fontFamily,
                 decoration: const InputDecoration(),
@@ -108,7 +109,7 @@ class SettingsScreen extends ConsumerWidget {
             const Gap(14),
             _Section(
               icon: LucideIcons.textCursorInput,
-              title: 'fontSize'.tr(),
+              title: L.settings.fontSize.tr(),
               child: Slider(
                 min: 0.9,
                 max: 1.2,

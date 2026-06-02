@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../../../core/widgets/app_settings_actions.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/offline_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../core/widgets/scanner_logo.dart';
@@ -50,26 +52,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      'eventsMeetings'.tr(),
+                      L.home.eventsMeetings.tr(),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
         actions: [
-          IconButton(
-            tooltip: 'refresh'.tr(),
-            onPressed: _refreshHome,
-            icon: const Icon(LucideIcons.refreshCw),
-          ),
           const AppSettingsActions(),
-          ProfileMenu(user: auth.user, fallbackName: 'adminUser'.tr()),
+          ProfileMenu(user: auth.user, fallbackName: L.common.adminUser.tr()),
         ],
       ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => _ErrorState(
-          message: error.toString(),
+        error: (error, stackTrace) => ErrorView(
+          title: _isUnauthorized(error)
+              ? L.error.unauthorizedTitle.tr()
+              : L.error.title.tr(),
+          message: _isUnauthorized(error)
+              ? L.error.unauthorizedMessage.tr()
+              : L.error.message.tr(),
+          details: error.toString(),
           onRefresh: () => ref.read(homeControllerProvider.notifier).reload(),
         ),
         data: (value) {
@@ -113,7 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 14),
                       _SectionHeading(
-                        title: 'todayDate'.tr(
+                        title: L.home.todayDate.tr(
                           namedArgs: {
                             'date': DateFormat('d MMMM').format(DateTime.now()),
                           },
@@ -132,7 +135,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 18),
                       _SectionHeading(
-                        title: 'upcoming'.tr(),
+                        title: L.status.upcoming.tr(),
                         count: filtered.where((item) => item.isUpcoming).length,
                       ),
                       const SizedBox(height: 10),
@@ -180,4 +183,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _refreshHome() {
     return ref.read(homeControllerProvider.notifier).reload();
   }
+}
+
+bool _isUnauthorized(Object error) {
+  final text = error.toString().toLowerCase();
+  return text.contains('unauthorized') || text.contains('401');
 }

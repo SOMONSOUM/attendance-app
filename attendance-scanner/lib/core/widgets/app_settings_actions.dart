@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../localization/translation_keys.dart';
 import '../settings/app_settings.dart';
 
 class AppSettingsActions extends ConsumerWidget {
@@ -19,7 +20,7 @@ class AppSettingsActions extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'language'.tr(),
+          tooltip: L.common.language.tr(),
           onPressed: () async {
             final locale = settings.locale.languageCode == 'km'
                 ? const Locale('en')
@@ -37,7 +38,7 @@ class AppSettingsActions extends ConsumerWidget {
           ),
         ),
         IconButton(
-          tooltip: 'theme'.tr(),
+          tooltip: L.common.theme.tr(),
           onPressed: () {
             final next = settings.themeMode == ThemeMode.dark
                 ? ThemeMode.light

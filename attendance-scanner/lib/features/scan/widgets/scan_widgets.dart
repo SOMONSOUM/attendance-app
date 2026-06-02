@@ -417,72 +417,138 @@ class _SelectedScanContext extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final item = this.item;
     final isEvent = item?.kind == EventMeetingKind.event;
+    final accent = item?.kind == EventMeetingKind.meeting
+        ? const Color(0xFFEF9F27)
+        : colors.primary;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.primary.withValues(alpha: 0.08),
+        color: colors.surface.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              isEvent ? Icons.event_available : Icons.groups_rounded,
-              color: colors.primary,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isLoading) ...[
-                    const LinearProgressIndicator(minHeight: 3),
-                    const SizedBox(height: 10),
-                  ],
-                  Text(
-                    item?.title ?? 'eventsMeetings'.tr(),
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 6,
-                    children: [
-                      _DetailMeta(
-                        icon: Icons.flag_rounded,
-                        text: isEvent ? 'event'.tr() : 'meeting'.tr(),
-                      ),
-                      _DetailMeta(
-                        icon: Icons.verified_rounded,
-                        text: _detailStatus(item),
-                      ),
-                      _DetailMeta(
-                        icon: Icons.calendar_today_rounded,
-                        text: 'Start: ${_detailStart(item)}',
-                      ),
-                      _DetailMeta(
-                        icon: Icons.schedule_rounded,
-                        text: 'End: ${_detailEnd(item)}',
-                      ),
-                      _DetailMeta(
-                        icon: Icons.place_outlined,
-                        text: 'Location: ${item?.location ?? '-'}',
-                      ),
-                    ],
-                  ),
-                  if (item?.description?.isNotEmpty ?? false) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      item!.description!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      isEvent ? Icons.event_available : Icons.groups_rounded,
+                      color: accent,
+                      size: 22,
                     ),
-                  ],
-                ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    item?.title ?? L.home.eventsMeetings.tr(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _ContextStatusPill(item: item, accent: accent),
+              ],
+            ),
+            if (isLoading) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                minHeight: 3,
+                color: accent,
+                backgroundColor: accent.withValues(alpha: 0.12),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _ContextMetaChip(
+                  icon: Icons.flag_rounded,
+                  text: isEvent
+                      ? L.eventMeeting.event.tr()
+                      : L.eventMeeting.meeting.tr(),
+                ),
+                _ContextMetaChip(
+                  icon: Icons.calendar_today_rounded,
+                  text: _detailDateRange(item),
+                ),
+                if (item != null && item.shifts.isNotEmpty)
+                  _ContextMetaChip(
+                    icon: Icons.schedule_rounded,
+                    text: _detailShifts(item),
+                  ),
+                _ContextMetaChip(
+                  icon: Icons.place_outlined,
+                  text: item?.location ?? '-',
+                ),
+              ],
+            ),
+            if (item?.description?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 10),
+              Text(
+                item!.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurface.withValues(alpha: 0.72),
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContextStatusPill extends StatelessWidget {
+  const _ContextStatusPill({required this.item, required this.accent});
+
+  final EventMeetingItem? item;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accent.withValues(alpha: 0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.verified_rounded, size: 14, color: accent),
+            const SizedBox(width: 5),
+            Text(
+              _detailStatus(item),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -492,28 +558,143 @@ class _SelectedScanContext extends StatelessWidget {
   }
 }
 
-class _DetailMeta extends StatelessWidget {
-  const _DetailMeta({required this.icon, required this.text});
+class _ContextMetaChip extends StatelessWidget {
+  const _ContextMetaChip({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14),
-        const SizedBox(width: 4),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 220),
-          child: Text(
-            text,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.45)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: colors.onSurfaceVariant),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(
+                text,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassNoticeDialog extends StatelessWidget {
+  const _GlassNoticeDialog({
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+  });
+
+  final IconData icon;
+  final Color tone;
+  final String title;
+  final String message;
+  final String actionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.86),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.outline.withValues(alpha: 0.32)),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.18),
+                  blurRadius: 28,
+                  offset: const Offset(0, 18),
+                ),
+              ],
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: tone.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Icon(icon, color: tone, size: 22),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                message,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(height: 1.35),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(actionLabel),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -924,87 +1105,132 @@ Future<void> _showPersonDialog(BuildContext context, CheckInPerson person) {
   return showDialog<void>(
     context: context,
     builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: colors.primaryContainer,
-                    foregroundColor: colors.onPrimaryContainer,
-                    child: Text(
-                      _initials(person.fullName),
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.outline.withValues(alpha: 0.32)),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.18),
+                  blurRadius: 28,
+                  offset: const Offset(0, 18),
+                ),
+              ],
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          person.fullName,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w800),
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: colors.primary.withValues(
+                            alpha: 0.12,
+                          ),
+                          foregroundColor: colors.primary,
+                          child: Text(
+                            _initials(person.fullName),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          person.kindLabel,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: colors.onSurface.withValues(alpha: 0.62),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                person.fullName,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
                               ),
+                              const SizedBox(height: 4),
+                              Text(
+                                person.kindLabel,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colors.onSurface.withValues(
+                                        alpha: 0.62,
+                                      ),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: colors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: colors.primary.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            child: Text(
+                              person.status ?? 'JOINED',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colors.primaryContainer,
-                      borderRadius: BorderRadius.circular(999),
+                    const SizedBox(height: 18),
+                    Divider(
+                      height: 1,
+                      color: colors.outline.withValues(alpha: 0.42),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
+                    const SizedBox(height: 14),
+                    if (person.fullNameKm?.isNotEmpty == true)
+                      _DialogInfo(
+                        label: l10n.fullName,
+                        value: person.fullNameKm!,
                       ),
-                      child: Text(
-                        person.status ?? 'JOINED',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    _DialogInfo(label: l10n.position, value: person.position),
+                    _DialogInfo(
+                      label: l10n.organization,
+                      value: person.organization,
+                    ),
+                    _DialogInfo(
+                      label: l10n.phoneNumber,
+                      value: person.phoneNumber,
+                    ),
+                    _DialogInfo(label: l10n.gender, value: person.gender),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(l10n.ok),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 20),
-              const Divider(height: 1),
-              const SizedBox(height: 16),
-              if (person.fullNameKm?.isNotEmpty == true)
-                _DialogInfo(label: l10n.fullName, value: person.fullNameKm!),
-              _DialogInfo(label: l10n.position, value: person.position),
-              _DialogInfo(label: l10n.organization, value: person.organization),
-              _DialogInfo(label: l10n.phoneNumber, value: person.phoneNumber),
-              _DialogInfo(label: l10n.gender, value: person.gender),
-              const SizedBox(height: 6),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(l10n.ok),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1292,20 +1518,41 @@ bool _hasScannerSuffix(String value) {
   return value.contains('\n') || value.contains('\r') || value.contains('\t');
 }
 
-String _detailStart(EventMeetingItem? item) {
-  if (item?.startsAt == null) return '-';
-  return DateFormat('d MMM y, HH:mm').format(item!.startsAt!);
+String _detailDateRange(EventMeetingItem? item) {
+  final start = item?.startsAt;
+  final end = item?.endsAt;
+  if (start == null) return '-';
+  if (end == null || _sameDay(start, end)) {
+    return DateFormat('d MMM y').format(start);
+  }
+  final format = DateFormat('d MMM y');
+  return '${format.format(start)} - ${format.format(end)}';
 }
 
-String _detailEnd(EventMeetingItem? item) {
-  if (item?.endsAt == null) return '-';
-  return DateFormat('d MMM y, HH:mm').format(item!.endsAt!);
+bool _sameDay(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+String _detailShifts(EventMeetingItem item) {
+  return item.shifts
+      .map((shift) {
+        final name = shift.name.trim();
+        final range =
+            '${_shiftTime(shift.startHour, shift.startMinute)}-${_shiftTime(shift.endHour, shift.endMinute)}';
+        return name.isEmpty ? range : '$name $range';
+      })
+      .join(', ');
+}
+
+String _shiftTime(int hour, int minute) {
+  final date = DateTime(1970, 1, 1, hour, minute);
+  return DateFormat('HH:mm').format(date);
 }
 
 String _detailStatus(EventMeetingItem? item) {
   if (item == null) return '-';
-  if (item.isLive) return 'live'.tr();
-  if (item.isUpcoming) return 'upcoming'.tr();
-  if (item.isEnded) return 'ended'.tr();
+  if (item.isLive) return L.status.live.tr();
+  if (item.isUpcoming) return L.status.upcoming.tr();
+  if (item.isEnded) return L.status.ended.tr();
   return '-';
 }

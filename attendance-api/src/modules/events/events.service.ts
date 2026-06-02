@@ -28,6 +28,14 @@ type EventWithSummary = Event & {
   _count?: { registrations: number; attendances: number };
 };
 
+type ScheduleStatus = "LIVE" | "UPCOMING" | "ENDED";
+type ScheduleShift = { startTime: Date; endTime: Date };
+type Schedulable = {
+  startsAt: Date;
+  endsAt: Date;
+  shifts?: ScheduleShift[];
+};
+
 const genderMap: Record<string, Gender> = {
   male: "MALE",
   m: "MALE",
@@ -627,12 +635,13 @@ export class EventsService {
     };
   }
 
-  private withPrimaryPlace<T extends { places?: Array<Record<string, any>> }>(
+  private withPrimaryPlace<T extends Schedulable & { places?: Array<Record<string, any>> }>(
     event: T,
   ) {
     const primaryPlace =
       event.places?.find((place) => place.qrCodes?.some((qr: any) => !qr.placeId)) ??
       event.places?.[0];
+    const schedule = this.scheduleState(event);
     return {
       ...event,
       requireLocation: primaryPlace?.requireLocation ?? false,
@@ -640,6 +649,83 @@ export class EventsService {
       latitude: primaryPlace?.latitude ?? null,
       longitude: primaryPlace?.longitude ?? null,
       radiusMeters: primaryPlace?.radiusMeters ?? 0,
+      scheduleStatus: schedule.status,
+      scheduleSortAt: schedule.sortAt,
     };
+  }
+
+  private scheduleState(item: Schedulable): {
+    status: ScheduleStatus;
+    sortAt: Date | null;
+  } {
+    const now = new Date();
+    const shifts = item.shifts ?? [];
+
+    if (!shifts.length) {
+      const start = this.startOfDay(item.startsAt);
+      const end = this.endOfDay(item.endsAt);
+      if (now < start) return { status: "UPCOMING", sortAt: start };
+      if (now > end) return { status: "ENDED", sortAt: end };
+      return { status: "LIVE", sortAt: start };
+    }
+
+    const occurrences = this.shiftOccurrences(item);
+    const active = occurrences.find(
+      (occurrence) => now >= occurrence.start && now <= occurrence.end,
+    );
+    if (active) return { status: "LIVE", sortAt: active.start };
+
+    const next = occurrences.find((occurrence) => occurrence.start > now);
+    if (next) return { status: "UPCOMING", sortAt: next.start };
+
+    const last = occurrences.at(-1);
+    return { status: "ENDED", sortAt: last?.end ?? this.endOfDay(item.endsAt) };
+  }
+
+  private shiftOccurrences(item: Schedulable) {
+    const firstDay = this.startOfDay(item.startsAt);
+    const lastDay = this.startOfDay(item.endsAt);
+    const occurrences: Array<{ start: Date; end: Date }> = [];
+
+    for (
+      let day = new Date(firstDay);
+      day <= lastDay;
+      day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
+    ) {
+      for (const shift of item.shifts ?? []) {
+        const start = new Date(day);
+        start.setHours(
+          shift.startTime.getUTCHours(),
+          shift.startTime.getUTCMinutes(),
+          0,
+          0,
+        );
+
+        const end = new Date(day);
+        end.setHours(
+          shift.endTime.getUTCHours(),
+          shift.endTime.getUTCMinutes(),
+          0,
+          0,
+        );
+        if (end <= start) end.setDate(end.getDate() + 1);
+
+        occurrences.push({ start, end });
+      }
+    }
+
+    return occurrences.sort((a, b) => a.start.getTime() - b.start.getTime());
+  }
+
+  private startOfDay(date: Date) {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+
+  private endOfDay(date: Date) {
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return end;
   }
 }

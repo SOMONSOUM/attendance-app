@@ -28,11 +28,7 @@ class EventsRepository {
       responses[1].data,
     ).map(EventMeetingItem.fromMeetingJson).toList();
 
-    return [...events, ...meetings]..sort((a, b) {
-      final aDate = a.startsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.startsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return aDate.compareTo(bDate);
-    });
+    return [...events, ...meetings]..sort(_compareEventMeetingItems);
   }
 
   Future<EventMeetingItem?> getEventMeeting({
@@ -58,4 +54,22 @@ class EventsRepository {
     }
     return const [];
   }
+}
+
+int _compareEventMeetingItems(EventMeetingItem a, EventMeetingItem b) {
+  final statusCompare = _statusRank(a.status).compareTo(_statusRank(b.status));
+  if (statusCompare != 0) return statusCompare;
+
+  if (a.isEnded && b.isEnded) {
+    return b.sortDate.compareTo(a.sortDate);
+  }
+  return a.sortDate.compareTo(b.sortDate);
+}
+
+int _statusRank(EventMeetingStatus status) {
+  return switch (status) {
+    EventMeetingStatus.live => 0,
+    EventMeetingStatus.upcoming => 1,
+    EventMeetingStatus.ended => 2,
+  };
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/localization/translation_keys.dart';
 import '../data/auth_models.dart';
 import '../state/auth_controller.dart';
 
@@ -24,7 +25,7 @@ class ProfileMenu extends ConsumerWidget {
     final email = user?.email ?? 'admin@organization.com';
 
     return PopupMenuButton<String>(
-      tooltip: 'profile'.tr(),
+      tooltip: L.common.profile.tr(),
       offset: const Offset(0, 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
@@ -47,18 +48,24 @@ class ProfileMenu extends ConsumerWidget {
         const PopupMenuDivider(height: 1),
         PopupMenuItem(
           value: 'profile',
-          child: _MenuRow(icon: LucideIcons.userRound, text: 'profile'.tr()),
+          child: _MenuRow(
+            icon: LucideIcons.userRound,
+            text: L.common.profile.tr(),
+          ),
         ),
         PopupMenuItem(
           value: 'settings',
-          child: _MenuRow(icon: LucideIcons.settings, text: 'settings'.tr()),
+          child: _MenuRow(
+            icon: LucideIcons.settings,
+            text: L.common.settings.tr(),
+          ),
         ),
         const PopupMenuDivider(height: 1),
         PopupMenuItem(
           value: 'logout',
           child: _MenuRow(
             icon: LucideIcons.logOut,
-            text: 'signOut'.tr(),
+            text: L.common.signOut.tr(),
             color: colors.error,
           ),
         ),

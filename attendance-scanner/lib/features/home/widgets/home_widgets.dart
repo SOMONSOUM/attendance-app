@@ -2,6 +2,22 @@ part of '../presentation/home_screen.dart';
 
 enum _HomeFilter { all, today, upcoming, ended }
 
+String _homeFilterLabel(_HomeFilter filter) {
+  return switch (filter) {
+    _HomeFilter.all => L.status.all,
+    _HomeFilter.today => L.status.today,
+    _HomeFilter.upcoming => L.status.upcoming,
+    _HomeFilter.ended => L.status.ended,
+  };
+}
+
+String _eventMeetingKindLabel(EventMeetingKind kind) {
+  return switch (kind) {
+    EventMeetingKind.event => L.eventMeeting.event,
+    EventMeetingKind.meeting => L.eventMeeting.meeting,
+  };
+}
+
 class _HomeHeader extends StatelessWidget {
   const _HomeHeader({
     required this.total,
@@ -21,10 +37,10 @@ class _HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final stats = [
-      _StatData(total.toString(), 'totalEvents'.tr()),
-      _StatData(live.toString(), 'liveNow'.tr()),
-      _StatData(upcoming.toString(), 'upcoming'.tr()),
-      _StatData(checkedInToday.toString(), 'checkedInToday'.tr()),
+      _StatData(total.toString(), L.home.totalEvents.tr()),
+      _StatData(live.toString(), L.home.liveNow.tr()),
+      _StatData(upcoming.toString(), L.status.upcoming.tr()),
+      _StatData(checkedInToday.toString(), L.home.checkedInToday.tr()),
     ];
 
     return Column(
@@ -47,7 +63,7 @@ class _HomeHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'eventsMeetings'.tr(),
+                    L.home.eventsMeetings.tr(),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -151,7 +167,7 @@ class _SearchAndFilters extends StatelessWidget {
         .map(
           (value) => ChoiceChip(
             selected: filter == value,
-            label: Text(value.name.tr()),
+            label: Text(_homeFilterLabel(value).tr()),
             onSelected: (_) => onFilterChanged(value),
           ),
         )
@@ -164,7 +180,7 @@ class _SearchAndFilters extends StatelessWidget {
           controller: controller,
           onChanged: onSearchChanged,
           decoration: InputDecoration(
-            hintText: 'searchEventsMeetings'.tr(),
+            hintText: L.home.searchEventsMeetings.tr(),
             prefixIcon: const Icon(LucideIcons.search),
           ),
         );
@@ -194,7 +210,10 @@ class _SearchAndFilters extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
-          children: [SizedBox(width: 480, child: search), ...chips],
+          children: [
+            SizedBox(width: 480, child: search),
+            ...chips,
+          ],
         );
       },
     );
@@ -218,7 +237,7 @@ class _SectionHeading extends StatelessWidget {
           ),
         ),
         Text(
-          'countEvents'.tr(namedArgs: {'count': count.toString()}),
+          L.home.countEvents.tr(namedArgs: {'count': count.toString()}),
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -242,7 +261,7 @@ class _EventGrid extends StatelessWidget {
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text('noEvents'.tr()),
+        child: Text(L.home.noEvents.tr()),
       );
     }
 
@@ -328,130 +347,119 @@ class _EventCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: 5, child: ColoredBox(color: accent)),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final metaWidth = veryCompact
-                            ? (constraints.maxWidth - 24).clamp(96.0, 150.0)
-                            : compact
-                            ? (constraints.maxWidth - 24).clamp(96.0, 180.0)
-                            : 150.0;
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: 5, child: ColoredBox(color: accent)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final metaWidth = veryCompact
+                          ? (constraints.maxWidth - 24).clamp(96.0, 150.0)
+                          : compact
+                          ? (constraints.maxWidth - 24).clamp(96.0, 180.0)
+                          : 150.0;
 
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: accent.withValues(alpha: 0.13),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    item.kind == EventMeetingKind.event
-                                        ? LucideIcons.calendarDays
-                                        : LucideIcons.usersRound,
-                                    color: accent,
-                                    size: 19,
-                                  ),
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.13),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
+                                child: Icon(
+                                  item.kind == EventMeetingKind.event
+                                      ? LucideIcons.calendarDays
+                                      : LucideIcons.usersRound,
+                                  color: accent,
+                                  size: 19,
                                 ),
-                                Flexible(
-                                  flex: 0,
-                                  child: _Badge(item: item, color: accent),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: veryCompact ? 14 : 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 4,
-                              children: [
-                                _TinyMeta(
-                                  icon: LucideIcons.calendarDays,
-                                  text: _dateRange(item, compact: compact),
-                                  maxWidth: metaWidth,
-                                ),
-                                _TinyMeta(
-                                  icon: LucideIcons.clock3,
-                                  text: _timeRange(item),
-                                  maxWidth: metaWidth,
-                                ),
-                                _TinyMeta(
-                                  icon: LucideIcons.mapPin,
-                                  text: item.location ?? '-',
-                                  maxWidth: metaWidth,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: LinearProgressIndicator(
-                                    value: progress,
-                                    minHeight: 4,
-                                    color: accent,
-                                    backgroundColor: colors.outline.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${item.checkedInCount}/${item.totalCount}',
-                                  style: TextStyle(
-                                    color: accent,
-                                    fontSize: 12,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
+                              ),
+                              Flexible(
+                                flex: 0,
+                                child: _Badge(item: item, color: accent),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: veryCompact ? 14 : 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 4,
+                            children: [
+                              _TinyMeta(
+                                icon: LucideIcons.calendarDays,
+                                text: _dateRange(item, compact: compact),
+                                maxWidth: metaWidth,
+                              ),
+                              _TinyMeta(
+                                icon: LucideIcons.mapPin,
+                                text: item.location ?? '-',
+                                maxWidth: metaWidth,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 4,
+                                  color: accent,
+                                  backgroundColor: colors.outline.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${item.checkedInCount}/${item.totalCount}',
+                                style: TextStyle(
+                                  color: accent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
-                SizedBox(
-                  width: veryCompact ? 28 : 44,
-                  child: Center(
-                    child: Icon(
-                      LucideIcons.chevronRight,
-                      size: veryCompact ? 18 : 20,
-                    ),
+              ),
+              SizedBox(
+                width: veryCompact ? 28 : 44,
+                child: Center(
+                  child: Icon(
+                    LucideIcons.chevronRight,
+                    size: veryCompact ? 18 : 20,
                   ),
                 ),
-              ],
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-
-  String _timeRange(EventMeetingItem item) {
-    if (item.startsAt == null || item.endsAt == null) return '-';
-    final format = DateFormat('HH:mm');
-    return '${format.format(item.startsAt!)}-${format.format(item.endsAt!)}';
   }
 
   String _dateRange(EventMeetingItem item, {required bool compact}) {
@@ -481,12 +489,12 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = item.isLive
-        ? 'live'.tr()
+        ? L.status.live.tr()
         : item.isUpcoming
-        ? 'upcoming'.tr()
+        ? L.status.upcoming.tr()
         : item.isEnded
-        ? 'ended'.tr()
-        : item.kind.name.tr();
+        ? L.status.ended.tr()
+        : _eventMeetingKindLabel(item.kind).tr();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -537,34 +545,6 @@ class _TinyMeta extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRefresh});
-
-  final String message;
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onRefresh,
-              icon: const Icon(LucideIcons.refreshCw),
-              label: Text('refresh'.tr()),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -4,23 +4,30 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../localization/translation_keys.dart';
 
-class OfflineView extends StatelessWidget {
-  const OfflineView({
+class ErrorView extends StatelessWidget {
+  const ErrorView({
     super.key,
     required this.onRefresh,
+    this.title,
+    this.message,
+    this.details,
     this.isLoading = false,
   });
 
   final VoidCallback onRefresh;
+  final String? title;
+  final String? message;
+  final String? details;
   final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final detailText = details?.trim();
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 460),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -30,18 +37,18 @@ class OfflineView extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.12),
+                  color: colors.error.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  LucideIcons.wifiOff,
-                  color: colors.primary,
+                  LucideIcons.circleAlert,
+                  color: colors.error,
                   size: 30,
                 ),
               ),
               const SizedBox(height: 18),
               Text(
-                L.offline.title.tr(),
+                title ?? L.error.title.tr(),
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -49,12 +56,43 @@ class OfflineView extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                L.offline.message.tr(),
+                message ?? L.error.message.tr(),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: colors.onSurface.withValues(alpha: 0.68),
                 ),
               ),
+              if (detailText != null && detailText.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest.withValues(
+                      alpha: 0.45,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.outline),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          L.error.details.tr(),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          detailText,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               ElevatedButton.icon(
                 onPressed: isLoading ? null : onRefresh,

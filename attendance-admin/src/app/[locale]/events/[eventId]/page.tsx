@@ -967,20 +967,33 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 function eventStatus(
-  event: { startsAt: string; endsAt: string },
+  event: {
+    scheduleStatus?: "LIVE" | "UPCOMING" | "ENDED";
+    startsAt: string;
+    endsAt: string;
+    shifts?: EventShift[];
+  },
   t: ReturnType<typeof useTranslations<"common">>,
 ) {
-  const now = Date.now();
-  if (new Date(event.startsAt).getTime() > now) return t("ready");
-  if (new Date(event.endsAt).getTime() < now) return t("closed");
-  return t("live");
+  return t(apiScheduleStatus(event.scheduleStatus));
 }
 
-function eventTone(event: { startsAt: string; endsAt: string }) {
-  const now = Date.now();
-  if (new Date(event.startsAt).getTime() <= now && new Date(event.endsAt).getTime() >= now) return "green";
-  if (new Date(event.startsAt).getTime() > now) return "purple";
+function eventTone(event: {
+  scheduleStatus?: "LIVE" | "UPCOMING" | "ENDED";
+  startsAt: string;
+  endsAt: string;
+  shifts?: EventShift[];
+}) {
+  const status = apiScheduleStatus(event.scheduleStatus);
+  if (status === "live") return "green";
+  if (status === "ready") return "purple";
   return "amber";
+}
+
+function apiScheduleStatus(status?: "LIVE" | "UPCOMING" | "ENDED") {
+  if (status === "LIVE") return "live";
+  if (status === "ENDED") return "closed";
+  return "ready";
 }
 
 function placeCardLabels(t: ReturnType<typeof useTranslations<"details">>) {

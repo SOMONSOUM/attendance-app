@@ -50,7 +50,7 @@ import {
   type MeetingParticipant,
   type RegistrationForm,
 } from "@/lib/admin-data";
-import { formatDate, formatDateRange, formatDateTime, formatTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatDateTime } from "@/lib/format";
 import {
   LocationRequirementBadge,
   MeetingDetailsCard,
@@ -267,7 +267,7 @@ export default function MeetingDetailPage() {
             <MetricCard
               label={t("schedule")}
               value={formatDate(meeting.startsAt)}
-              sub={formatTime(meeting.startsAt)}
+              sub={formatDateRange(meeting.startsAt, meeting.endsAt)}
               icon={CalendarDays}
             />
           </div>
@@ -283,12 +283,15 @@ export default function MeetingDetailPage() {
                   : meeting.requireLocation
               }
               coordinates={detailCoordinates}
+              startsAt={meeting.startsAt}
+              endsAt={meeting.endsAt}
               chairpersons={meeting.chairpersons}
               shifts={meeting.shifts}
               labels={{
                 title: t("meetingDetails"),
                 location: common("location"),
                 description: common("description"),
+                schedule: t("schedule"),
                 chairpersons: t("chairpersons"),
                 shifts: t("shifts"),
                 noPosition: t("noPosition"),
@@ -836,20 +839,33 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 function meetingStatus(
-  meeting: { startsAt: string; endsAt: string },
+  meeting: {
+    scheduleStatus?: "LIVE" | "UPCOMING" | "ENDED";
+    startsAt: string;
+    endsAt: string;
+    shifts?: EventShift[];
+  },
   t: ReturnType<typeof useTranslations<"common">>,
 ) {
-  const now = Date.now();
-  if (new Date(meeting.startsAt).getTime() > now) return t("ready");
-  if (new Date(meeting.endsAt).getTime() < now) return t("closed");
-  return t("live");
+  return t(apiScheduleStatus(meeting.scheduleStatus));
 }
 
-function meetingTone(meeting: { startsAt: string; endsAt: string }) {
-  const now = Date.now();
-  if (new Date(meeting.startsAt).getTime() <= now && new Date(meeting.endsAt).getTime() >= now) return "green";
-  if (new Date(meeting.startsAt).getTime() > now) return "blue";
+function meetingTone(meeting: {
+  scheduleStatus?: "LIVE" | "UPCOMING" | "ENDED";
+  startsAt: string;
+  endsAt: string;
+  shifts?: EventShift[];
+}) {
+  const status = apiScheduleStatus(meeting.scheduleStatus);
+  if (status === "live") return "green";
+  if (status === "ready") return "blue";
   return "amber";
+}
+
+function apiScheduleStatus(status?: "LIVE" | "UPCOMING" | "ENDED") {
+  if (status === "LIVE") return "live";
+  if (status === "ENDED") return "closed";
+  return "ready";
 }
 
 function placeCardLabels(t: ReturnType<typeof useTranslations<"details">>) {

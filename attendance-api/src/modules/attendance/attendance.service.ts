@@ -299,7 +299,7 @@ export class AttendanceService {
     if (!registration) throw new NotFoundException("Registration not found");
     this.assertEventDateWindow(event);
     const activeShift = registration.shiftId
-      ? null
+      ? this.assertActiveShift(event, registration.shiftId)
       : this.assertScanWindow(event);
     const selectedShiftId = registration.shiftId ?? activeShift?.id;
 
@@ -352,7 +352,7 @@ export class AttendanceService {
 
     this.assertEventDateWindow(registration.event);
     const activeShift = registration.shiftId
-      ? null
+      ? this.assertActiveShift(registration.event, registration.shiftId)
       : this.assertScanWindow(registration.event);
     const selectedShiftId = registration.shiftId ?? activeShift?.id;
     const existingAttendance = await this.prisma.attendance.findUnique({
@@ -521,6 +521,30 @@ export class AttendanceService {
     }
 
     return activeShift;
+  }
+
+  private assertActiveShift(
+    event: {
+      startsAt: Date;
+      endsAt: Date;
+      shifts: { id: string; startTime: Date; endTime: Date }[];
+    },
+    shiftId: string,
+  ) {
+    this.assertEventDateWindow(event);
+    const shift = event.shifts.find((item) => item.id === shiftId);
+    if (!shift) throw new NotFoundException("Event shift not found");
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (this.isWithinShift(nowMinutes, shift.startTime, shift.endTime)) {
+      return shift;
+    }
+
+    throw new BadRequestException({
+      error: "Invalid Shift Time",
+      message: "Attendance can only be confirmed during the assigned shift.",
+    });
   }
 
   private assertEventDateWindow(event: { startsAt: Date; endsAt: Date }) {

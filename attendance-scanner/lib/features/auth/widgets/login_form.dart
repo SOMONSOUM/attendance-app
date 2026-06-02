@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/localization/translation_keys.dart';
+
 class LoginForm extends StatelessWidget {
   const LoginForm({
     super.key,
@@ -39,14 +41,14 @@ class LoginForm extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'loginTitle'.tr(),
+              L.login.title.tr(),
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const Gap(6),
             Text(
-              'loginSubtitle'.tr(),
+              L.login.subtitle.tr(),
               style: TextStyle(color: colors.onSurface.withValues(alpha: 0.72)),
             ),
             const Gap(22),
@@ -54,11 +56,11 @@ class LoginForm extends StatelessWidget {
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
-                labelText: 'email'.tr(),
+                labelText: L.loginForm.email.tr(),
                 prefixIcon: const Icon(LucideIcons.mail),
               ),
               validator: (value) => (value == null || !value.contains('@'))
-                  ? 'invalidEmail'.tr()
+                  ? L.loginForm.invalidEmail.tr()
                   : null,
             ),
             const Gap(14),
@@ -66,7 +68,7 @@ class LoginForm extends StatelessWidget {
               controller: passwordController,
               obscureText: !showPassword,
               decoration: InputDecoration(
-                labelText: 'password'.tr(),
+                labelText: L.loginForm.password.tr(),
                 prefixIcon: const Icon(LucideIcons.lockKeyhole),
                 suffixIcon: IconButton(
                   onPressed: onTogglePassword,
@@ -76,14 +78,14 @@ class LoginForm extends StatelessWidget {
                 ),
               ),
               validator: (value) => (value == null || value.length < 6)
-                  ? 'invalidPassword'.tr()
+                  ? L.loginForm.invalidPassword.tr()
                   : null,
             ),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {},
-                child: Text('forgotPassword'.tr()),
+                child: Text(L.loginForm.forgotPassword.tr()),
               ),
             ),
             if (authError != null) ...[
@@ -99,7 +101,7 @@ class LoginForm extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(LucideIcons.logIn),
-              label: Text('signIn'.tr()),
+              label: Text(L.loginForm.signIn.tr()),
             ),
           ],
         ),

@@ -5,6 +5,8 @@ export type RegistrationMode =
   | "OPEN_REGISTRATION"
   | "PRE_REGISTRATION";
 
+export type ScheduleStatus = "LIVE" | "UPCOMING" | "ENDED";
+
 export type EventRecord = {
   id: string;
   name: string;
@@ -17,6 +19,8 @@ export type EventRecord = {
   radiusMeters?: number;
   startsAt: string;
   endsAt: string;
+  scheduleStatus?: ScheduleStatus;
+  scheduleSortAt?: string | null;
   separateQrByPlace?: boolean;
   places?: EventPlace[];
   theme?: EventTheme | null;
@@ -137,6 +141,8 @@ export type MeetingRecord = {
   radiusMeters?: number;
   startsAt: string;
   endsAt: string;
+  scheduleStatus?: ScheduleStatus;
+  scheduleSortAt?: string | null;
   chairpersons: MeetingChairperson[];
   places?: MeetingPlace[];
   shifts?: EventShift[];
