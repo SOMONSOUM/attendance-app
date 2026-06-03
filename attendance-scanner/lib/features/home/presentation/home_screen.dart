@@ -85,6 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           final filtered = _filterItems(value.items);
           return ResponsivePage(
+            key: ValueKey(context.locale.languageCode),
             maxWidth: 1180,
             child: LayoutBuilder(
               builder: (context, constraints) {

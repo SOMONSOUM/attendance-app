@@ -71,6 +71,15 @@ class _ProfileKeys {
   final emailAddress = 'profile.emailAddress';
   final tenant = 'profile.tenant';
   final permissions = 'profile.permissions';
+  final accessReady = 'profile.accessReady';
+  final scannerAccess = 'profile.scannerAccess';
+  final scannerAccessHelp = 'profile.scannerAccessHelp';
+  final meetingAccess = 'profile.meetingAccess';
+  final meetingAccessHelp = 'profile.meetingAccessHelp';
+  final adminTools = 'profile.adminTools';
+  final adminToolsHelp = 'profile.adminToolsHelp';
+  final limitedAccess = 'profile.limitedAccess';
+  final limitedAccessHelp = 'profile.limitedAccessHelp';
 }
 
 class _SettingsKeys {
@@ -104,6 +113,8 @@ class _ScannerKeys {
   final result = 'scanner.result';
   final successful = 'scanner.successful';
   final checkedInSuccessfully = 'scanner.checkedInSuccessfully';
+  final successTitle = 'scanner.successTitle';
+  final successMessage = 'scanner.successMessage';
   final recentCheckIns = 'scanner.recentCheckIns';
   final noRecentCheckIns = 'scanner.noRecentCheckIns';
   final noProfileYet = 'scanner.noProfileYet';

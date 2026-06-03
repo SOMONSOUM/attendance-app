@@ -49,7 +49,7 @@ export class MeetingsService {
   async create(tenantId: string | null, userId: string, dto: CreateMeetingDto) {
     this.assertChairpersons(dto.chairpersons);
     const separateQrByPlace = Boolean(dto.separateQrByPlace);
-    const allowLocation = dto.mode !== EventMode.PRE_REGISTRATION;
+    const allowLocation = true;
     const code = this.toQrCode();
 
     const meeting = await this.prisma.$transaction(async (tx) => {
@@ -179,8 +179,7 @@ export class MeetingsService {
 
       const separateQrByPlace =
         dto.separateQrByPlace ?? existing.separateQrByPlace;
-      const allowLocation =
-        (dto.mode ?? existing.mode) !== EventMode.PRE_REGISTRATION;
+      const allowLocation = true;
       const meeting = await tx.meeting.update({
         where: { id: meetingId },
         data: {

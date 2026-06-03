@@ -34,7 +34,16 @@
     "account": "Account",
     "emailAddress": "Email address",
     "tenant": "Organization",
-    "permissions": "Permissions"
+    "permissions": "Permissions",
+    "accessReady": "Access ready",
+    "scannerAccess": "Event check-in",
+    "scannerAccessHelp": "Can scan attendee QR codes and mark event attendance.",
+    "meetingAccess": "Meeting check-in",
+    "meetingAccessHelp": "Can scan participant QR codes and update meeting attendance.",
+    "adminTools": "Admin tools",
+    "adminToolsHelp": "Can manage records from the admin dashboard.",
+    "limitedAccess": "Limited access",
+    "limitedAccessHelp": "Only basic profile access is enabled for this account."
   },
   "settings": {
     "appearance": "Appearance",
@@ -69,6 +78,8 @@
     "result": "Check-in result",
     "successful": "Scan successful",
     "checkedInSuccessfully": "Checked in",
+    "successTitle": "Check-in confirmed",
+    "successMessage": "Attendance has been recorded successfully.",
     "recentCheckIns": "Latest check-ins",
     "noRecentCheckIns": "No recent check-ins yet.",
     "fullName": "Full name",

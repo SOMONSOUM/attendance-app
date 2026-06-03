@@ -36,6 +36,7 @@ class _HomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final stats = [
       _StatData(total.toString(), L.home.totalEvents.tr()),
       _StatData(live.toString(), L.home.liveNow.tr()),
@@ -43,60 +44,88 @@ class _HomeHeader extends StatelessWidget {
       _StatData(checkedInToday.toString(), L.home.checkedInToday.tr()),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: isDark ? 0.62 : 0.76),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.55),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.08),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 14 : 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: colors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(LucideIcons.calendarDays, color: colors.onPrimary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    L.home.eventsMeetings.tr(),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: colors.primary.withValues(alpha: 0.22),
                     ),
                   ),
-                  Text(DateFormat('EEEE, d MMMM y').format(DateTime.now())),
-                ],
-              ),
+                  child: Icon(LucideIcons.calendarDays, color: colors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        L.home.eventsMeetings.tr(),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('EEEE, d MMMM y').format(DateTime.now()),
+                        style: TextStyle(
+                          color: colors.onSurface.withValues(alpha: 0.66),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final veryCompact = constraints.maxWidth < 320;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: stats.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: compact ? 2 : 4,
+                    mainAxisExtent: veryCompact
+                        ? 92
+                        : compact
+                        ? 84
+                        : 72,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemBuilder: (context, index) =>
+                      _StatTile(data: stats[index]),
+                );
+              },
             ),
           ],
         ),
-        const SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final veryCompact = constraints.maxWidth < 320;
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: stats.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: compact ? 2 : 4,
-                mainAxisExtent: veryCompact
-                    ? 92
-                    : compact
-                    ? 84
-                    : 72,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemBuilder: (context, index) => _StatTile(data: stats[index]),
-            );
-          },
-        ),
-      ],
+      ),
     );
   }
 }
@@ -119,8 +148,11 @@ class _StatTile extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.45),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.36),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.46),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -336,15 +368,24 @@ class _EventCard extends StatelessWidget {
     final progress = (item.checkedInCount / total).clamp(0, 1).toDouble();
 
     return Material(
-      color: colors.surface,
+      color: colors.surface.withValues(alpha: 0.78),
       borderRadius: BorderRadius.circular(8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            border: Border.all(color: colors.outline),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.68),
+            ),
             borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.05),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,

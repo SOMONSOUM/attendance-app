@@ -61,7 +61,7 @@ export class EventsService {
       ...eventDto
     } = dto;
     const separateQrByPlace = Boolean(dto.separateQrByPlace);
-    const allowLocation = dto.mode !== EventMode.PRE_REGISTRATION;
+    const allowLocation = true;
     const code = this.toQrCode();
     const event = await this.prisma.$transaction(async (tx) => {
       const createdEvent = await tx.event.create({
@@ -181,8 +181,7 @@ export class EventsService {
       radiusMeters,
       ...eventDto
     } = dto;
-    const allowLocation =
-      (dto.mode ?? existing.mode) !== EventMode.PRE_REGISTRATION;
+    const allowLocation = true;
 
     const event = await this.prisma.$transaction(async (tx) => {
       if (shifts) {
@@ -210,7 +209,7 @@ export class EventsService {
                   create: theme,
                   update: theme,
                 },
-              }
+            }
             : undefined,
         },
         include: {

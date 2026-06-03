@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   CalendarPlus,
+  Copy,
   Edit3,
   FileSpreadsheet,
   Plus,
@@ -273,6 +274,50 @@ export default function MeetingsPage() {
     setStep(0);
   }
 
+  function startDuplicate(meeting: MeetingRecord) {
+    setEditing(null);
+    setForm({
+      name: `${meeting.name} copy`,
+      description: meeting.description ?? "",
+      mode: meeting.mode,
+      separateQrByPlace: Boolean(meeting.separateQrByPlace),
+      requireLocation: Boolean(meeting.requireLocation),
+      locationName: meeting.locationName ?? "",
+      latitude: toNumber(meeting.latitude, initialForm.latitude),
+      longitude: toNumber(meeting.longitude, initialForm.longitude),
+      radiusMeters: meeting.radiusMeters ?? initialForm.radiusMeters,
+      startsAt: toDateInput(meeting.startsAt),
+      endsAt: toDateInput(meeting.endsAt),
+      chairpersons: meeting.chairpersons.length
+        ? meeting.chairpersons.map(stripChairperson)
+        : [{ ...emptyChairperson }],
+      places:
+        meeting.places?.map((place) => ({
+          catalogPlaceId: place.catalogPlaceId,
+          name: place.name,
+          description: place.description ?? "",
+          requireLocation: Boolean(place.requireLocation),
+          locationName: place.locationName ?? "",
+          latitude: toNumber(place.latitude, initialForm.latitude),
+          longitude: toNumber(place.longitude, initialForm.longitude),
+          radiusMeters: place.radiusMeters ?? initialForm.radiusMeters,
+        })) ?? [],
+      shifts:
+        meeting.shifts?.map((shift) => ({
+          name: shift.name,
+          startTime: toTimeInput(shift.startTime),
+          endTime: toTimeInput(shift.endTime),
+        })) ?? [],
+      participants: meeting.participants.map(stripParticipant),
+    });
+    setParticipantFile(null);
+    setSourceImportId("");
+    setPlaceParticipantFiles({});
+    setPlaceParticipantImportIds({});
+    setStepError("");
+    setStep(0);
+  }
+
   function goToStep(nextStep: number) {
     if (nextStep <= step) {
       setStep(nextStep);
@@ -475,6 +520,18 @@ export default function MeetingsPage() {
                             disabled={!canUpdate}
                           >
                             <Edit3 size={14} />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-8 px-3"
+                            aria-label="Duplicate meeting"
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              startDuplicate(meeting);
+                            }}
+                            disabled={!canCreate}
+                          >
+                            <Copy size={14} />
                           </Button>
                           <Button
                             variant="outline"
@@ -740,34 +797,32 @@ export default function MeetingsPage() {
                                 })
                               }
                             />
-                            {form.mode !== "PRE_REGISTRATION" ? (
-                              <LocationPicker
-                                value={{
-                                  requireLocation: place.requireLocation,
-                                  locationName: place.locationName ?? "",
-                                  latitude: toNumber(
-                                    place.latitude,
-                                    form.latitude,
-                                  ),
-                                  longitude: toNumber(
-                                    place.longitude,
-                                    form.longitude,
-                                  ),
-                                  radiusMeters:
-                                    place.radiusMeters ?? form.radiusMeters,
-                                }}
-                                onChange={(value) =>
-                                  updatePlace(index, {
-                                    requireLocation: value.requireLocation,
-                                    locationName: value.locationName,
-                                    latitude: value.latitude,
-                                    longitude: value.longitude,
-                                    radiusMeters: value.radiusMeters,
-                                  })
-                                }
-                                title={`${place.name || `Place ${index + 1}`} location check-in`}
-                              />
-                            ) : null}
+                            <LocationPicker
+                              value={{
+                                requireLocation: place.requireLocation,
+                                locationName: place.locationName ?? "",
+                                latitude: toNumber(
+                                  place.latitude,
+                                  form.latitude,
+                                ),
+                                longitude: toNumber(
+                                  place.longitude,
+                                  form.longitude,
+                                ),
+                                radiusMeters:
+                                  place.radiusMeters ?? form.radiusMeters,
+                              }}
+                              onChange={(value) =>
+                                updatePlace(index, {
+                                  requireLocation: value.requireLocation,
+                                  locationName: value.locationName,
+                                  latitude: value.latitude,
+                                  longitude: value.longitude,
+                                  radiusMeters: value.radiusMeters,
+                                })
+                              }
+                              title={`${place.name || `Place ${index + 1}`} location check-in`}
+                            />
                             {isBulkRegistrationMode(form.mode) ? (
                               <div className="grid gap-3">
                                 <div className="grid gap-2">
@@ -1359,8 +1414,7 @@ function RegistrationModeGuide({
 }
 
 function normalizeForm(form: MeetingForm): MeetingForm {
-  const requireLocation =
-    form.mode !== "PRE_REGISTRATION" && Boolean(form.requireLocation);
+  const requireLocation = Boolean(form.requireLocation);
   return {
     ...form,
     requireLocation,
@@ -1380,19 +1434,18 @@ function normalizeForm(form: MeetingForm): MeetingForm {
               ...place,
               catalogPlaceId: place.catalogPlaceId,
               requireLocation:
-                form.mode !== "PRE_REGISTRATION" &&
                 Boolean(place.requireLocation),
               locationName: place.locationName?.trim() || place.name,
               latitude:
-                form.mode !== "PRE_REGISTRATION" && place.requireLocation
+                place.requireLocation
                   ? (place.latitude ?? 0)
                   : null,
               longitude:
-                form.mode !== "PRE_REGISTRATION" && place.requireLocation
+                place.requireLocation
                   ? (place.longitude ?? 0)
                   : null,
               radiusMeters:
-                form.mode !== "PRE_REGISTRATION" && place.requireLocation
+                place.requireLocation
                   ? clamp(place.radiusMeters ?? 100, 10, 5000)
                   : 0,
             }),

@@ -8,6 +8,7 @@ class _DesktopScannerLayout extends StatelessWidget {
     required this.hardwareController,
     required this.hardwareFocusNode,
     required this.onHardwareSubmit,
+    required this.onRefresh,
   });
 
   final ScanState state;
@@ -16,6 +17,7 @@ class _DesktopScannerLayout extends StatelessWidget {
   final TextEditingController hardwareController;
   final FocusNode hardwareFocusNode;
   final ValueChanged<String> onHardwareSubmit;
+  final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +38,7 @@ class _DesktopScannerLayout extends StatelessWidget {
             state: state,
             selectedItem: selectedItem,
             selectedItemLoading: selectedItemLoading,
+            onRefresh: onRefresh,
           ),
         ),
       ],
@@ -184,50 +187,56 @@ class _DesktopResultPane extends StatelessWidget {
     required this.state,
     required this.selectedItem,
     required this.selectedItemLoading,
+    required this.onRefresh,
   });
 
   final ScanState state;
   final EventMeetingItem? selectedItem;
   final bool selectedItemLoading;
+  final RefreshCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final l10n = _L10n();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (state.isCheckingIn)
-          const LinearProgressIndicator(minHeight: 6)
-        else if (state.lastPerson != null)
-          _SuccessBanner(text: l10n.checkedInSuccessfully)
-        else
-          _NeutralBanner(text: l10n.waitingForScan),
-        if (selectedItemLoading || selectedItem != null) ...[
-          const SizedBox(height: 12),
-          _SelectedScanContext(
-            item: selectedItem,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        shrinkWrap: true,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          if (state.isCheckingIn)
+            const LinearProgressIndicator(minHeight: 6)
+          else if (state.lastPerson != null)
+            _SuccessBanner(text: l10n.checkedInSuccessfully)
+          else
+            _NeutralBanner(text: l10n.waitingForScan),
+          if (selectedItemLoading || selectedItem != null) ...[
+            const SizedBox(height: 12),
+            _SelectedScanContext(
+              item: selectedItem,
+              isLoading: selectedItemLoading,
+            ),
+          ],
+          const SizedBox(height: 14),
+          if (state.lastPerson == null)
+            _EmptyProfile(l10n: l10n)
+          else
+            _ResultCard(person: state.lastPerson!),
+          const SizedBox(height: 18),
+          _RecentCheckIns(
+            people: [
+              ...state.recentPeople,
+              ...?selectedItem?.recentPeople.where(
+                (person) =>
+                    !state.recentPeople.any((recent) => recent.id == person.id),
+              ),
+            ].take(5).toList(),
             isLoading: selectedItemLoading,
+            onPersonTap: (person) => _showPersonDialog(context, person),
           ),
         ],
-        const SizedBox(height: 14),
-        if (state.lastPerson == null)
-          _EmptyProfile(l10n: l10n)
-        else
-          _ResultCard(person: state.lastPerson!),
-        const SizedBox(height: 18),
-        _RecentCheckIns(
-          people: [
-            ...state.recentPeople,
-            ...?selectedItem?.recentPeople.where(
-              (person) =>
-                  !state.recentPeople.any((recent) => recent.id == person.id),
-            ),
-          ].take(5).toList(),
-          isLoading: selectedItemLoading,
-          onPersonTap: (person) => _showPersonDialog(context, person),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -261,46 +270,54 @@ class _MobileScannerView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = _L10n();
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(
-          bottom: 20 + MediaQuery.of(context).padding.bottom,
-        ),
-        children: [
-          _MobileHeader(
-            title: selectedItem?.title ?? l10n.qrScanner,
-            subtitle: l10n.scanPersonalQr,
-            icon: Icons.qr_code_scanner_rounded,
+    return Column(
+      children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: onRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 14),
+              children: [
+                _MobileHeader(
+                  title: selectedItem?.title ?? l10n.qrScanner,
+                  subtitle: l10n.scanPersonalQr,
+                  icon: Icons.qr_code_scanner_rounded,
+                ),
+                if (selectedItemLoading || selectedItem != null) ...[
+                  const SizedBox(height: 12),
+                  _SelectedScanContext(
+                    item: selectedItem,
+                    isLoading: selectedItemLoading,
+                  ),
+                ],
+                const SizedBox(height: 14),
+                if (supportsCameraScanning)
+                  _CameraFrame(
+                    paused: cameraPaused,
+                    controller: cameraController,
+                    onDetect: onCameraDetect,
+                  ),
+                if (state.isCheckingIn) ...[
+                  const SizedBox(height: 16),
+                  const LinearProgressIndicator(minHeight: 6),
+                ],
+              ],
+            ),
           ),
-          if (selectedItemLoading || selectedItem != null) ...[
-            const SizedBox(height: 12),
-            _SelectedScanContext(
-              item: selectedItem,
-              isLoading: selectedItemLoading,
-            ),
-          ],
-          const SizedBox(height: 14),
-          if (supportsCameraScanning) ...[
-            _CameraFrame(
-              paused: cameraPaused,
-              controller: cameraController,
-              onDetect: onCameraDetect,
-            ),
-            const SizedBox(height: 14),
-          ],
-          _ManualEntryCard(
+        ),
+        Padding(
+          padding: EdgeInsets.only(
+            top: 14,
+            bottom: 20 + MediaQuery.of(context).padding.bottom,
+          ),
+          child: _ManualEntryCard(
             controller: hardwareController,
             focusNode: hardwareFocusNode,
             onSubmitted: onHardwareSubmit,
           ),
-          if (state.isCheckingIn) ...[
-            const SizedBox(height: 16),
-            const LinearProgressIndicator(minHeight: 6),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -686,6 +703,168 @@ class _GlassNoticeDialog extends StatelessWidget {
                       child: FilledButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(actionLabel),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessCheckInDialog extends StatelessWidget {
+  const _SuccessCheckInDialog({required this.person, required this.l10n});
+
+  final CheckInPerson person;
+  final _L10n l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final checkedTime = person.checkedInAt == null
+        ? DateFormat('hh:mm a').format(DateTime.now())
+        : DateFormat('hh:mm a').format(person.checkedInAt!.toLocal());
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.primary.withValues(alpha: 0.32)),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.18),
+                  blurRadius: 30,
+                  offset: const Offset(0, 18),
+                ),
+              ],
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.72, end: 1),
+                      duration: const Duration(milliseconds: 420),
+                      curve: Curves.elasticOut,
+                      builder: (context, scale, child) {
+                        return Transform.scale(scale: scale, child: child);
+                      },
+                      child: Center(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.primary.withValues(alpha: 0.28),
+                                blurRadius: 22,
+                                spreadRadius: 3,
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Icon(
+                              Icons.check_rounded,
+                              size: 42,
+                              color: colors.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.successTitle,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.successMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.66),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHighest.withValues(
+                          alpha: 0.44,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: colors.outlineVariant.withValues(alpha: 0.58),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: colors.primary,
+                              foregroundColor: colors.onPrimary,
+                              child: Text(
+                                _initials(person.fullName),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    person.fullName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  Text(
+                                    [
+                                      person.position,
+                                      person.organization,
+                                    ].whereType<String>().join(' - '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: colors.onSurface.withValues(
+                                            alpha: 0.62,
+                                          ),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _TimePill(text: checkedTime),
+                          ],
+                        ),
                       ),
                     ),
                   ],

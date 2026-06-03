@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   CalendarPlus,
+  Copy,
   Edit3,
   FileSpreadsheet,
   Plus,
@@ -303,6 +304,56 @@ export default function EventsPage() {
     setStep(0);
   }
 
+  function startDuplicate(event: EventRecord) {
+    setEditing(null);
+    setForm({
+      name: `${event.name} copy`,
+      description: event.description ?? "",
+      mode: event.mode,
+      separateQrByPlace: Boolean(event.separateQrByPlace),
+      requireLocation: Boolean(event.requireLocation),
+      locationName: event.locationName ?? "",
+      latitude: toNumber(event.latitude, initialForm.latitude),
+      longitude: toNumber(event.longitude, initialForm.longitude),
+      radiusMeters: event.radiusMeters ?? initialForm.radiusMeters,
+      places:
+        event.places?.map((place) => ({
+          catalogPlaceId: place.catalogPlaceId,
+          name: place.name,
+          description: place.description ?? "",
+          requireLocation: Boolean(place.requireLocation),
+          locationName: place.locationName ?? "",
+          latitude: toNumber(place.latitude, initialForm.latitude),
+          longitude: toNumber(place.longitude, initialForm.longitude),
+          radiusMeters: place.radiusMeters ?? initialForm.radiusMeters,
+        })) ?? [],
+      startsAt: toDateInput(event.startsAt),
+      endsAt: toDateInput(event.endsAt),
+      shifts:
+        event.shifts?.map((shift) => ({
+          name: shift.name,
+          startTime: toTimeInput(shift.startTime),
+          endTime: toTimeInput(shift.endTime),
+        })) ?? [],
+      theme: {
+        primaryColor:
+          event.theme?.primaryColor ?? initialForm.theme.primaryColor,
+        backgroundColor:
+          event.theme?.backgroundColor ?? initialForm.theme.backgroundColor,
+        backgroundImageUrl: event.theme?.backgroundImageUrl ?? "",
+        fontFamily: event.theme?.fontFamily ?? initialForm.theme.fontFamily,
+        fontSize: event.theme?.fontSize ?? initialForm.theme.fontSize,
+        radius: event.theme?.radius ?? initialForm.theme.radius,
+        appearance: event.theme?.appearance ?? initialForm.theme.appearance,
+      },
+    });
+    setRegistrationFile(null);
+    setPlaceRegistrationFiles({});
+    setSourceImportId("");
+    setPlaceRegistrationImportIds({});
+    setStep(0);
+  }
+
   function updateShift(
     index: number,
     patch: Partial<NonNullable<EventForm["shifts"]>[number]>,
@@ -455,6 +506,19 @@ export default function EventsPage() {
                               }}
                             >
                               <Edit3 size={14} />
+                            </Button>
+                          ) : null}
+                          {canCreate ? (
+                            <Button
+                              variant="outline"
+                              className="h-8 px-3"
+                              aria-label="Duplicate event"
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                startDuplicate(event);
+                              }}
+                            >
+                              <Copy size={14} />
                             </Button>
                           ) : null}
                           {canDelete ? (
@@ -682,35 +746,32 @@ export default function EventsPage() {
                                     updatePlace(index, { description: value })
                                   }
                                 />
-                                {form.mode !== "PRE_REGISTRATION" ? (
-                                  <LocationPicker
-                                    value={{
-                                      requireLocation: place.requireLocation,
-                                      locationName: place.locationName ?? "",
-                                      latitude: toNumber(
-                                        place.latitude,
-                                        form.latitude,
-                                      ),
-                                      longitude: toNumber(
-                                        place.longitude,
-                                        form.longitude,
-                                      ),
-                                      radiusMeters:
-                                        place.radiusMeters ??
-                                        form.radiusMeters,
-                                    }}
-                                    onChange={(value) =>
-                                      updatePlace(index, {
-                                        requireLocation: value.requireLocation,
-                                        locationName: value.locationName,
-                                        latitude: value.latitude,
-                                        longitude: value.longitude,
-                                        radiusMeters: value.radiusMeters,
-                                      })
-                                    }
-                                    title={`${place.name || `Place ${index + 1}`} location check-in`}
-                                  />
-                                ) : null}
+                                <LocationPicker
+                                  value={{
+                                    requireLocation: place.requireLocation,
+                                    locationName: place.locationName ?? "",
+                                    latitude: toNumber(
+                                      place.latitude,
+                                      form.latitude,
+                                    ),
+                                    longitude: toNumber(
+                                      place.longitude,
+                                      form.longitude,
+                                    ),
+                                    radiusMeters:
+                                      place.radiusMeters ?? form.radiusMeters,
+                                  }}
+                                  onChange={(value) =>
+                                    updatePlace(index, {
+                                      requireLocation: value.requireLocation,
+                                      locationName: value.locationName,
+                                      latitude: value.latitude,
+                                      longitude: value.longitude,
+                                      radiusMeters: value.radiusMeters,
+                                    })
+                                  }
+                                  title={`${place.name || `Place ${index + 1}`} location check-in`}
+                                />
                                 {isBulkRegistrationMode(form.mode) ? (
                                   <div className="grid gap-3">
                                     <div className="grid gap-2">
@@ -1281,8 +1342,7 @@ function TimeField({
 }
 
 function normalizeForm(form: EventForm): EventForm {
-  const requireLocation =
-    form.mode !== "PRE_REGISTRATION" && Boolean(form.requireLocation);
+  const requireLocation = Boolean(form.requireLocation);
   return {
     ...form,
     requireLocation,
@@ -1306,19 +1366,18 @@ function normalizeForm(form: EventForm): EventForm {
           name: place.name,
           description: place.description?.trim() || null,
           requireLocation:
-            form.mode !== "PRE_REGISTRATION" &&
             Boolean(place.requireLocation),
           locationName: place.locationName?.trim() || place.name,
           latitude:
-            form.mode !== "PRE_REGISTRATION" && place.requireLocation
+            place.requireLocation
               ? (place.latitude ?? 0)
               : null,
           longitude:
-            form.mode !== "PRE_REGISTRATION" && place.requireLocation
+            place.requireLocation
               ? (place.longitude ?? 0)
               : null,
           radiusMeters:
-            form.mode !== "PRE_REGISTRATION" && place.requireLocation
+            place.requireLocation
             ? clamp(place.radiusMeters ?? 100, 10, 5000)
             : 0,
         }))

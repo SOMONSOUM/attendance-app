@@ -23,7 +23,7 @@ class AttendanceScannerApp extends ConsumerWidget {
       theme: AppTheme.light(settings),
       darkTheme: AppTheme.dark(settings),
       themeMode: settings.themeMode,
-      locale: settings.locale,
+      locale: context.locale,
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       routerConfig: router,

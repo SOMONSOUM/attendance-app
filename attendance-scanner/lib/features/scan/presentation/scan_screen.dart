@@ -62,6 +62,8 @@ class _L10n {
   String get checkInResult => L.scanner.result.tr();
   String get scanSuccessful => L.scanner.successful.tr();
   String get scanNextAttendee => L.scanner.scanNextAttendee.tr();
+  String get successTitle => L.scanner.successTitle.tr();
+  String get successMessage => L.scanner.successMessage.tr();
   String get alignQrCode => L.scanner.alignQrCode.tr();
   String get recentCheckIns => L.scanner.recentCheckIns.tr();
   String get noRecentCheckIns => L.scanner.noRecentCheckIns.tr();
@@ -92,6 +94,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   String? _endedNoticeItemId;
   bool _cameraPaused = false;
   bool _endedDialogOpen = false;
+  bool _successDialogOpen = false;
+  int _shownSuccessCount = 0;
 
   @override
   void initState() {
@@ -152,6 +156,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       if (next.error != null && next.error != previous?.error) {
         _showScanError(next.error!);
       }
+      if (next.lastPerson != null &&
+          next.successCount > _shownSuccessCount &&
+          next.successCount > (previous?.successCount ?? 0)) {
+        _shownSuccessCount = next.successCount;
+        _showScanSuccess(next.lastPerson!);
+      }
     });
 
     return Scaffold(
@@ -183,21 +193,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 900;
             if (wide) {
-              return RefreshIndicator(
-                onRefresh: _refreshSelectedItem,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: SizedBox(
-                    width: constraints.maxWidth,
-                    child: _DesktopScannerLayout(
-                      state: state,
-                      selectedItem: selectedItem,
-                      selectedItemLoading: detailLoading,
-                      hardwareController: _hardwareController,
-                      hardwareFocusNode: _hardwareFocusNode,
-                      onHardwareSubmit: (value) =>
-                          _submitHardwareCode(value, selectedItem),
-                    ),
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: _DesktopScannerLayout(
+                    state: state,
+                    selectedItem: selectedItem,
+                    selectedItemLoading: detailLoading,
+                    hardwareController: _hardwareController,
+                    hardwareFocusNode: _hardwareFocusNode,
+                    onHardwareSubmit: (value) =>
+                        _submitHardwareCode(value, selectedItem),
+                    onRefresh: _refreshSelectedItem,
                   ),
                 ),
               );
@@ -386,6 +394,29 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     } else {
       _hardwareFocusNode.requestFocus();
     }
+  }
+
+  Future<void> _showScanSuccess(CheckInPerson person) async {
+    if (!mounted || _successDialogOpen) return;
+    _successDialogOpen = true;
+    BuildContext? dialogContext;
+    final timer = Timer(const Duration(seconds: 5), () {
+      final context = dialogContext;
+      if (context != null && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        dialogContext = context;
+        return _SuccessCheckInDialog(person: person, l10n: _L10n());
+      },
+    ).whenComplete(() {
+      timer.cancel();
+      _successDialogOpen = false;
+    });
   }
 
   void _showEndedNoticeIfNeeded(EventMeetingItem? item) {
