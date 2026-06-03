@@ -127,6 +127,11 @@ export class MeetingParticipantDto {
   @IsString()
   position?: string;
 
+  @ApiPropertyOptional({ example: "Dr." })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
   @ApiPropertyOptional({ example: "Ministry of Commerce" })
   @IsOptional()
   @IsString()
@@ -179,6 +184,16 @@ export class CreateMeetingDto {
   @IsOptional()
   @IsBoolean()
   separateQrByPlace?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  personalQrEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: "download,email,telegram" })
+  @IsOptional()
+  @IsString()
+  personalQrDeliveryMethods?: string;
 
   @ApiPropertyOptional({ example: false })
   @IsOptional()

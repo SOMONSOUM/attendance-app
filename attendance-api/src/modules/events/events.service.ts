@@ -485,7 +485,7 @@ export class EventsService {
   }
 
   private toEventScanUrl(code: string) {
-    return `${this.attendanceAppUrl()}/en/scan/${code}`;
+    return `${this.attendanceAppUrl()}/en/event-scan/${code}`;
   }
 
   private attendanceAppUrl() {

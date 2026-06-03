@@ -1383,21 +1383,36 @@ Future<void> _showPersonDialog(BuildContext context, CheckInPerson person) {
                       color: colors.outline.withValues(alpha: 0.42),
                     ),
                     const SizedBox(height: 14),
-                    if (person.fullNameKm?.isNotEmpty == true)
-                      _DialogInfo(
-                        label: l10n.fullName,
-                        value: person.fullNameKm!,
-                      ),
-                    _DialogInfo(label: l10n.position, value: person.position),
+                    _DialogInfo(
+                      label: '${l10n.fullName} (English)',
+                      value: person.fullName,
+                      icon: Icons.badge_outlined,
+                    ),
+                    _DialogInfo(
+                      label: '${l10n.fullName} (Khmer)',
+                      value: person.fullNameKm,
+                      icon: Icons.translate_rounded,
+                    ),
+                    _DialogInfo(
+                      label: l10n.gender,
+                      value: person.gender,
+                      icon: Icons.wc_rounded,
+                    ),
+                    _DialogInfo(
+                      label: l10n.position,
+                      value: person.position,
+                      icon: Icons.work_outline_rounded,
+                    ),
                     _DialogInfo(
                       label: l10n.organization,
                       value: person.organization,
+                      icon: Icons.apartment_rounded,
                     ),
                     _DialogInfo(
                       label: l10n.phoneNumber,
-                      value: person.phoneNumber,
+                      value: _maskPhoneNumber(person.phoneNumber),
+                      icon: Icons.phone_rounded,
                     ),
-                    _DialogInfo(label: l10n.gender, value: person.gender),
                     const SizedBox(height: 4),
                     Align(
                       alignment: Alignment.centerRight,
@@ -1418,33 +1433,43 @@ Future<void> _showPersonDialog(BuildContext context, CheckInPerson person) {
 }
 
 class _DialogInfo extends StatelessWidget {
-  const _DialogInfo({required this.label, required this.value});
+  const _DialogInfo({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   final String label;
   final String? value;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    if (value == null || value!.trim().isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    final displayValue = value?.trim().isNotEmpty == true ? value!.trim() : '-';
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(
+            icon,
+            size: 18,
+            color: colors.primary.withValues(alpha: 0.78),
+          ),
+          const SizedBox(width: 10),
           SizedBox(
-            width: 108,
+            width: 104,
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: colors.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ),
           Expanded(
             child: Text(
-              value!,
+              displayValue,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
@@ -1726,6 +1751,16 @@ String _detailShifts(EventMeetingItem item) {
 String _shiftTime(int hour, int minute) {
   final date = DateTime(1970, 1, 1, hour, minute);
   return DateFormat('HH:mm').format(date);
+}
+
+String? _maskPhoneNumber(String? value) {
+  final raw = value?.trim();
+  if (raw == null || raw.isEmpty) return raw;
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.length <= 4) return raw;
+  final last = digits.substring(digits.length - 4);
+  final prefix = raw.startsWith('+') ? '+*** ' : '*** ';
+  return '$prefix$last';
 }
 
 String _detailStatus(EventMeetingItem? item) {

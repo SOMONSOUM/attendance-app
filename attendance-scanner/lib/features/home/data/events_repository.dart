@@ -15,10 +15,24 @@ class EventsRepository {
 
   Future<List<EventMeetingItem>> listEventsAndMeetings({
     int pageSize = 100,
+    bool fresh = false,
   }) async {
+    final queryParameters = {
+      'pageSize': pageSize,
+      if (fresh) '_': DateTime.now().microsecondsSinceEpoch,
+    };
+    final options = fresh ? _freshOptions() : null;
     final responses = await Future.wait([
-      _dio.get('/events', queryParameters: {'pageSize': pageSize}),
-      _dio.get('/meetings', queryParameters: {'pageSize': pageSize}),
+      _dio.get(
+        '/events',
+        queryParameters: queryParameters,
+        options: options,
+      ),
+      _dio.get(
+        '/meetings',
+        queryParameters: queryParameters,
+        options: options,
+      ),
     ]);
 
     final events = _items(
@@ -34,12 +48,49 @@ class EventsRepository {
   Future<EventMeetingItem?> getEventMeeting({
     required EventMeetingKind kind,
     required String id,
+    bool fresh = false,
   }) async {
-    final items = await listEventsAndMeetings();
+    try {
+      final response = await _dio.get(
+        kind == EventMeetingKind.event ? '/events/$id' : '/meetings/$id',
+        queryParameters: fresh
+            ? {'_': DateTime.now().microsecondsSinceEpoch}
+            : null,
+        options: fresh ? _freshOptions() : null,
+      );
+      final data = _dataMap(response.data);
+      if (data.isNotEmpty) {
+        return kind == EventMeetingKind.event
+            ? EventMeetingItem.fromEventJson(data)
+            : EventMeetingItem.fromMeetingJson(data);
+      }
+    } on DioException {
+      if (!fresh) rethrow;
+    }
+
+    final items = await listEventsAndMeetings(fresh: fresh);
     for (final item in items) {
       if (item.kind == kind && item.id == id) return item;
     }
     return null;
+  }
+
+  Options _freshOptions() {
+    return Options(
+      headers: const {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    );
+  }
+
+  Map<String, dynamic> _dataMap(Object? payload) {
+    final root = payload is Map<String, dynamic>
+        ? payload
+        : const <String, dynamic>{};
+    final data = root['data'];
+    if (data is Map<String, dynamic>) return data;
+    return root;
   }
 
   List<Map<String, dynamic>> _items(Object? payload) {

@@ -1,6 +1,19 @@
 "use client";
 
-import { Check, CheckCircle2, MapPin, QrCode, Search, UserRoundPlus } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  Download,
+  Mail,
+  MapPin,
+  MessageCircle,
+  QrCode,
+  Search,
+  Send,
+  Share2,
+  UserRoundPlus,
+} from "lucide-react";
+import type React from "react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,15 +35,24 @@ export function MeetingScanClient({
   const [fullNameEn, setFullNameEn] = useState("");
   const [fullNameKm, setFullNameKm] = useState("");
   const [gender, setGender] = useState<"MALE" | "FEMALE" | "OTHER">("MALE");
+  const [titleName, setTitleName] = useState("");
   const [positionName, setPositionName] = useState("");
   const [organization, setOrganization] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"download" | "email" | "telegram">("download");
+  const [registrationStep, setRegistrationStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(t("readyStatus"));
   const [participantQr, setParticipantQr] = useState<{
     fullNameEn: string;
     qrImage: string;
     cardImage?: string;
+    delivery?: {
+      method: string;
+      telegramUrl?: string | null;
+      emailSent?: boolean;
+    } | null;
   } | null>(null);
   const selected = meeting.participants.find((item) => item.id === selectedId);
   const availableParticipants = useMemo(
@@ -65,25 +87,37 @@ export function MeetingScanClient({
         meeting.mode === "BULK_REGISTRATION" && meeting.requireLocation
           ? await getCurrentLocation()
           : null;
-      const response = await api<{ fullNameEn: string; qrImage?: string; cardImage?: string }>(
+      const response = await api<{
+        fullNameEn: string;
+        qrImage?: string;
+        cardImage?: string;
+        delivery?: {
+          method: string;
+          telegramUrl?: string | null;
+          emailSent?: boolean;
+        } | null;
+      }>(
         `/meetings/qr/${code}/join`,
         {
-        method: "POST",
-        body: JSON.stringify({
-          participantId: selected?.id,
-          fullNameEn: selected?.fullNameEn ?? fullNameEn,
-          fullNameKm: selected?.fullNameKm ?? fullNameKm,
-          gender: selected?.gender ?? gender,
-          position: selected?.position ?? positionName,
-          organization: selected?.organization ?? organization,
-          phoneNumber: selected?.phoneNumber ?? phoneNumber,
-          ...(position
-            ? {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-              }
-            : {}),
-        }),
+          method: "POST",
+          body: JSON.stringify({
+            participantId: selected?.id,
+            fullNameEn: selected?.fullNameEn ?? fullNameEn,
+            fullNameKm: selected?.fullNameKm ?? fullNameKm,
+            gender: selected?.gender ?? gender,
+            title: titleName || undefined,
+            position: selected?.position ?? positionName,
+            organization: selected?.organization ?? organization,
+            phoneNumber: selected?.phoneNumber ?? phoneNumber,
+            email: email || undefined,
+            deliveryMethod,
+            ...(position
+              ? {
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                }
+              : {}),
+          }),
         },
       );
       if (response.qrImage) {
@@ -91,8 +125,12 @@ export function MeetingScanClient({
           fullNameEn: response.fullNameEn,
           qrImage: response.qrImage,
           cardImage: response.cardImage,
+          delivery: response.delivery,
         });
         setStatus(t("registrationComplete"));
+        if (response.delivery?.telegramUrl) {
+          window.location.href = response.delivery.telegramUrl;
+        }
       } else {
         setStatus(t("confirmedStatus"));
       }
@@ -146,29 +184,13 @@ export function MeetingScanClient({
 
         <Card className="space-y-4 p-4 sm:p-5">
           {participantQr ? (
-            <div className="grid gap-3 text-center">
-              <p className="text-sm font-medium text-muted-fg">
-                {t("personalQrFor")}
-              </p>
-              <p className="text-lg font-semibold">
-                {participantQr.fullNameEn}
-              </p>
-              <img
-                src={participantQr.qrImage}
-                alt={t("personalQrAlt")}
-                className="mx-auto size-56 rounded-md border border-border bg-white p-3"
-              />
-              {participantQr.cardImage ? (
-                <Button
-                  type="button"
-                  onClick={() =>
-                    downloadDataUrl(participantQr.cardImage!, "participant-card.png")
-                  }
-                >
-                  Download attendee card
-                </Button>
-              ) : null}
-            </div>
+            <RegistrationSuccess
+              contextName={meeting.name}
+              fullName={participantQr.fullNameEn}
+              qrImage={participantQr.qrImage}
+              cardImage={participantQr.cardImage}
+              delivery={participantQr.delivery}
+            />
           ) : isRegisteredListMode(meeting.mode) ? (
             <>
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -248,72 +270,52 @@ export function MeetingScanClient({
               ) : null}
             </>
           ) : (
-            <div className="grid gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <UserRoundPlus size={16} className="text-primary" />
-                {t("registrationDetails")}
-              </div>
-              <Input
-                placeholder={t("fullNameEn")}
-                value={fullNameEn}
-                onChange={(event) => setFullNameEn(event.target.value)}
-              />
-              <Input
-                placeholder={t("fullNameKm")}
-                value={fullNameKm}
-                onChange={(event) => setFullNameKm(event.target.value)}
-              />
-              <select
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                value={gender}
-                onChange={(event) =>
-                  setGender(event.target.value as "MALE" | "FEMALE" | "OTHER")
-                }
-              >
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-              <Input
-                placeholder="Position"
-                value={positionName}
-                onChange={(event) => setPositionName(event.target.value)}
-              />
-              <Input
-                placeholder="Organization"
-                value={organization}
-                onChange={(event) => setOrganization(event.target.value)}
-              />
-              <Input
-                placeholder="Phone number"
-                value={phoneNumber}
-                onChange={(event) => setPhoneNumber(event.target.value)}
-              />
-            </div>
+            <MeetingRegistrationWizard
+              step={registrationStep}
+              setStep={setRegistrationStep}
+              values={{
+                fullNameEn,
+                fullNameKm,
+                gender,
+                titleName,
+                positionName,
+                organization,
+                phoneNumber,
+                email,
+                deliveryMethod,
+              }}
+              setters={{
+                setFullNameEn,
+                setFullNameKm,
+                setGender,
+                setTitleName,
+                setPositionName,
+                setOrganization,
+                setPhoneNumber,
+                setEmail,
+                setDeliveryMethod,
+              }}
+              enabled={meeting.personalQrEnabled ?? true}
+              methods={meeting.personalQrDeliveryMethods}
+              busy={busy}
+              onSubmit={join}
+            />
           )}
 
-          <Button
-            disabled={
-              busy ||
-              Boolean(participantQr) ||
-              (isRegisteredListMode(meeting.mode)
-                ? !selected
-                : !fullNameEn.trim() ||
-                  !fullNameKm.trim() ||
-                  !positionName.trim() ||
-                  !organization.trim() ||
-                  !phoneNumber.trim())
-            }
-            onClick={join}
-            className="w-full"
-          >
-            {status === t("confirmedStatus") ? (
-              <CheckCircle2 size={18} />
-            ) : (
-              <Check size={18} />
-            )}
-            {t("checkIn")}
-          </Button>
+          {isRegisteredListMode(meeting.mode) ? (
+            <Button
+              disabled={busy || Boolean(participantQr) || !selected}
+              onClick={join}
+              className="w-full"
+            >
+              {status === t("confirmedStatus") ? (
+                <CheckCircle2 size={18} />
+              ) : (
+                <Check size={18} />
+              )}
+              {t("checkIn")}
+            </Button>
+          ) : null}
           <p className="text-center text-sm text-muted-fg">{status}</p>
         </Card>
       </div>
@@ -342,8 +344,355 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   link.click();
 }
 
+async function shareRegistrationCard(title: string, text: string) {
+  if (!navigator.share) return;
+  await navigator.share({ title, text });
+}
+
 function isRegisteredListMode(mode: PublicMeeting["mode"]) {
   return mode === "BULK_REGISTRATION";
+}
+
+type MeetingRegistrationValues = {
+  fullNameEn: string;
+  fullNameKm: string;
+  gender: "MALE" | "FEMALE" | "OTHER";
+  titleName: string;
+  positionName: string;
+  organization: string;
+  phoneNumber: string;
+  email: string;
+  deliveryMethod: "download" | "email" | "telegram";
+};
+
+type MeetingRegistrationSetters = {
+  setFullNameEn: (value: string) => void;
+  setFullNameKm: (value: string) => void;
+  setGender: (value: "MALE" | "FEMALE" | "OTHER") => void;
+  setTitleName: (value: string) => void;
+  setPositionName: (value: string) => void;
+  setOrganization: (value: string) => void;
+  setPhoneNumber: (value: string) => void;
+  setEmail: (value: string) => void;
+  setDeliveryMethod: (value: "download" | "email" | "telegram") => void;
+};
+
+function MeetingRegistrationWizard({
+  step,
+  setStep,
+  values,
+  setters,
+  enabled,
+  methods,
+  busy,
+  onSubmit,
+}: {
+  step: number;
+  setStep: (step: number) => void;
+  values: MeetingRegistrationValues;
+  setters: MeetingRegistrationSetters;
+  enabled: boolean;
+  methods?: string;
+  busy: boolean;
+  onSubmit: () => void;
+}) {
+  const canContinue =
+    step === 1
+      ? Boolean(values.fullNameEn.trim() && values.fullNameKm.trim() && values.positionName.trim())
+      : step === 2
+        ? Boolean(values.organization.trim() && values.phoneNumber.trim())
+        : step === 3 && values.deliveryMethod === "email"
+          ? Boolean(values.email.trim())
+          : true;
+
+  return (
+    <div className="space-y-5">
+      <StepProgress step={step} />
+      {step === 1 ? (
+        <div className="grid gap-4">
+          <SectionTitle icon={<UserRoundPlus size={17} />} title="Personal information" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Full name (Khmer)">
+              <Input
+                placeholder="ឈ្មោះពេញ"
+                value={values.fullNameKm}
+                onChange={(event) => setters.setFullNameKm(event.target.value)}
+              />
+            </Field>
+            <Field label="Full name (English)">
+              <Input
+                placeholder="Last name, First name"
+                value={values.fullNameEn}
+                onChange={(event) => setters.setFullNameEn(event.target.value)}
+              />
+            </Field>
+          </div>
+          <Field label="Gender">
+            <select
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={values.gender}
+              onChange={(event) =>
+                setters.setGender(event.target.value as "MALE" | "FEMALE" | "OTHER")
+              }
+            >
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Position">
+              <Input
+                placeholder="e.g. Director"
+                value={values.positionName}
+                onChange={(event) => setters.setPositionName(event.target.value)}
+              />
+            </Field>
+            <Field label="Title">
+              <Input
+                placeholder="e.g. Dr., Mr."
+                value={values.titleName}
+                onChange={(event) => setters.setTitleName(event.target.value)}
+              />
+            </Field>
+          </div>
+        </div>
+      ) : null}
+      {step === 2 ? (
+        <div className="grid gap-4">
+          <SectionTitle icon={<MapPin size={17} />} title="Contact & organization" />
+          <Field label="Phone number">
+            <Input
+              placeholder="+855 -- --- ---"
+              value={values.phoneNumber}
+              onChange={(event) => setters.setPhoneNumber(event.target.value)}
+            />
+          </Field>
+          <Field label="Organization / Institution">
+            <Input
+              placeholder="Full name of organization"
+              value={values.organization}
+              onChange={(event) => setters.setOrganization(event.target.value)}
+            />
+          </Field>
+        </div>
+      ) : null}
+      {step === 3 ? (
+        <div className="grid gap-4">
+          <SectionTitle icon={<QrCode size={17} />} title="Receive your QR code via" />
+          <DeliveryOptions
+            enabled={enabled}
+            methods={methods}
+            selected={values.deliveryMethod}
+            email={values.email}
+            onMethodChange={setters.setDeliveryMethod}
+            onEmailChange={setters.setEmail}
+          />
+        </div>
+      ) : null}
+      {step === 4 ? (
+        <div className="grid gap-4">
+          <SectionTitle icon={<CheckCircle2 size={17} />} title="Review your details" />
+          <dl className="rounded-md border border-border bg-secondary/30 p-4 text-sm">
+            <ReviewRow label="Khmer name" value={values.fullNameKm} />
+            <ReviewRow label="English name" value={values.fullNameEn} />
+            <ReviewRow label="Position" value={values.positionName} />
+            <ReviewRow label="Title" value={values.titleName} />
+            <ReviewRow label="Phone" value={values.phoneNumber} />
+            <ReviewRow label="Organization" value={values.organization} />
+            <ReviewRow label="QR via" value={values.deliveryMethod} />
+          </dl>
+        </div>
+      ) : null}
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={step === 1 || busy}
+          onClick={() => setStep(Math.max(step - 1, 1))}
+        >
+          Back
+        </Button>
+        <span className="text-sm font-medium text-muted-fg">Step {step} of 4</span>
+        {step < 4 ? (
+          <Button type="button" disabled={!canContinue} onClick={() => setStep(Math.min(step + 1, 4))}>
+            Continue
+          </Button>
+        ) : (
+          <Button type="button" disabled={busy} onClick={onSubmit}>
+            <Send size={16} />
+            {busy ? "Submitting..." : "Submit"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StepProgress({ step }: { step: number }) {
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {[1, 2, 3, 4].map((item) => (
+        <div
+          key={item}
+          className={`flex h-10 items-center justify-center rounded-full border text-sm font-semibold ${
+            item < step
+              ? "border-green-700 bg-green-700 text-white"
+              : item === step
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-fg"
+          }`}
+        >
+          {item < step ? <Check size={16} /> : item}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-border pb-3 text-sm font-semibold">
+      <span className="text-primary">{icon}</span>
+      {title}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-2 text-sm font-medium">
+      {label}
+      {children}
+    </label>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-border py-1 last:border-b-0">
+      <dt className="text-muted-fg">{label}</dt>
+      <dd className="text-right font-semibold">{value?.trim() || "-"}</dd>
+    </div>
+  );
+}
+
+function RegistrationSuccess({
+  contextName,
+  fullName,
+  qrImage,
+  cardImage,
+  delivery,
+}: {
+  contextName: string;
+  fullName: string;
+  qrImage: string;
+  cardImage?: string;
+  delivery?: { method: string; emailSent?: boolean; telegramUrl?: string | null } | null;
+}) {
+  return (
+    <div className="grid justify-items-center gap-4 text-center">
+      <div className="w-full rounded-md border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-900">
+        {delivery?.method === "email" && delivery.emailSent
+          ? "QR sent to your email"
+          : delivery?.method === "telegram"
+            ? "Open Telegram to receive your QR"
+            : "Registration complete"}
+      </div>
+      <img
+        src={qrImage}
+        alt="Personal check-in QR"
+        className="size-44 rounded-md border border-border bg-white p-3"
+      />
+      <div>
+        <p className="text-xl font-semibold">{fullName}</p>
+        <p className="text-sm text-muted-fg">{contextName}</p>
+      </div>
+      {cardImage ? (
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => downloadDataUrl(cardImage, "participant-card.png")}
+          >
+            <Download size={16} />
+            Download QR
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              void shareRegistrationCard(
+                `${fullName} QR`,
+                `${fullName} registration QR for ${contextName}`,
+              )
+            }
+          >
+            <Share2 size={16} />
+            Share
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DeliveryOptions({
+  enabled,
+  methods,
+  selected,
+  email,
+  onMethodChange,
+  onEmailChange,
+}: {
+  enabled: boolean;
+  methods?: string;
+  selected: "download" | "email" | "telegram";
+  email: string;
+  onMethodChange: (value: "download" | "email" | "telegram") => void;
+  onEmailChange: (value: string) => void;
+}) {
+  if (!enabled) return null;
+  const allowed = new Set((methods || "download,email,telegram").split(","));
+  const options = [
+    { value: "download" as const, label: "Download", icon: Download },
+    { value: "email" as const, label: "Email", icon: Mail },
+    { value: "telegram" as const, label: "Telegram", icon: MessageCircle },
+  ].filter((option) => allowed.has(option.value));
+
+  return (
+    <div className="grid gap-2 rounded-md border border-border bg-secondary/40 p-3">
+      <p className="text-sm font-medium">Receive personal QR card</p>
+      <div className="grid grid-cols-3 gap-2">
+        {options.map((option) => {
+          const Icon = option.icon;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={`flex min-h-10 items-center justify-center gap-1 rounded-md border px-2 text-xs font-medium ${
+                selected === option.value
+                  ? "border-primary bg-background text-primary"
+                  : "border-border bg-background text-muted-fg"
+              }`}
+              onClick={() => onMethodChange(option.value)}
+            >
+              <Icon size={14} />
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {selected === "email" ? (
+        <Input
+          type="email"
+          placeholder="Email address"
+          value={email}
+          onChange={(event) => onEmailChange(event.target.value)}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function Detail({

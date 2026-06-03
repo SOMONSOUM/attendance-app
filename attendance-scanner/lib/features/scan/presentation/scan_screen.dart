@@ -26,22 +26,30 @@ final _selectedScanItemProvider = FutureProvider.autoDispose
     .family<EventMeetingItem?, _SelectedItemKey>((ref, key) {
       return ref
           .read(eventsRepositoryProvider)
-          .getEventMeeting(kind: key.kind, id: key.id);
+          .getEventMeeting(kind: key.kind, id: key.id, fresh: key.fresh);
     });
 
 class _SelectedItemKey {
-  const _SelectedItemKey({required this.kind, required this.id});
+  const _SelectedItemKey({
+    required this.kind,
+    required this.id,
+    this.fresh = false,
+  });
 
   final EventMeetingKind kind;
   final String id;
+  final bool fresh;
 
   @override
   bool operator ==(Object other) {
-    return other is _SelectedItemKey && other.kind == kind && other.id == id;
+    return other is _SelectedItemKey &&
+        other.kind == kind &&
+        other.id == id &&
+        other.fresh == fresh;
   }
 
   @override
-  int get hashCode => Object.hash(kind, id);
+  int get hashCode => Object.hash(kind, id, fresh);
 }
 
 class _L10n {
@@ -95,6 +103,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   bool _cameraPaused = false;
   bool _endedDialogOpen = false;
   bool _successDialogOpen = false;
+  bool _forceFreshDetail = false;
   int _shownSuccessCount = 0;
 
   @override
@@ -105,6 +114,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       formats: const [BarcodeFormat.qrCode],
     );
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
+    _forceFreshDetail = widget.selectedItem != null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(scanControllerProvider.notifier).clearSession();
     });
@@ -120,6 +130,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedItem?.id != widget.selectedItem?.id ||
         oldWidget.selectedItem?.kind != widget.selectedItem?.kind) {
+      _forceFreshDetail = widget.selectedItem != null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(scanControllerProvider.notifier).clearSession();
       });
@@ -323,7 +334,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   _SelectedItemKey? get _selectedKey {
     final item = widget.selectedItem;
     if (item == null) return null;
-    return _SelectedItemKey(kind: item.kind, id: item.id);
+    return _SelectedItemKey(
+      kind: item.kind,
+      id: item.id,
+      fresh: _forceFreshDetail,
+    );
   }
 
   EventMeetingItem? _currentSelectedItem() {
@@ -338,8 +353,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   Future<void> _refreshSelectedItem() async {
     final selectedKey = _selectedKey;
     if (selectedKey == null) return;
-    ref.invalidate(_selectedScanItemProvider(selectedKey));
-    await ref.read(_selectedScanItemProvider(selectedKey).future);
+    final freshKey = _SelectedItemKey(
+      kind: selectedKey.kind,
+      id: selectedKey.id,
+      fresh: true,
+    );
+    ref.invalidate(_selectedScanItemProvider(freshKey));
+    setState(() => _forceFreshDetail = true);
+    await ref.read(_selectedScanItemProvider(freshKey).future);
   }
 
   void _resumeScanning() {

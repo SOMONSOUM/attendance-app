@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import * as XLSX from "xlsx";
 import { MeetingsRepository } from "./meetings.repository";
 import { AttendeeCardService } from "../attendance/attendee-card.service";
+import { RegistrationDeliveryService } from "../notifications/registration-delivery.service";
 import { CreateMeetingDto, JoinMeetingDto, UpdateMeetingDto } from "./dto";
 import {
   paginated,
@@ -44,6 +45,7 @@ export class MeetingsService {
   constructor(
     private readonly prisma: MeetingsRepository,
     private readonly attendeeCard: AttendeeCardService,
+    private readonly delivery: RegistrationDeliveryService,
   ) {}
 
   async create(tenantId: string | null, userId: string, dto: CreateMeetingDto) {
@@ -60,6 +62,8 @@ export class MeetingsService {
           name: dto.name,
           description: dto.description,
           mode: dto.mode,
+          personalQrEnabled: dto.personalQrEnabled,
+          personalQrDeliveryMethods: dto.personalQrDeliveryMethods,
           separateQrByPlace,
           startsAt: new Date(dto.startsAt),
           endsAt: new Date(dto.endsAt),
@@ -186,6 +190,8 @@ export class MeetingsService {
           name: dto.name,
           description: dto.description,
           mode: dto.mode,
+          personalQrEnabled: dto.personalQrEnabled,
+          personalQrDeliveryMethods: dto.personalQrDeliveryMethods,
           separateQrByPlace: dto.separateQrByPlace,
           startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
           endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
@@ -397,7 +403,9 @@ export class MeetingsService {
         fullNameEn: dto.fullNameEn,
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
+        title: dto.title,
         position: dto.position,
+        organization: dto.organization,
         phoneNumber: dto.phoneNumber,
         email: dto.email,
         status: "INVITED",
@@ -455,6 +463,11 @@ export class MeetingsService {
   async joinByCode(code: string, dto: JoinMeetingDto) {
     const meeting = await this.getPublicByCode(code);
     this.assertMeetingDateWindow(meeting);
+    this.assertDeliveryOption(
+      meeting.personalQrEnabled !== false,
+      meeting.personalQrDeliveryMethods,
+      dto,
+    );
     const activeShift = dto.shiftId
       ? this.assertActiveShift(meeting, dto.shiftId)
       : this.assertScanWindow(meeting);
@@ -514,7 +527,9 @@ export class MeetingsService {
         fullNameEn: dto.fullNameEn,
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
+        title: dto.title,
         position: dto.position,
+        organization: dto.organization,
         phoneNumber: dto.phoneNumber,
         email: dto.email,
         status: "INVITED",
@@ -526,15 +541,27 @@ export class MeetingsService {
       },
     });
 
+    const personalQrEnabled = meeting.personalQrEnabled !== false;
+    const cardImage = personalQrEnabled
+      ? await this.toParticipantCardImage({
+          fullNameEn: participant.fullNameEn,
+          fullNameKm: participant.fullNameKm,
+          organization: participant.organization,
+          checkInCode,
+        })
+      : null;
     return {
       ...participant,
-      qrImage: await this.toParticipantQrImage(checkInCode),
-      cardImage: await this.toParticipantCardImage({
-        fullNameEn: participant.fullNameEn,
-        fullNameKm: participant.fullNameKm,
-        organization: participant.organization,
-        checkInCode,
-      }),
+      qrImage: personalQrEnabled ? await this.toParticipantQrImage(checkInCode) : null,
+      cardImage,
+      delivery: personalQrEnabled
+        ? await this.toDeliveryPayload(dto.deliveryMethod, checkInCode, {
+            cardImage,
+            contextName: meeting.name,
+            email: participant.email,
+            fullNameEn: participant.fullNameEn,
+          })
+        : null,
     };
   }
 
@@ -830,10 +857,6 @@ export class MeetingsService {
     return `data:image/png;base64,${buffer.toString("base64")}`;
   }
 
-  private toParticipantQrUrl(code: string) {
-    return `${this.attendanceAppUrl()}/en/participant-qr/${code}`;
-  }
-
   private attendanceAppUrl() {
     return (process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000").replace(
       /\/$/,
@@ -843,6 +866,52 @@ export class MeetingsService {
 
   private toQrCode() {
     return randomBytes(18).toString("base64url");
+  }
+
+  private async toDeliveryPayload(
+    method: string | undefined,
+    checkInCode: string,
+    input: {
+      cardImage: string | null;
+      contextName: string;
+      email?: string | null;
+      fullNameEn: string;
+    },
+  ) {
+    const deliveryMethod = method || "download";
+    if (deliveryMethod === "email" && input.cardImage) {
+      await this.delivery.sendCardEmail({
+        to: input.email,
+        fullNameEn: input.fullNameEn,
+        contextName: input.contextName,
+        cardImage: input.cardImage,
+      });
+    }
+    return {
+      method: deliveryMethod,
+      telegramUrl:
+        deliveryMethod === "telegram" ? this.delivery.telegramUrl(checkInCode) : null,
+      emailSent: deliveryMethod === "email",
+    };
+  }
+
+  private assertDeliveryOption(
+    personalQrEnabled: boolean,
+    configuredMethods: string | null | undefined,
+    dto: JoinMeetingDto,
+  ) {
+    if (!personalQrEnabled) return;
+    const method = dto.deliveryMethod || "download";
+    const allowed = (configuredMethods || "download,email,telegram")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (!allowed.includes(method)) {
+      throw new BadRequestException("This QR delivery method is not enabled.");
+    }
+    if (method === "email" && !dto.email?.trim()) {
+      throw new BadRequestException("Email address is required for email delivery.");
+    }
   }
 
   private async toMeetingPlaceData(

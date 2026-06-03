@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Gender } from "@prisma/client";
-import { IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class JoinEventDto {
   @ApiPropertyOptional({ example: 11.5564 })
@@ -42,6 +42,11 @@ export class JoinEventDto {
   @IsString()
   position?: string;
 
+  @ApiPropertyOptional({ example: "Dr." })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
   @ApiPropertyOptional({ example: "Ministry of Commerce" })
   @IsOptional()
   @IsString()
@@ -51,4 +56,14 @@ export class JoinEventDto {
   @IsOptional()
   @IsString()
   phoneNumber?: string;
+
+  @ApiPropertyOptional({ example: "sok.dara@example.com" })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ example: "telegram" })
+  @IsOptional()
+  @IsString()
+  deliveryMethod?: string;
 }

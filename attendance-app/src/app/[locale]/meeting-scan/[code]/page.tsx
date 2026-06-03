@@ -15,6 +15,8 @@ export type PublicMeeting = {
   latitude?: string | number;
   longitude?: string | number;
   radiusMeters?: number;
+  personalQrEnabled?: boolean;
+  personalQrDeliveryMethods?: string;
   startsAt: string;
   endsAt: string;
   scanPlace?: {

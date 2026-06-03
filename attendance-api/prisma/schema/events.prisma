@@ -6,6 +6,8 @@ model Event {
   description       String?             @db.Text
   mode              EventMode
   separateQrByPlace Boolean             @default(false) @map("separate_qr_by_place")
+  personalQrEnabled Boolean             @default(true) @map("personal_qr_enabled")
+  personalQrDeliveryMethods String      @default("download,email,telegram") @map("personal_qr_delivery_methods")
   startsAt          DateTime            @map("starts_at")
   endsAt            DateTime            @map("ends_at")
   places            EventPlace[]
@@ -90,9 +92,11 @@ model EventRegistration {
   fullNameEn String      @map("full_name_en")
   fullNameKm String?     @map("full_name_km")
   gender     Gender?
+  title      String?
   position   String?
   organization String?
   phoneNumber String?     @map("phone_number")
+  email       String?
   checkInCode String?     @unique @map("check_in_code")
   source     String      @default("UPLOAD")
   createdAt  DateTime    @default(now()) @map("created_at")
@@ -101,6 +105,7 @@ model EventRegistration {
   @@index([eventId, fullNameEn])
   @@index([eventId, fullNameKm])
   @@index([phoneNumber])
+  @@index([email])
   @@index([placeId])
   @@index([shiftId])
   @@map("event_registrations")

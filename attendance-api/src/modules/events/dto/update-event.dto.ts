@@ -41,6 +41,16 @@ export class UpdateEventDto {
   @IsBoolean()
   separateQrByPlace?: boolean;
 
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  personalQrEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: "download,email,telegram" })
+  @IsOptional()
+  @IsString()
+  personalQrDeliveryMethods?: string;
+
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()

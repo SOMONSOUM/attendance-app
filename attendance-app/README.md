@@ -1,6 +1,6 @@
 # Attendance App
 
-Attendance App is the public QR scanning experience for attendees and meeting participants. It renders event QR pages, meeting QR pages, search flows, open registration forms, and participant check-in screens.
+Attendance App is the public QR scanning experience for attendees and meeting participants. It renders event scan pages, meeting scan pages, search flows, open registration forms, and participant check-in screens.
 
 ## Setup
 
@@ -91,9 +91,8 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 ## Covered UI Flows
 
-- Localized public entry route.
-- Seeded bulk event QR page and attendee search.
-- Seeded open registration event page and required form state.
+- Seeded bulk event scan page and attendee search.
+- Seeded open registration event scan page and required form state.
 - Seeded meeting QR page and participant filtering.
 - Seeded pre-registration meeting page.
 - Desktop Chromium and mobile Chromium viewports.

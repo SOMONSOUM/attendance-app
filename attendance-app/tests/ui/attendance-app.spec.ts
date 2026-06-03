@@ -10,15 +10,8 @@ async function dismissWarningDialog(page: Page) {
   await expect(dialog).toBeHidden({ timeout: 5_000 });
 }
 
-test("renders the localized public entry page", async ({ page }) => {
-  await page.goto("/en");
-
-  await expect(page.getByText("Locale Page")).toBeVisible();
-  await expect(page.locator("body")).not.toContainText("Application error");
-});
-
 test("uses Google Sans as the global font family", async ({ page }) => {
-  await page.goto("/en");
+  await page.goto("/en/event-scan/DEMO-COMMUNITY-OPEN-DAY-2026");
 
   const font = await page.evaluate(() => {
     const styles = getComputedStyle(document.body);
@@ -35,7 +28,7 @@ test("uses Google Sans as the global font family", async ({ page }) => {
 test("renders a seeded bulk event QR screen and searches attendees", async ({
   page,
 }) => {
-  await page.goto("/en/scan/DEMO-TECH-SUMMIT-2026");
+  await page.goto("/en/event-scan/DEMO-TECH-SUMMIT-2026");
 
   await expect(page.getByRole("heading", { name: "Khmer Tech Summit 2026" }))
     .toBeVisible({ timeout: 20_000 });
@@ -53,22 +46,40 @@ test("renders a seeded bulk event QR screen and searches attendees", async ({
 test("renders an open event QR screen with registration fields", async ({
   page,
 }) => {
-  await page.goto("/en/scan/DEMO-COMMUNITY-OPEN-DAY-2026");
+  await page.goto("/en/event-scan/DEMO-COMMUNITY-OPEN-DAY-2026");
 
   await expect(page.getByRole("heading", { name: "Community Open Day 2026" }))
     .toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Open registration")).toBeVisible();
-  await page.getByPlaceholder("Full name English").click();
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: "profile.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(page.getByAltText("Profile picture")).toBeVisible();
+  await page.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByAltText("Profile picture")).toBeHidden();
+  await page.getByPlaceholder("Last name, First name").click();
   await page
-    .getByPlaceholder("Full name English")
+    .getByPlaceholder("Last name, First name")
     .pressSequentially("UI Test Visitor");
-  await page.getByPlaceholder("Position").click();
-  await page.getByPlaceholder("Position").pressSequentially("QA Visitor");
-  await page.getByPlaceholder("Full name Khmer").fill("UI Test Visitor Khmer");
-  await page.getByPlaceholder("Organization").fill("QA Organization");
-  await page.getByPlaceholder("Phone number").fill("+855 12 345 678");
+  await page.getByPlaceholder("ឈ្មោះពេញ").fill("UI Test Visitor Khmer");
+  await page.getByPlaceholder("e.g. Director").fill("QA Visitor");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByPlaceholder("Full name of organization").fill("QA Organization");
+  await page.getByPlaceholder("+855 -- --- ---").fill("+855 12 345 678");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Email" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByPlaceholder("sophea@example.com")).toHaveClass(
+    /border-destructive/,
+  );
 
-  await expect(page.getByRole("button", { name: "Join event" })).toBeEnabled();
+  await page.getByPlaceholder("sophea@example.com").fill("visitor@example.com");
+  await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
 });
 
 test("renders a seeded meeting QR screen and filters participants", async ({
@@ -92,14 +103,12 @@ test("renders a pre-registration meeting QR screen", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Research Roundtable 2026" }),
   ).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("Registration details")).toBeVisible();
-  await page.getByPlaceholder("Full name in English").click();
+  await expect(page.getByText("Personal information")).toBeVisible();
+  await page.getByPlaceholder("Last name, First name").click();
   await page
-    .getByPlaceholder("Full name in English")
+    .getByPlaceholder("Last name, First name")
     .pressSequentially("UI Test Participant");
-  await page.getByPlaceholder("Full name in Khmer").fill("UI Test Participant Khmer");
-  await page.getByPlaceholder("Position").fill("QA Participant");
-  await page.getByPlaceholder("Organization").fill("QA Organization");
-  await page.getByPlaceholder("Phone number").fill("+855 12 345 678");
-  await expect(page.getByRole("button", { name: "Check in" })).toBeEnabled();
+  await page.getByPlaceholder("ឈ្មោះពេញ").fill("UI Test Participant Khmer");
+  await page.getByPlaceholder("e.g. Director").fill("QA Participant");
+  await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
 });

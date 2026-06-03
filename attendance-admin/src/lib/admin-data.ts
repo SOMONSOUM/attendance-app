@@ -22,6 +22,8 @@ export type EventRecord = {
   scheduleStatus?: ScheduleStatus;
   scheduleSortAt?: string | null;
   separateQrByPlace?: boolean;
+  personalQrEnabled?: boolean;
+  personalQrDeliveryMethods?: string;
   places?: EventPlace[];
   theme?: EventTheme | null;
   shifts?: EventShift[];
@@ -74,6 +76,8 @@ export type EventForm = {
   description?: string;
   mode: RegistrationMode;
   separateQrByPlace?: boolean;
+  personalQrEnabled?: boolean;
+  personalQrDeliveryMethods?: string;
   requireLocation?: boolean;
   locationName?: string;
   latitude?: number;
@@ -117,6 +121,7 @@ export type MeetingParticipant = {
   fullNameEn: string;
   fullNameKm?: string | null;
   gender?: "MALE" | "FEMALE" | "OTHER" | null;
+  title?: string | null;
   position?: string | null;
   organization?: string | null;
   phoneNumber?: string | null;
@@ -144,6 +149,8 @@ export type MeetingRecord = {
   scheduleStatus?: ScheduleStatus;
   scheduleSortAt?: string | null;
   chairpersons: MeetingChairperson[];
+  personalQrEnabled?: boolean;
+  personalQrDeliveryMethods?: string;
   places?: MeetingPlace[];
   shifts?: EventShift[];
   qrCodes?: { id: string; code: string; active: boolean }[];
@@ -156,6 +163,8 @@ export type MeetingForm = {
   description?: string;
   mode: RegistrationMode;
   separateQrByPlace?: boolean;
+  personalQrEnabled?: boolean;
+  personalQrDeliveryMethods?: string;
   locationName?: string;
   requireLocation?: boolean;
   latitude?: number;
@@ -264,11 +273,27 @@ export type RegistrationForm = {
   fullNameEn: string;
   fullNameKm?: string;
   gender?: "MALE" | "FEMALE" | "OTHER" | "";
+  title?: string;
   position?: string;
   organization?: string;
   phoneNumber?: string;
+  email?: string;
+  deliveryMethod?: "download" | "email" | "telegram";
   shiftId?: string;
   placeId?: string;
+};
+
+export type RegistrationResult = {
+  id: string;
+  fullNameEn: string;
+  fullNameKm?: string | null;
+  qrImage?: string | null;
+  cardImage?: string | null;
+  delivery?: {
+    method: string;
+    telegramUrl?: string | null;
+    emailSent?: boolean;
+  };
 };
 
 export type EventRosterRecord = {
@@ -694,7 +719,7 @@ export function registerAttendeeByEventQr(
   code: string,
   data: RegistrationForm,
 ) {
-  return api<EventRosterRecord & { qrImage?: string }>(
+  return api<RegistrationResult>(
     `/attendance/qr/${code}/register`,
     {
       method: "POST",
@@ -707,7 +732,7 @@ export function registerMeetingParticipantByQr(
   code: string,
   data: RegistrationForm,
 ) {
-  return api<MeetingParticipant & { qrImage?: string }>(
+  return api<RegistrationResult>(
     `/meetings/qr/${code}/join`,
     {
       method: "POST",
@@ -788,8 +813,12 @@ function cleanRegistrationForm(data: RegistrationForm) {
     fullNameEn: data.fullNameEn.trim(),
     fullNameKm: data.fullNameKm?.trim() || undefined,
     gender: data.gender || undefined,
+    title: data.title?.trim() || undefined,
     position: data.position?.trim() || undefined,
+    organization: data.organization?.trim() || undefined,
     phoneNumber: data.phoneNumber?.trim() || undefined,
+    email: data.email?.trim() || undefined,
+    deliveryMethod: data.deliveryMethod || undefined,
     shiftId: data.shiftId || undefined,
     placeId: data.placeId || undefined,
   };

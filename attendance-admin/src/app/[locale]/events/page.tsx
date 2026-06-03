@@ -67,6 +67,8 @@ const initialForm: EventForm = {
   description: "",
   mode: "BULK_REGISTRATION",
   separateQrByPlace: false,
+  personalQrEnabled: true,
+  personalQrDeliveryMethods: "download,email,telegram",
   requireLocation: false,
   locationName: "",
   latitude: 11.5564,
@@ -260,6 +262,9 @@ export default function EventsPage() {
       description: event.description ?? "",
       mode: event.mode,
       separateQrByPlace: Boolean(event.separateQrByPlace),
+      personalQrEnabled: event.personalQrEnabled ?? true,
+      personalQrDeliveryMethods:
+        event.personalQrDeliveryMethods ?? "download,email,telegram",
       requireLocation: Boolean(event.requireLocation),
       locationName: event.locationName ?? "",
       latitude: toNumber(event.latitude, initialForm.latitude),
@@ -311,6 +316,9 @@ export default function EventsPage() {
       description: event.description ?? "",
       mode: event.mode,
       separateQrByPlace: Boolean(event.separateQrByPlace),
+      personalQrEnabled: event.personalQrEnabled ?? true,
+      personalQrDeliveryMethods:
+        event.personalQrDeliveryMethods ?? "download,email,telegram",
       requireLocation: Boolean(event.requireLocation),
       locationName: event.locationName ?? "",
       latitude: toNumber(event.latitude, initialForm.latitude),
@@ -623,6 +631,21 @@ export default function EventsPage() {
                         </Select>
                       </div>
                       <RegistrationModeGuide mode={form.mode} noun="attendees" />
+                      {!isBulkRegistrationMode(form.mode) ? (
+                        <PersonalQrOptions
+                          enabled={form.personalQrEnabled ?? true}
+                          methods={
+                            form.personalQrDeliveryMethods ??
+                            "download,email,telegram"
+                          }
+                          onEnabledChange={(personalQrEnabled) =>
+                            setForm({ ...form, personalQrEnabled })
+                          }
+                          onMethodsChange={(personalQrDeliveryMethods) =>
+                            setForm({ ...form, personalQrDeliveryMethods })
+                          }
+                        />
+                      ) : null}
                       <div className="grid gap-3 rounded-md border border-border bg-background p-3">
                         <div>
                           <h3 className="text-sm font-semibold">
@@ -1453,6 +1476,70 @@ function RegistrationModeGuide({
         <p className="text-sm font-semibold">{content.title}</p>
         <p className="mt-1 text-xs leading-5 text-muted-fg">{content.text}</p>
       </div>
+    </div>
+  );
+}
+
+function PersonalQrOptions({
+  enabled,
+  methods,
+  onEnabledChange,
+  onMethodsChange,
+}: {
+  enabled: boolean;
+  methods: string;
+  onEnabledChange: (enabled: boolean) => void;
+  onMethodsChange: (methods: string) => void;
+}) {
+  const selected = new Set(methods.split(",").filter(Boolean));
+  const options = [
+    ["download", "Show and download"],
+    ["email", "Send to email"],
+    ["telegram", "Send by Telegram"],
+  ] as const;
+
+  function toggle(method: string, checked: boolean) {
+    const next = new Set(selected);
+    if (checked) next.add(method);
+    else next.delete(method);
+    onMethodsChange(Array.from(next).join(","));
+  }
+
+  return (
+    <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+      <label className="flex items-start gap-3 text-sm font-semibold">
+        <input
+          type="checkbox"
+          className="mt-1 size-4 accent-primary"
+          checked={enabled}
+          onChange={(event) => onEnabledChange(event.target.checked)}
+        />
+        <span>
+          Give registrants a personal QR card
+          <span className="mt-1 block text-xs font-normal leading-5 text-muted-fg">
+            Admin can choose how attendees receive their personal QR after
+            public registration.
+          </span>
+        </span>
+      </label>
+      {enabled ? (
+        <div className="flex flex-wrap gap-2">
+          {options.map(([value, label]) => (
+            <label
+              key={value}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold"
+            >
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={selected.has(value)}
+                onChange={(event) => toggle(value, event.target.checked)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

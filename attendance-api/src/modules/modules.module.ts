@@ -9,6 +9,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { RegistrationImportsModule } from "./registration-imports/registration-imports.module";
 import { TenantsModule } from "./tenants/tenants.module";
+import { TelegramModule } from "./telegram/telegram.module";
 import { ThemeModule } from "./theme/theme.module";
 import { UsersModule } from "./users/users.module";
 import { HealthModule } from './health/health.module';
@@ -26,6 +27,7 @@ import { HealthModule } from './health/health.module';
     RegistrationImportsModule,
     TenantsModule,
     AttendanceModule,
+    TelegramModule,
     ThemeModule,
     HealthModule,
   ],

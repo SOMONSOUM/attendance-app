@@ -141,7 +141,7 @@ test.describe("authenticated admin screens", () => {
           height: (image as HTMLImageElement).naturalHeight,
         })),
       )
-      .toEqual({ width: 1290, height: 1875 });
+      .toEqual({ width: 1920, height: 2780 });
 
     const qrDownload = page.waitForEvent("download");
     await dialog.getByRole("button", { name: "Download" }).click();

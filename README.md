@@ -36,6 +36,10 @@ Important variables:
 - `NEXT_PUBLIC_API_URL` - API origin for Next apps.
 - `ATTENDANCE_APP_URL` - public attendee app URL used when generating QR links.
 - `ADMIN_APP_URL` - admin app URL used by deployments.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` - SMTP settings for sending personal QR cards by email.
+- `TELEGRAM_BOT_TOKEN` - Telegram Bot API token used to send personal QR cards.
+- `TELEGRAM_BOT_USERNAME` - bot username used to build `https://t.me/<bot>?start=<code>` links after registration.
+- `TELEGRAM_WEBHOOK_SECRET` - optional secret Telegram sends in `X-Telegram-Bot-Api-Secret-Token`.
 
 ## Setup
 
@@ -112,6 +116,65 @@ Auth endpoints:
 - `POST /api/auth/logout`
 
 Protected endpoints require `Authorization: Bearer <accessToken>`. Public endpoints are QR event lookup and QR attendance join.
+
+## Email And Telegram Delivery
+
+Open and pre-registration events/meetings can issue a personal QR card after a public registration. Admins can enable download, email, Telegram, or any combination of those delivery methods.
+
+### SMTP Email
+
+Configure SMTP in `attendance-api/.env`:
+
+```env
+SMTP_HOST="smtp.example.com"
+SMTP_PORT=587
+SMTP_SECURE="false"
+SMTP_USER="smtp-user"
+SMTP_PASSWORD="smtp-password"
+SMTP_FROM="Attendance <no-reply@example.com>"
+```
+
+Notes:
+
+- Use `SMTP_SECURE="true"` for port `465`.
+- Use `SMTP_SECURE="false"` for ports like `587` with STARTTLS.
+- If email delivery is selected and SMTP is missing, the API returns a clear bad-request error instead of pretending the message was sent.
+- If email delivery is selected, the registration form must submit an email address.
+
+### Telegram Bot
+
+Create and connect the bot:
+
+1. Open Telegram and talk to `@BotFather`.
+2. Run `/newbot`, choose a name and username, then copy the token.
+3. Set the API env vars:
+
+```env
+TELEGRAM_BOT_TOKEN="123456789:replace-with-your-token"
+TELEGRAM_BOT_USERNAME="your_attendance_bot"
+TELEGRAM_WEBHOOK_SECRET="replace-with-a-random-secret"
+```
+
+4. Expose the API over HTTPS in production.
+5. Register the webhook with Telegram:
+
+```bash
+curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://api.example.com/api/v1/telegram/webhook",
+    "secret_token": "replace-with-a-random-secret"
+  }'
+```
+
+Telegram delivery works like this:
+
+1. The attendee submits the public registration form and chooses Telegram.
+2. The app opens `https://t.me/<bot>?start=<personal-check-in-code>`.
+3. Telegram sends `/start <personal-check-in-code>` to the webhook.
+4. The API finds the event registration or meeting participant, renders the personal QR card, and sends it to the Telegram chat.
+
+Telegram cannot send a direct message to a user until that user starts the bot, so the bot link step is required.
 
 ## Admin Frontend
 

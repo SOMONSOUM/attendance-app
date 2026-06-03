@@ -10,6 +10,7 @@ import QRCode from "qrcode";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendeeCardService } from "./attendee-card.service";
 import { JoinEventDto } from "./dto";
+import { RegistrationDeliveryService } from "../notifications/registration-delivery.service";
 import {
   paginated,
   parsePagination,
@@ -21,6 +22,7 @@ export class AttendanceService {
   constructor(
     private readonly prisma: AttendanceRepository,
     private readonly attendeeCard: AttendeeCardService,
+    private readonly delivery: RegistrationDeliveryService,
   ) {}
 
   async joinByCode(code: string, dto: JoinEventDto) {
@@ -109,6 +111,11 @@ export class AttendanceService {
     if (!qr?.active || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
 
+    this.assertDeliveryOption(
+      qr.event.personalQrEnabled !== false,
+      qr.event.personalQrDeliveryMethods,
+      dto,
+    );
     const checkInCode = this.toQrCode();
     const shiftId = dto.shiftId
       ? (await this.assertShift(qr.eventId, dto.shiftId)).id
@@ -121,7 +128,10 @@ export class AttendanceService {
         fullNameEn: dto.fullNameEn,
         fullNameKm: dto.fullNameKm,
         gender: dto.gender,
+        title: dto.title,
         position: dto.position,
+        organization: dto.organization,
+        email: dto.email,
         phoneNumber: dto.phoneNumber,
         checkInCode,
         source:
@@ -131,15 +141,27 @@ export class AttendanceService {
       },
     });
 
+    const personalQrEnabled = qr.event.personalQrEnabled !== false;
+    const cardImage = personalQrEnabled
+      ? await this.toAttendeeCardImage({
+          fullNameEn: registration.fullNameEn,
+          fullNameKm: registration.fullNameKm,
+          organization: registration.organization,
+          checkInCode,
+        })
+      : null;
     return {
       ...registration,
-      qrImage: await this.toAttendeeQrImage(checkInCode),
-      cardImage: await this.toAttendeeCardImage({
-        fullNameEn: registration.fullNameEn,
-        fullNameKm: registration.fullNameKm,
-        organization: registration.organization,
-        checkInCode,
-      }),
+      qrImage: personalQrEnabled ? await this.toAttendeeQrImage(checkInCode) : null,
+      cardImage,
+      delivery: personalQrEnabled
+        ? await this.toDeliveryPayload(dto.deliveryMethod, checkInCode, {
+            cardImage,
+            contextName: qr.event.name,
+            email: registration.email,
+            fullNameEn: registration.fullNameEn,
+          })
+        : null,
     };
   }
 
@@ -419,16 +441,58 @@ export class AttendanceService {
     return `data:image/png;base64,${buffer.toString("base64")}`;
   }
 
-  private toAttendeeQrUrl(code: string) {
-    return `${this.attendanceAppUrl()}/en/attendee-qr/${code}`;
-  }
-
   private attendanceAppUrl() {
     return process.env.ATTENDANCE_APP_URL ?? "http://localhost:3000";
   }
 
   private toQrCode() {
     return randomBytes(18).toString("base64url");
+  }
+
+  private async toDeliveryPayload(
+    method: string | undefined,
+    checkInCode: string,
+    input: {
+      cardImage: string | null;
+      contextName: string;
+      email?: string | null;
+      fullNameEn: string;
+    },
+  ) {
+    const deliveryMethod = method || "download";
+    if (deliveryMethod === "email" && input.cardImage) {
+      await this.delivery.sendCardEmail({
+        to: input.email,
+        fullNameEn: input.fullNameEn,
+        contextName: input.contextName,
+        cardImage: input.cardImage,
+      });
+    }
+    return {
+      method: deliveryMethod,
+      telegramUrl:
+        deliveryMethod === "telegram" ? this.delivery.telegramUrl(checkInCode) : null,
+      emailSent: deliveryMethod === "email",
+    };
+  }
+
+  private assertDeliveryOption(
+    personalQrEnabled: boolean,
+    configuredMethods: string | null | undefined,
+    dto: JoinEventDto,
+  ) {
+    if (!personalQrEnabled) return;
+    const method = dto.deliveryMethod || "download";
+    const allowed = (configuredMethods || "download,email,telegram")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (!allowed.includes(method)) {
+      throw new BadRequestException("This QR delivery method is not enabled.");
+    }
+    if (method === "email" && !dto.email?.trim()) {
+      throw new BadRequestException("Email address is required for email delivery.");
+    }
   }
 
   private async assertShift(eventId: string, shiftId: string) {

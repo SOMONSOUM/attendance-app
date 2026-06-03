@@ -30,6 +30,10 @@ QrPayload parseQrPayload(String rawValue) {
       kind: QrPayloadKind.meetingParticipant,
     );
   }
+  final eventScanCode = after('event-scan');
+  if (eventScanCode != null) {
+    return QrPayload(code: eventScanCode, kind: QrPayloadKind.unknown);
+  }
 
   return QrPayload(code: raw, kind: QrPayloadKind.unknown);
 }

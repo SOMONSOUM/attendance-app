@@ -289,6 +289,8 @@ const openEvent = {
   description:
     "Demo open-registration event where attendees can scan and register at the door.",
   mode: EventMode.OPEN_REGISTRATION,
+  personalQrEnabled: true,
+  personalQrDeliveryMethods: "download,email,telegram",
   separateQrByPlace: false,
   requireLocation: false,
   locationName: "Community Innovation Hub",
@@ -307,6 +309,8 @@ const preRegistrationEvent = {
   description:
     "Demo pre-registration event where attendees register before arrival.",
   mode: EventMode.PRE_REGISTRATION,
+  personalQrEnabled: true,
+  personalQrDeliveryMethods: "download,email,telegram",
   separateQrByPlace: false,
   requireLocation: false,
   locationName: "Online pre-registration desk",
@@ -686,6 +690,8 @@ const openMeeting = {
   description:
     "Demo open-registration meeting that requires location during QR check-in.",
   mode: EventMode.OPEN_REGISTRATION,
+  personalQrEnabled: true,
+  personalQrDeliveryMethods: "download,email,telegram",
   separateQrByPlace: false,
   requireLocation: true,
   locationName: "Community Innovation Hub",
@@ -704,6 +710,8 @@ const preRegistrationMeeting = {
   description:
     "Demo pre-registration meeting where participants sign up before arrival.",
   mode: EventMode.PRE_REGISTRATION,
+  personalQrEnabled: true,
+  personalQrDeliveryMethods: "download,email,telegram",
   separateQrByPlace: false,
   requireLocation: false,
   locationName: "Roundtable registration desk",

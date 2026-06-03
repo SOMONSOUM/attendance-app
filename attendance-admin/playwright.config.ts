@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = Number(process.env.PORT ?? 3002);
+const skipWebServer = process.env.PLAYWRIGHT_NO_WEB_SERVER === "true";
 
 export default defineConfig({
   testDir: "./tests/ui",
@@ -20,10 +21,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: `npm run dev -- -H localhost`,
-    url: `http://localhost:${port}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: skipWebServer
+    ? undefined
+    : {
+        command: `npx next start -H localhost -p ${port}`,
+        url: `http://localhost:${port}`,
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
 });

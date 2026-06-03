@@ -6,6 +6,8 @@ model Meeting {
   description       String?              @db.Text
   mode              EventMode
   separateQrByPlace Boolean              @default(false) @map("separate_qr_by_place")
+  personalQrEnabled Boolean              @default(true) @map("personal_qr_enabled")
+  personalQrDeliveryMethods String       @default("download,email,telegram") @map("personal_qr_delivery_methods")
   startsAt          DateTime             @map("starts_at")
   endsAt            DateTime             @map("ends_at")
   chairpersons      Chairperson[]
@@ -87,6 +89,7 @@ model MeetingParticipant {
   fullNameEn     String                   @map("full_name_en")
   fullNameKm     String?                  @map("full_name_km")
   gender         Gender?
+  title          String?
   position       String?
   organization   String?
   phoneNumber    String?                  @map("phone_number")
