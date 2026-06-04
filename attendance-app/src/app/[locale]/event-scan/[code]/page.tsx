@@ -1,6 +1,7 @@
 import { ScanClient } from "./scan-client";
 import { AppearanceProvider } from "@/components/appearance-provider";
-import { api } from "@/lib/api";
+import { ScanNotFound } from "@/components/scan-not-found";
+import { ApiRequestError, api } from "@/lib/api";
 
 type EventTheme = {
   primaryColor: string;
@@ -52,7 +53,24 @@ export default async function ScanPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const event = await getEvent(code);
+  const event = await getEvent(code).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  });
+
+  if (!event) {
+    return (
+      <AppearanceProvider defaultTheme="system">
+        <ScanNotFound
+          title="Event QR code not found"
+          message="This event QR code does not exist, is inactive, or has been replaced. Please check the QR code and try again."
+        />
+      </AppearanceProvider>
+    );
+  }
+
   return (
     <AppearanceProvider defaultTheme={event.theme?.appearance ?? "system"}>
       <ScanClient code={code} event={event} />

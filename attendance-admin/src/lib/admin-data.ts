@@ -231,9 +231,11 @@ export type AttendanceRecord = {
   placeName?: string | null;
   fullNameEn: string;
   gender?: string | null;
+  title?: string | null;
   position?: string | null;
   organization?: string | null;
   phoneNumber?: string | null;
+  email?: string | null;
   distanceMeters?: number;
   fullNameKm?: string | null;
   status: "JOINED" | "CANCELLED";
@@ -308,9 +310,11 @@ export type EventRosterRecord = {
   fullNameEn: string;
   fullNameKm?: string | null;
   gender?: string | null;
+  title?: string | null;
   position?: string | null;
   organization?: string | null;
   phoneNumber?: string | null;
+  email?: string | null;
   joined: boolean;
   status: "JOINED" | "CANCELLED" | "NOT_YET";
   joinedAt?: string | null;
@@ -749,6 +753,34 @@ export function registerMeetingParticipant(
     method: "POST",
     body: JSON.stringify(cleanRegistrationForm(data)),
   });
+}
+
+export function updateMeetingParticipant(
+  meetingId: string,
+  participantId: string,
+  data: RegistrationForm,
+) {
+  return api<MeetingParticipant>(
+    `/meetings/${meetingId}/participants/${participantId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(cleanRegistrationForm(data)),
+    },
+  );
+}
+
+export function updateEventRegistration(
+  eventId: string,
+  registrationId: string,
+  data: RegistrationForm,
+) {
+  return api<EventRosterRecord>(
+    `/attendance/events/${eventId}/registrations/${registrationId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(cleanRegistrationForm(data)),
+    },
+  );
 }
 
 export async function downloadEventAttendeeCard(

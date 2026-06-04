@@ -58,6 +58,11 @@ export class EventThemeDto {
 }
 
 export class EventShiftDto {
+  @ApiPropertyOptional({ example: "clxshift001" })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @ApiProperty({ example: "Morning shift" })
   @IsString()
   name!: string;

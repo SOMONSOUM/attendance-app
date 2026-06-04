@@ -1,12 +1,20 @@
 "use client";
 
 import {
+  Badge,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
   Check,
   CheckCircle2,
+  Clock3,
   Download,
+  IdCard,
+  Languages,
   Mail,
   MapPin,
   MessageCircle,
+  Phone,
   QrCode,
   Search,
   Send,
@@ -14,13 +22,50 @@ import {
   UserRoundPlus,
 } from "lucide-react";
 import type React from "react";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ScanControls } from "@/components/scan-controls";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ApiRequestError, api } from "@/lib/api";
 import type { PublicMeeting } from "./page";
+
+const TITLE_OPTIONS = [
+  { value: "Dr.", en: "Dr.", km: "បណ្ឌិត" },
+  { value: "H.E.", en: "H.E.", km: "ឯកឧត្តម / លោកជំទាវ" },
+  { value: "Mr.", en: "Mr.", km: "លោក" },
+  { value: "Mrs.", en: "Mrs.", km: "លោកស្រី" },
+  { value: "Ms.", en: "Ms.", km: "កញ្ញា / លោកស្រី" },
+  { value: "Miss", en: "Miss", km: "កញ្ញា" },
+  { value: "Prof.", en: "Prof.", km: "សាស្ត្រាចារ្យ" },
+];
+const TITLE_PLACEHOLDER = "__title_placeholder__";
+
+type MeetingRegistrationDraft = {
+  values: {
+    fullNameEn: string;
+    fullNameKm: string;
+    gender: "MALE" | "FEMALE" | "OTHER";
+    titleName: string;
+    positionName: string;
+    organization: string;
+    phoneNumber: string;
+    email: string;
+    deliveryMethod: "download" | "email" | "telegram";
+  };
+  step: number;
+};
+
+const meetingRegistrationDrafts = new Map<string, MeetingRegistrationDraft>();
 
 export function MeetingScanClient({
   code,
@@ -30,6 +75,7 @@ export function MeetingScanClient({
   meeting: PublicMeeting;
 }) {
   const t = useTranslations("meetingScan");
+  const params = useParams<{ locale: string }>();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [fullNameEn, setFullNameEn] = useState("");
@@ -42,6 +88,7 @@ export function MeetingScanClient({
   const [email, setEmail] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<"download" | "email" | "telegram">("download");
   const [registrationStep, setRegistrationStep] = useState(1);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(t("readyStatus"));
   const [participantQr, setParticipantQr] = useState<{
@@ -55,6 +102,33 @@ export function MeetingScanClient({
     } | null;
   } | null>(null);
   const selected = meeting.participants.find((item) => item.id === selectedId);
+  const location = meeting.scanPlace?.locationName ?? meeting.locationName;
+  const shiftText = formatShifts(meeting.shifts ?? []);
+  const draftKey = `attendance-meeting-registration:${code}`;
+  const registrationValues = useMemo(
+    () => ({
+      fullNameEn,
+      fullNameKm,
+      gender,
+      titleName,
+      positionName,
+      organization,
+      phoneNumber,
+      email,
+      deliveryMethod,
+    }),
+    [
+      deliveryMethod,
+      email,
+      fullNameEn,
+      fullNameKm,
+      gender,
+      organization,
+      phoneNumber,
+      positionName,
+      titleName,
+    ],
+  );
   const availableParticipants = useMemo(
     () =>
       meeting.participants.filter((participant) => {
@@ -72,6 +146,43 @@ export function MeetingScanClient({
   );
   const hasSearchTerm = Boolean(query.trim());
 
+  useEffect(() => {
+    if (isRegisteredListMode(meeting.mode)) {
+      setDraftLoaded(true);
+      return;
+    }
+
+    const draft = meetingRegistrationDrafts.get(draftKey);
+    if (draft) {
+      setFullNameEn(draft.values.fullNameEn ?? "");
+      setFullNameKm(draft.values.fullNameKm ?? "");
+      setGender(draft.values.gender ?? "MALE");
+      setTitleName(draft.values.titleName ?? "");
+      setPositionName(draft.values.positionName ?? "");
+      setOrganization(draft.values.organization ?? "");
+      setPhoneNumber(draft.values.phoneNumber ?? "");
+      setEmail(draft.values.email ?? "");
+      setDeliveryMethod(draft.values.deliveryMethod ?? "download");
+      setRegistrationStep(Math.min(Math.max(draft.step, 1), 4));
+    }
+    setDraftLoaded(true);
+  }, [draftKey, meeting.mode]);
+
+  useEffect(() => {
+    if (!draftLoaded || isRegisteredListMode(meeting.mode) || participantQr) return;
+
+    meetingRegistrationDrafts.set(draftKey, {
+      values: registrationValues,
+      step: registrationStep,
+    });
+  }, [
+    draftKey,
+    draftLoaded,
+    meeting.mode,
+    participantQr,
+    registrationStep,
+    registrationValues,
+  ]);
   async function join() {
     setBusy(true);
     setStatus(
@@ -109,7 +220,10 @@ export function MeetingScanClient({
             position: selected?.position ?? positionName,
             organization: selected?.organization ?? organization,
             phoneNumber: selected?.phoneNumber ?? phoneNumber,
-            email: email || undefined,
+            email:
+              deliveryMethod === "email" && email.trim()
+                ? email
+                : undefined,
             deliveryMethod,
             ...(position
               ? {
@@ -146,43 +260,50 @@ export function MeetingScanClient({
   }
 
   return (
-    <main className="min-h-screen border-t-4 border-primary bg-background px-4 py-6">
+    <main className="scan-theme min-h-screen border-t-4 border-primary bg-background px-4 py-6 text-foreground">
       <div className="mx-auto max-w-2xl space-y-5">
-        <section className="rounded-lg border border-border bg-card p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="grid size-11 place-items-center rounded-lg bg-secondary text-primary">
-              <QrCode size={22} />
+        <ScanControls locale={params.locale} />
+        <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
+                <QrCode size={22} />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {meeting.name}
+                </h1>
+                {meeting.description ? (
+                  <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-muted-fg">
+                    {meeting.description}
+                  </p>
+                ) : null}
+              </div>
             </div>
-            <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-primary">
+            <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
+              <UserRoundPlus size={16} />
               {t("meeting")}
             </span>
           </div>
-          <p className="text-sm font-medium text-muted-fg">
-            {new Date(meeting.startsAt).toLocaleString()}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            {meeting.name}
-          </h1>
-          {meeting.scanPlace ? (
-            <p className="mt-2 text-sm font-medium text-primary">
-              {meeting.scanPlace.name}
-            </p>
-          ) : null}
-          {meeting.description ? (
-            <p className="mt-3 text-muted-fg">{meeting.description}</p>
-          ) : null}
-          {meeting.requireLocation ? (
-            <p className="mt-3 flex gap-2 rounded-md border border-border bg-background p-3 text-sm text-muted-fg">
-              <MapPin size={16} className="mt-0.5 text-primary" />
-              {t("locationRequired", {
-                radius: meeting.radiusMeters ?? 100,
-                venue: meeting.locationName || t("theVenue"),
-              })}
-            </p>
-          ) : null}
+          <div className="mt-4 grid gap-4">
+            <div className="flex flex-wrap gap-2 text-sm font-medium">
+              <HeaderInfo icon={<CalendarDays size={16} />} label="Date" value={formatDate(meeting.startsAt)} />
+              {shiftText ? <HeaderInfo icon={<Clock3 size={16} />} label="Shift" value={shiftText} /> : null}
+              {location ? <HeaderInfo icon={<MapPin size={16} />} label="Place" value={location} /> : null}
+            </div>
+            {meeting.requireLocation ? (
+              <p className="flex gap-2 rounded-md border border-border bg-secondary/50 p-3 text-sm text-muted-fg">
+                <MapPin size={16} className="mt-0.5 text-primary" />
+                {t("locationRequired", {
+                  radius: meeting.radiusMeters ?? 100,
+                  venue: meeting.locationName || t("theVenue"),
+                })}
+              </p>
+            ) : null}
+          </div>
         </section>
 
-        <Card className="space-y-4 p-4 sm:p-5">
+        <Card className="space-y-4 border-border bg-card p-4 text-card-foreground shadow-sm sm:p-5">
           {participantQr ? (
             <RegistrationSuccess
               contextName={meeting.name}
@@ -254,7 +375,7 @@ export function MeetingScanClient({
                 ) : null}
               </div>
               {selected ? (
-                <div className="rounded-md border border-border bg-secondary p-4">
+                <div className="rounded-md border border-border bg-secondary/70 p-4">
                   <p className="font-semibold">{selected.fullNameEn}</p>
                   <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <Detail label={t("khmerName")} value={selected.fullNameKm} />
@@ -293,12 +414,16 @@ export function MeetingScanClient({
                 setOrganization,
                 setPhoneNumber,
                 setEmail,
-                setDeliveryMethod,
+                setDeliveryMethod: (value) => {
+                  setDeliveryMethod(value);
+                  if (value !== "email") setEmail("");
+                },
               }}
               enabled={meeting.personalQrEnabled ?? true}
               methods={meeting.personalQrDeliveryMethods}
               busy={busy}
               onSubmit={join}
+              locale={params.locale}
             />
           )}
 
@@ -321,6 +446,48 @@ export function MeetingScanClient({
       </div>
     </main>
   );
+}
+
+function HeaderInfo({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="inline-flex min-w-0 items-center gap-2 rounded-full border border-border bg-secondary/45 px-3 py-2">
+      <span className="shrink-0 text-primary">{icon}</span>
+      <span className="min-w-0 truncate">
+        <span className="font-semibold text-muted-fg">{label}:</span>{" "}
+        <span className="text-card-foreground">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  return value.slice(0, 10);
+}
+
+function formatShifts(shifts: PublicMeeting["shifts"]) {
+  if (!shifts.length) return null;
+  return shifts
+    .map((shift) => {
+      const time = `${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}`;
+      return shift.name ? `${shift.name}: ${time}` : time;
+    })
+    .join(", ");
+}
+
+function formatTime(value: string) {
+  if (value.includes("T")) {
+    const timePart = value.split("T")[1] ?? "";
+    return timePart.slice(0, 5);
+  }
+  return value.slice(0, 5);
 }
 
 function getCurrentLocation() {
@@ -386,6 +553,7 @@ function MeetingRegistrationWizard({
   methods,
   busy,
   onSubmit,
+  locale,
 }: {
   step: number;
   setStep: (step: number) => void;
@@ -395,6 +563,7 @@ function MeetingRegistrationWizard({
   methods?: string;
   busy: boolean;
   onSubmit: () => void;
+  locale: string;
 }) {
   const canContinue =
     step === 1
@@ -413,14 +582,16 @@ function MeetingRegistrationWizard({
           <SectionTitle icon={<UserRoundPlus size={17} />} title="Personal information" />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Full name (Khmer)">
-              <Input
+              <IconInput
+                icon={<Languages size={16} />}
                 placeholder="ឈ្មោះពេញ"
                 value={values.fullNameKm}
                 onChange={(event) => setters.setFullNameKm(event.target.value)}
               />
             </Field>
             <Field label="Full name (English)">
-              <Input
+              <IconInput
+                icon={<Badge size={16} />}
                 placeholder="Last name, First name"
                 value={values.fullNameEn}
                 onChange={(event) => setters.setFullNameEn(event.target.value)}
@@ -441,18 +612,19 @@ function MeetingRegistrationWizard({
             </select>
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Title">
+              <TitleSelect
+                value={values.titleName}
+                onChange={setters.setTitleName}
+                locale={locale}
+              />
+            </Field>
             <Field label="Position">
-              <Input
+              <IconInput
+                icon={<BriefcaseBusiness size={16} />}
                 placeholder="e.g. Director"
                 value={values.positionName}
                 onChange={(event) => setters.setPositionName(event.target.value)}
-              />
-            </Field>
-            <Field label="Title">
-              <Input
-                placeholder="e.g. Dr., Mr."
-                value={values.titleName}
-                onChange={(event) => setters.setTitleName(event.target.value)}
               />
             </Field>
           </div>
@@ -462,14 +634,16 @@ function MeetingRegistrationWizard({
         <div className="grid gap-4">
           <SectionTitle icon={<MapPin size={17} />} title="Contact & organization" />
           <Field label="Phone number">
-            <Input
+            <IconInput
+              icon={<Phone size={16} />}
               placeholder="+855 -- --- ---"
               value={values.phoneNumber}
               onChange={(event) => setters.setPhoneNumber(event.target.value)}
             />
           </Field>
           <Field label="Organization / Institution">
-            <Input
+            <IconInput
+              icon={<Building2 size={16} />}
               placeholder="Full name of organization"
               value={values.organization}
               onChange={(event) => setters.setOrganization(event.target.value)}
@@ -561,10 +735,68 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-medium">
+    <label className="grid content-start gap-2 text-sm font-medium text-card-foreground">
       {label}
       {children}
     </label>
+  );
+}
+
+function IconInput({
+  icon,
+  className = "",
+  ...props
+}: React.ComponentPropsWithoutRef<typeof Input> & {
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-0 flex h-10 items-center text-muted-fg">
+        {icon}
+      </span>
+      <Input
+        className={`h-10 bg-card pl-10 font-medium text-card-foreground placeholder:text-muted-fg ${className}`}
+        {...props}
+      />
+    </div>
+  );
+}
+
+function TitleSelect({
+  value,
+  onChange,
+  locale,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  locale: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-0 flex h-10 items-center text-muted-fg">
+        <IdCard size={16} />
+      </span>
+      <Select
+        value={value || TITLE_PLACEHOLDER}
+        onValueChange={(nextValue) =>
+          onChange(nextValue === TITLE_PLACEHOLDER ? "" : nextValue)
+        }
+      >
+        <SelectTrigger className="h-10 w-full bg-card pl-10 font-medium text-card-foreground">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={TITLE_PLACEHOLDER}>
+            {locale === "km" ? "ជ្រើសរើសងារ" : "Select title"}
+          </SelectItem>
+        {TITLE_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {locale === "km" ? option.km : option.en}
+          </SelectItem>
+        ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -592,7 +824,7 @@ function RegistrationSuccess({
 }) {
   return (
     <div className="grid justify-items-center gap-4 text-center">
-      <div className="w-full rounded-md border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-900">
+      <div className="w-full rounded-md border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-900 dark:border-green-500/50 dark:bg-green-500/15 dark:text-green-100">
         {delivery?.method === "email" && delivery.emailSent
           ? "QR sent to your email"
           : delivery?.method === "telegram"

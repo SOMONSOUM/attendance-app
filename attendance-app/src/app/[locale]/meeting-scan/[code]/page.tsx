@@ -1,5 +1,6 @@
 import { AppearanceProvider } from "@/components/appearance-provider";
-import { api } from "@/lib/api";
+import { ScanNotFound } from "@/components/scan-not-found";
+import { ApiRequestError, api } from "@/lib/api";
 import { MeetingScanClient } from "./scan-client";
 
 export type PublicMeeting = {
@@ -19,6 +20,12 @@ export type PublicMeeting = {
   personalQrDeliveryMethods?: string;
   startsAt: string;
   endsAt: string;
+  shifts: Array<{
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+  }>;
   scanPlace?: {
     id: string;
     name: string;
@@ -48,7 +55,23 @@ export default async function MeetingScanPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const meeting = await getMeeting(code);
+  const meeting = await getMeeting(code).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  });
+
+  if (!meeting) {
+    return (
+      <AppearanceProvider defaultTheme="system">
+        <ScanNotFound
+          title="Meeting QR code not found"
+          message="This meeting QR code does not exist, is inactive, or has been replaced. Please check the QR code and try again."
+        />
+      </AppearanceProvider>
+    );
+  }
 
   return (
     <AppearanceProvider defaultTheme="system">

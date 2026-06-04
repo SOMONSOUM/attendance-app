@@ -168,17 +168,48 @@ export class MeetingsService {
 
     const meeting = await this.prisma.$transaction(async (tx) => {
       if (dto.chairpersons) {
-        await tx.chairperson.deleteMany({ where: { meetingId } });
+        const incomingIds = dto.chairpersons
+          .map((chairperson) => chairperson.id)
+          .filter((id): id is string => Boolean(id));
+        await tx.chairperson.deleteMany({
+          where: {
+            meetingId,
+            id: incomingIds.length ? { notIn: incomingIds } : undefined,
+          },
+        });
       }
       if (dto.participants) {
-        await tx.meetingParticipant.deleteMany({ where: { meetingId } });
+        const incomingIds = dto.participants
+          .map((participant) => participant.id)
+          .filter((id): id is string => Boolean(id));
+        await tx.meetingParticipant.deleteMany({
+          where: {
+            meetingId,
+            id: incomingIds.length ? { notIn: incomingIds } : undefined,
+          },
+        });
       }
       if (dto.shifts) {
-        await tx.meetingShift.deleteMany({ where: { meetingId } });
+        const incomingIds = dto.shifts
+          .map((shift) => shift.id)
+          .filter((id): id is string => Boolean(id));
+        await tx.meetingShift.deleteMany({
+          where: {
+            meetingId,
+            id: incomingIds.length ? { notIn: incomingIds } : undefined,
+          },
+        });
       }
       if (dto.places) {
-        await tx.meetingPlace.deleteMany({ where: { meetingId } });
-        await tx.meetingQrCode.deleteMany({ where: { meetingId } });
+        const incomingIds = dto.places
+          .map((place) => place.id)
+          .filter((id): id is string => Boolean(id));
+        await tx.meetingPlace.deleteMany({
+          where: {
+            meetingId,
+            id: incomingIds.length ? { notIn: incomingIds } : undefined,
+          },
+        });
       }
 
       const separateQrByPlace =
@@ -196,24 +227,9 @@ export class MeetingsService {
           startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
           endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
           chairpersons: undefined,
-          shifts: dto.shifts
-            ? {
-                create: dto.shifts.map((shift) => ({
-                  name: shift.name,
-                  startTime: this.toTimeDate(shift.startTime),
-                  endTime: this.toTimeDate(shift.endTime),
-                })),
-              }
-            : undefined,
+          shifts: undefined,
           places: undefined,
-          participants: dto.participants
-            ? {
-                create: dto.participants.map((participant) => ({
-                  ...participant,
-                  checkInCode: this.toQrCode(),
-                })),
-              }
-            : undefined,
+          participants: undefined,
         },
       });
 
@@ -224,9 +240,54 @@ export class MeetingsService {
             tenantId,
             chairperson,
           );
-          await tx.chairperson.create({
-            data: { ...chairpersonData, meetingId },
-          });
+          if (chairperson.id) {
+            await tx.chairperson.updateMany({
+              where: { id: chairperson.id, meetingId },
+              data: chairpersonData,
+            });
+          } else {
+            await tx.chairperson.create({
+              data: { ...chairpersonData, meetingId },
+            });
+          }
+        }
+      }
+
+      if (dto.shifts) {
+        for (const shift of dto.shifts) {
+          const data = {
+            name: shift.name,
+            startTime: this.toTimeDate(shift.startTime),
+            endTime: this.toTimeDate(shift.endTime),
+          };
+          if (shift.id) {
+            await tx.meetingShift.updateMany({
+              where: { id: shift.id, meetingId },
+              data,
+            });
+          } else {
+            await tx.meetingShift.create({ data: { ...data, meetingId } });
+          }
+        }
+      }
+
+      if (dto.participants) {
+        for (const participant of dto.participants) {
+          const { id, checkInCode, ...participantData } = participant;
+          const data = {
+            ...participantData,
+            checkInCode: checkInCode || this.toQrCode(),
+          };
+          if (id) {
+            await tx.meetingParticipant.updateMany({
+              where: { id, meetingId },
+              data,
+            });
+          } else {
+            await tx.meetingParticipant.create({
+              data: { ...data, meetingId },
+            });
+          }
         }
       }
 
@@ -238,21 +299,36 @@ export class MeetingsService {
             allowLocation,
             place,
           );
-          await tx.meetingPlace.create({
-            data: { ...placeData, meetingId },
-          });
+          if (place.id) {
+            await tx.meetingPlace.updateMany({
+              where: { id: place.id, meetingId },
+              data: placeData,
+            });
+          } else {
+            await tx.meetingPlace.create({
+              data: { ...placeData, meetingId },
+            });
+          }
         }
       }
 
       if (dto.places && separateQrByPlace) {
-        const places = await tx.meetingPlace.findMany({ where: { meetingId } });
-        await tx.meetingQrCode.createMany({
-          data: places.map((place) => ({
-            meetingId,
-            placeId: place.id,
-            code: this.toQrCode(),
-          })),
+        const places = await tx.meetingPlace.findMany({
+          where: { meetingId },
+          include: { qrCodes: true },
         });
+        const placesWithoutQr = places.filter(
+          (place) => !place.qrCodes.some((qr) => qr.active),
+        );
+        if (placesWithoutQr.length) {
+          await tx.meetingQrCode.createMany({
+            data: placesWithoutQr.map((place) => ({
+              meetingId,
+              placeId: place.id,
+              code: this.toQrCode(),
+            })),
+          });
+        }
       } else if (!separateQrByPlace) {
         const defaultPlace =
           (await tx.meetingPlace.findFirst({
@@ -394,6 +470,7 @@ export class MeetingsService {
     }
     if (dto.placeId) await this.assertPlace(meetingId, dto.placeId);
     if (dto.shiftId) await this.assertShift(meetingId, dto.shiftId);
+    await this.assertUniqueParticipant(meetingId, dto);
 
     return this.prisma.meetingParticipant.create({
       data: {
@@ -411,6 +488,39 @@ export class MeetingsService {
         status: "INVITED",
         checkInCode: this.toQrCode(),
         source: "MANUAL",
+      },
+    });
+  }
+
+  async updateParticipant(
+    tenantId: string | null,
+    meetingId: string,
+    participantId: string,
+    dto: JoinMeetingDto,
+  ) {
+    await this.assertMeeting(tenantId, meetingId);
+    if (dto.placeId) await this.assertPlace(meetingId, dto.placeId);
+    if (dto.shiftId) await this.assertShift(meetingId, dto.shiftId);
+    const participant = await this.prisma.meetingParticipant.findFirst({
+      where: { id: participantId, meetingId },
+      select: { id: true },
+    });
+    if (!participant) throw new NotFoundException("Participant not found");
+    await this.assertUniqueParticipant(meetingId, dto, participantId);
+
+    return this.prisma.meetingParticipant.update({
+      where: { id: participantId },
+      data: {
+        placeId: dto.placeId || null,
+        shiftId: dto.shiftId || null,
+        fullNameEn: dto.fullNameEn,
+        fullNameKm: dto.fullNameKm,
+        gender: dto.gender,
+        title: dto.title,
+        position: dto.position,
+        organization: dto.organization,
+        phoneNumber: dto.phoneNumber,
+        email: dto.email,
       },
     });
   }
@@ -519,6 +629,7 @@ export class MeetingsService {
     const shiftId = dto.shiftId
       ? (await this.assertShift(meeting.id, dto.shiftId)).id
       : activeShift?.id;
+    await this.assertUniqueParticipant(meeting.id, dto);
     const participant = await this.prisma.meetingParticipant.create({
       data: {
         meetingId: meeting.id,
@@ -532,7 +643,8 @@ export class MeetingsService {
         organization: dto.organization,
         phoneNumber: dto.phoneNumber,
         email: dto.email,
-        status: "INVITED",
+        status: activeShift ? "JOINED" : "INVITED",
+        joinedAt: activeShift ? new Date() : null,
         checkInCode,
         source:
           meeting.mode === EventMode.OPEN_REGISTRATION
@@ -911,6 +1023,31 @@ export class MeetingsService {
     }
     if (method === "email" && !dto.email?.trim()) {
       throw new BadRequestException("Email address is required for email delivery.");
+    }
+  }
+
+  private async assertUniqueParticipant(
+    meetingId: string,
+    dto: JoinMeetingDto,
+    excludeParticipantId?: string,
+  ) {
+    const fullNameEn = dto.fullNameEn?.trim();
+    const phoneNumber = dto.phoneNumber?.trim();
+    if (!fullNameEn || !phoneNumber) return;
+
+    const existing = await this.prisma.meetingParticipant.findFirst({
+      where: {
+        meetingId,
+        id: excludeParticipantId ? { not: excludeParticipantId } : undefined,
+        fullNameEn,
+        phoneNumber,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new BadRequestException(
+        "A participant with the same full name and phone number is already registered.",
+      );
     }
   }
 

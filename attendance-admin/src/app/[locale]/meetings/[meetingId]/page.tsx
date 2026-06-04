@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Check,
   Download,
+  Edit3,
   UserCheck,
   UserPlus,
   Users,
@@ -46,6 +47,7 @@ import {
   listMeetings,
   meetingKeys,
   registerMeetingParticipant,
+  updateMeetingParticipant,
   type EventShift,
   type MeetingParticipant,
   type RegistrationForm,
@@ -78,6 +80,7 @@ export default function MeetingDetailPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
   const [registrationForm, setRegistrationForm] =
     useState<RegistrationForm>(emptyRegistrationForm);
 
@@ -125,6 +128,26 @@ export default function MeetingDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: meetingKeys.all });
       setRegistrationForm(emptyRegistrationForm);
+      setEditingParticipantId(null);
+      setRegisterOpen(false);
+    },
+  });
+  const updateParticipantMutation = useMutation({
+    mutationFn: ({
+      participantId,
+      data,
+    }: {
+      participantId: string;
+      data: RegistrationForm;
+    }) =>
+      updateMeetingParticipant(meetingId, participantId, {
+        ...data,
+        placeId: data.placeId || selectedPlace?.id,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: meetingKeys.all });
+      setRegistrationForm(emptyRegistrationForm);
+      setEditingParticipantId(null);
       setRegisterOpen(false);
     },
   });
@@ -373,7 +396,11 @@ export default function MeetingDetailPage() {
                 </StatusPill>
                 <Button
                   className="h-8"
-                  onClick={() => setRegisterOpen(true)}
+                  onClick={() => {
+                    setEditingParticipantId(null);
+                    setRegistrationForm(emptyRegistrationForm);
+                    setRegisterOpen(true);
+                  }}
                   disabled={!canRegisterInCurrentScope}
                 >
                   <UserPlus size={14} />
@@ -482,6 +509,33 @@ export default function MeetingDetailPage() {
                           <div className="flex flex-wrap justify-end gap-2">
                             {participant.id ? (
                               <>
+                                <Button
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="shrink-0"
+                                  onClick={() => {
+                                    setEditingParticipantId(participant.id!);
+                                    setRegistrationForm({
+                                      fullNameEn: participant.fullNameEn,
+                                      fullNameKm: participant.fullNameKm ?? "",
+                                      gender:
+                                        (participant.gender as RegistrationForm["gender"]) ??
+                                        "",
+                                      title: participant.title ?? "",
+                                      position: participant.position ?? "",
+                                      organization: participant.organization ?? "",
+                                      phoneNumber: participant.phoneNumber ?? "",
+                                      email: participant.email ?? "",
+                                      shiftId: participant.shiftId ?? "",
+                                      placeId: participant.placeId ?? selectedPlace?.id ?? "",
+                                    });
+                                    setRegisterOpen(true);
+                                  }}
+                                  aria-label={`Edit participant ${participant.fullNameEn}`}
+                                  title={`Edit participant ${participant.fullNameEn}`}
+                                >
+                                  <Edit3 />
+                                </Button>
                                 <PersonalQrButton
                                   name={participant.fullNameEn}
                                   code={participant.checkInCode}
@@ -565,11 +619,30 @@ export default function MeetingDetailPage() {
             labels={registrationDialogLabels(t, "participant")}
             values={registrationForm}
             shifts={meeting.shifts ?? []}
-            isPending={registerMutation.isPending}
-            error={registerMutation.error?.message}
-            onOpenChange={setRegisterOpen}
+            isPending={
+              registerMutation.isPending || updateParticipantMutation.isPending
+            }
+            error={
+              registerMutation.error?.message ??
+              updateParticipantMutation.error?.message
+            }
+            onOpenChange={(open) => {
+              setRegisterOpen(open);
+              if (!open) {
+                setEditingParticipantId(null);
+                setRegistrationForm(emptyRegistrationForm);
+              }
+            }}
             onChange={setRegistrationForm}
-            onSubmit={() => registerMutation.mutate(registrationForm)}
+            onSubmit={() =>
+              editingParticipantId
+                ? updateParticipantMutation.mutate({
+                    participantId: editingParticipantId,
+                    data: registrationForm,
+                  })
+                : registerMutation.mutate(registrationForm)
+            }
+            submitLabel={editingParticipantId ? "Save changes" : undefined}
           />
         </div>
       )}
@@ -595,10 +668,13 @@ const emptyRegistrationForm: RegistrationForm = {
   fullNameEn: "",
   fullNameKm: "",
   gender: "",
+  title: "",
   position: "",
   organization: "",
   phoneNumber: "",
+  email: "",
   shiftId: "",
+  placeId: "",
 };
 
 function RegistrationDialog({
@@ -608,6 +684,7 @@ function RegistrationDialog({
   shifts,
   isPending,
   error,
+  submitLabel,
   onOpenChange,
   onChange,
   onSubmit,
@@ -618,6 +695,7 @@ function RegistrationDialog({
   shifts: EventShift[];
   isPending: boolean;
   error?: string;
+  submitLabel?: string;
   onOpenChange: (open: boolean) => void;
   onChange: (values: RegistrationForm) => void;
   onSubmit: () => void;
@@ -670,6 +748,14 @@ function RegistrationDialog({
               <option value="OTHER">{labels.other}</option>
             </Select>
           </FormField>
+          <FormField label="Title">
+            <Input
+              value={values.title ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, title: event.target.value })
+              }
+            />
+          </FormField>
           {shifts.length ? (
             <FormField label={labels.shift} className="sm:col-span-2">
               <Select
@@ -703,6 +789,15 @@ function RegistrationDialog({
               }
             />
           </FormField>
+          <FormField label="Email">
+            <Input
+              type="email"
+              value={values.email ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, email: event.target.value })
+              }
+            />
+          </FormField>
           <FormField label="Phone number">
             <Input
               value={values.phoneNumber ?? ""}
@@ -719,7 +814,7 @@ function RegistrationDialog({
           </Button>
           <Button type="submit" disabled={isPending || !values.fullNameEn.trim()}>
             <UserPlus size={14} />
-            {isPending ? labels.registering : labels.register}
+            {isPending ? labels.registering : submitLabel ?? labels.register}
           </Button>
         </DialogFooter>
       </form>

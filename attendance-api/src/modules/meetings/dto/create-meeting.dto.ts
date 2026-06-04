@@ -19,6 +19,11 @@ import { EventMode, Gender, MeetingParticipantStatus } from "@prisma/client";
 import { EventShiftDto } from "../../events/dto/create-event.dto";
 
 export class MeetingChairpersonDto {
+  @ApiPropertyOptional({ example: "clxmeetingchairperson001" })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @ApiPropertyOptional({ example: "clxchairperson001" })
   @IsOptional()
   @IsString()
@@ -108,6 +113,16 @@ export class MeetingPlaceDto {
 }
 
 export class MeetingParticipantDto {
+  @ApiPropertyOptional({ example: "clxparticipant001" })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @ApiPropertyOptional({ example: "clxcheckincode001" })
+  @IsOptional()
+  @IsString()
+  checkInCode?: string;
+
   @ApiProperty({ example: "Chan Sophea" })
   @IsString()
   fullNameEn!: string;

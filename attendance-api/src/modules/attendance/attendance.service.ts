@@ -53,6 +53,12 @@ export class AttendanceService {
       return {
         ...registration,
         qrImage: await this.toAttendeeQrImage(registration.checkInCode),
+        cardImage: await this.toAttendeeCardImage({
+          fullNameEn: registration.fullNameEn,
+          fullNameKm: registration.fullNameKm,
+          organization: registration.organization,
+          checkInCode: registration.checkInCode,
+        }),
       };
     }
 
@@ -106,7 +112,7 @@ export class AttendanceService {
   async registerByCode(code: string, dto: JoinEventDto) {
     const qr = await this.prisma.eventQrCode.findUnique({
       where: { code },
-      include: { event: true },
+      include: { event: { include: { shifts: true } } },
     });
     if (!qr?.active || !qr.event || !qr.eventId)
       throw new NotFoundException("QR code was not found or is inactive");
@@ -117,28 +123,53 @@ export class AttendanceService {
       dto,
     );
     const checkInCode = this.toQrCode();
+    await this.assertUniqueRegistration(qr.eventId, dto);
+    const activeShift = this.activeShiftForToday(qr.event);
     const shiftId = dto.shiftId
       ? (await this.assertShift(qr.eventId, dto.shiftId)).id
-      : undefined;
-    const registration = await this.prisma.eventRegistration.create({
-      data: {
-        eventId: qr.eventId,
-        placeId: qr.placeId,
-        shiftId,
-        fullNameEn: dto.fullNameEn,
-        fullNameKm: dto.fullNameKm,
-        gender: dto.gender,
-        title: dto.title,
-        position: dto.position,
-        organization: dto.organization,
-        email: dto.email,
-        phoneNumber: dto.phoneNumber,
-        checkInCode,
-        source:
-          qr.event.mode === "OPEN_REGISTRATION"
-            ? "OPEN_REGISTRATION"
-            : "PRE_REGISTRATION",
-      },
+      : activeShift?.id;
+    const registration = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.eventRegistration.create({
+        data: {
+          eventId: qr.eventId,
+          placeId: qr.placeId,
+          shiftId,
+          fullNameEn: dto.fullNameEn,
+          fullNameKm: dto.fullNameKm,
+          gender: dto.gender,
+          title: dto.title,
+          position: dto.position,
+          organization: dto.organization,
+          email: dto.email,
+          phoneNumber: dto.phoneNumber,
+          checkInCode,
+          source:
+            qr.event.mode === "OPEN_REGISTRATION"
+              ? "OPEN_REGISTRATION"
+              : "PRE_REGISTRATION",
+        },
+      });
+
+      if (activeShift) {
+        await tx.attendance.create({
+          data: {
+            eventId: qr.eventId,
+            placeId: qr.placeId,
+            shiftId: activeShift.id,
+            registrationId: created.id,
+            fullNameEn: created.fullNameEn,
+            fullNameKm: created.fullNameKm,
+            gender: created.gender,
+            position: created.position,
+            phoneNumber: created.phoneNumber,
+            latitude: dto.latitude ?? 0,
+            longitude: dto.longitude ?? 0,
+            distanceMeters: 0,
+          },
+        });
+      }
+
+      return created;
     });
 
     const personalQrEnabled = qr.event.personalQrEnabled !== false;
@@ -163,6 +194,36 @@ export class AttendanceService {
           })
         : null,
     };
+  }
+
+  async updateRegistration(
+    tenantId: string | null,
+    eventId: string,
+    registrationId: string,
+    dto: JoinEventDto,
+  ) {
+    await this.assertEventForTenant(tenantId, eventId);
+    if (dto.shiftId) await this.assertShift(eventId, dto.shiftId);
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: { id: registrationId, eventId },
+      select: { id: true },
+    });
+    if (!registration) throw new NotFoundException("Registration not found");
+    await this.assertUniqueRegistration(eventId, dto, registrationId);
+    return this.prisma.eventRegistration.update({
+      where: { id: registrationId },
+      data: {
+        fullNameEn: dto.fullNameEn,
+        fullNameKm: dto.fullNameKm,
+        gender: dto.gender,
+        title: dto.title,
+        position: dto.position,
+        organization: dto.organization,
+        email: dto.email,
+        phoneNumber: dto.phoneNumber,
+        shiftId: dto.shiftId || null,
+      },
+    });
   }
 
   async registrationCard(
@@ -262,8 +323,11 @@ export class AttendanceService {
         fullNameEn: registration.fullNameEn,
         fullNameKm: registration.fullNameKm,
         gender: registration.gender,
+        title: registration.title,
         position: registration.position,
+        organization: registration.organization,
         phoneNumber: registration.phoneNumber,
+        email: registration.email,
         checkInCode: registration.checkInCode,
         joined: Boolean(attendance),
         status: attendance?.status ?? "NOT_YET",
@@ -291,8 +355,11 @@ export class AttendanceService {
           fullNameEn: attendance.fullNameEn,
           fullNameKm: attendance.fullNameKm,
           gender: attendance.gender,
+          title: null,
           position: attendance.position,
+          organization: attendance.organization,
           phoneNumber: attendance.phoneNumber,
+          email: null,
           joined: true,
           status: attendance.status,
           joinedAt: attendance.createdAt,
@@ -585,6 +652,58 @@ export class AttendanceService {
     }
 
     return activeShift;
+  }
+
+  private activeShiftForToday(event: {
+    startsAt: Date;
+    endsAt: Date;
+    shifts: { id: string; startTime: Date; endTime: Date }[];
+  }) {
+    const now = new Date();
+    if (now < this.startOfDay(event.startsAt) || now > this.endOfDay(event.endsAt)) {
+      return null;
+    }
+    if (!event.shifts.length) return null;
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    return (
+      event.shifts.find((shift) =>
+        this.isWithinShift(nowMinutes, shift.startTime, shift.endTime),
+      ) ?? null
+    );
+  }
+
+  private async assertEventForTenant(tenantId: string | null, eventId: string) {
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, tenantId },
+      select: { id: true },
+    });
+    if (!event) throw new NotFoundException("Event not found");
+  }
+
+  private async assertUniqueRegistration(
+    eventId: string,
+    dto: JoinEventDto,
+    excludeRegistrationId?: string,
+  ) {
+    const fullNameEn = dto.fullNameEn?.trim();
+    const phoneNumber = dto.phoneNumber?.trim();
+    if (!fullNameEn || !phoneNumber) return;
+
+    const existing = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId,
+        id: excludeRegistrationId ? { not: excludeRegistrationId } : undefined,
+        fullNameEn,
+        phoneNumber,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        "An attendee with the same full name and phone number is already registered.",
+      );
+    }
   }
 
   private assertActiveShift(

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, Res } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
 import type { Response } from "express";
 import {
   ApiBadRequestResponse,
@@ -103,6 +103,23 @@ export class AttendanceController {
       `attachment; filename="attendee-card-${registrationId}.png"`,
     );
     response.send(buffer);
+  }
+
+  @ApiOperation({ summary: "Update a registered event attendee" })
+  @RequirePermissions("attendance:create")
+  @Patch("events/:eventId/registrations/:registrationId")
+  updateRegistration(
+    @Req() request: AuthRequest,
+    @Param("eventId") eventId: string,
+    @Param("registrationId") registrationId: string,
+    @Body() dto: JoinEventDto,
+  ) {
+    return this.attendance.updateRegistration(
+      request.user.tenantId,
+      eventId,
+      registrationId,
+      dto,
+    );
   }
 
   @ApiOperation({ summary: "Mark a registered attendee as joined" })

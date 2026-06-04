@@ -156,20 +156,20 @@ select option:checked {
 }
 
 .dark .scan-theme {
-  --background: #0f1018;
-  --foreground: #f8fafc;
-  --card: #171827;
-  --card-foreground: #f8fafc;
-  --popover: #171827;
-  --popover-foreground: #f8fafc;
-  --secondary: color-mix(in srgb, var(--primary) 18%, #24263a);
-  --secondary-foreground: #f7f8ff;
-  --muted: #222437;
-  --muted-foreground: color-mix(in srgb, var(--foreground) 82%, transparent);
-  --accent: color-mix(in srgb, var(--primary) 18%, #24263a);
-  --accent-foreground: #f7f8ff;
-  --border: #41445f;
-  --input: #535773;
-  --ring: color-mix(in srgb, var(--primary) 72%, #ffffff);
-  --scan-image-overlay: rgba(15, 16, 24, 0.9);
+  --background: #0c111d;
+  --foreground: #f9fbff;
+  --card: #151b2b;
+  --card-foreground: #f9fbff;
+  --popover: #151b2b;
+  --popover-foreground: #f9fbff;
+  --secondary: color-mix(in srgb, var(--primary) 16%, #253149);
+  --secondary-foreground: #f9fbff;
+  --muted: #202a3f;
+  --muted-foreground: #d7deec;
+  --accent: color-mix(in srgb, var(--primary) 18%, #26334c);
+  --accent-foreground: #ffffff;
+  --border: #4c5a78;
+  --input: #64708d;
+  --ring: color-mix(in srgb, var(--primary) 70%, #ffffff);
+  --scan-image-overlay: rgba(12, 17, 29, 0.88);
 }

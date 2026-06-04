@@ -169,6 +169,23 @@ export class MeetingsController {
     response.send(buffer);
   }
 
+  @ApiOperation({ summary: "Update one meeting participant" })
+  @RequirePermissions("meetings:update")
+  @Patch(":meetingId/participants/:participantId")
+  updateParticipant(
+    @Req() request: AuthRequest,
+    @Param("meetingId") meetingId: string,
+    @Param("participantId") participantId: string,
+    @Body() dto: JoinMeetingDto,
+  ) {
+    return this.meetings.updateParticipant(
+      request.user.tenantId,
+      meetingId,
+      participantId,
+      dto,
+    );
+  }
+
   @ApiOperation({ summary: "Mark a meeting participant as joined" })
   @RequirePermissions("meetings:update")
   @Post(":meetingId/participants/:participantId/join")

@@ -4,8 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type React from "react";
 import type { CSSProperties, ChangeEvent } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import type {
@@ -23,18 +22,18 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Clock3,
   Download,
+  IdCard,
   Languages,
   Mail,
+  MapPin,
   MessageCircle,
-  Monitor,
-  Moon,
   Phone,
   QrCode,
   Search,
   Send,
   Share2,
-  Sun,
   User,
   UserRoundPlus,
   X,
@@ -50,7 +49,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type AppearanceMode } from "@/components/appearance-provider";
+import { ScanControls } from "@/components/scan-controls";
 import { ApiRequestError, api } from "@/lib/api";
 import {
   type ScanRegistration as Registration,
@@ -104,12 +103,27 @@ type Event = {
 
 type WarningKey = "eventNotStarted" | "eventEnded" | "invalidShiftTime";
 
+const TITLE_OPTIONS = [
+  { value: "Dr.", en: "Dr.", km: "បណ្ឌិត" },
+  { value: "H.E.", en: "H.E.", km: "ឯកឧត្តម / លោកជំទាវ" },
+  { value: "Mr.", en: "Mr.", km: "លោក" },
+  { value: "Mrs.", en: "Mrs.", km: "លោកស្រី" },
+  { value: "Ms.", en: "Ms.", km: "កញ្ញា / លោកស្រី" },
+  { value: "Miss", en: "Miss", km: "កញ្ញា" },
+  { value: "Prof.", en: "Prof.", km: "សាស្ត្រាចារ្យ" },
+];
+const TITLE_PLACEHOLDER = "__title_placeholder__";
+
+type EventRegistrationDraft = {
+  values: OpenRegistrationValues;
+  step: number;
+};
+
+const eventRegistrationDrafts = new Map<string, EventRegistrationDraft>();
+
 export function ScanClient({ code, event }: { code: string; event: Event }) {
   const t = useTranslations("scan");
-  const router = useRouter();
-  const pathname = usePathname();
   const params = useParams<{ locale: string }>();
-  const { theme, setTheme } = useTheme();
   const [query, setQuery] = useQueryState("q", { defaultValue: "" });
   const {
     results,
@@ -159,24 +173,15 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
     } | null;
   } | null>(null);
   const [warning, setWarning] = useState<WarningKey | null>(null);
-  const [appearance, setAppearance] = useState<AppearanceMode>("system");
-  const [mounted, setMounted] = useState(false);
   const [registrationStep, setRegistrationStep] = useState(1);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [profileImage, setProfileImage] = useState<{
     url: string;
     name: string;
   } | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setAppearance((theme as AppearanceMode | undefined) ?? "system");
-  }, [theme]);
-
-  const effectiveAppearance = mounted ? appearance : "light";
   const scanBlockReason = useMemo(() => getScanBlockReason(event), [event]);
+  const draftKey = `attendance-event-registration:${code}`;
 
   const themeStyle = useMemo(() => {
     const primaryColor = event.theme?.primaryColor ?? "#5b3fd5";
@@ -198,6 +203,57 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
   }, [event.theme]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const primaryColor = event.theme?.primaryColor ?? "#5b3fd5";
+    const previousPrimary = root.style.getPropertyValue("--primary");
+    const previousPrimaryForeground = root.style.getPropertyValue(
+      "--primary-foreground",
+    );
+    const previousRing = root.style.getPropertyValue("--ring");
+
+    root.style.setProperty("--primary", primaryColor);
+    root.style.setProperty("--primary-foreground", readableForeground(primaryColor));
+    root.style.setProperty("--ring", primaryColor);
+
+    return () => {
+      root.style.setProperty("--primary", previousPrimary);
+      root.style.setProperty("--primary-foreground", previousPrimaryForeground);
+      root.style.setProperty("--ring", previousRing);
+    };
+  }, [event.theme?.primaryColor]);
+
+  useEffect(() => {
+    if (isRegisteredListMode(event.mode)) {
+      setDraftLoaded(true);
+      return;
+    }
+
+    const draft = eventRegistrationDrafts.get(draftKey);
+    if (draft) {
+      for (const [key, value] of Object.entries(draft.values)) {
+        setValue(
+          key as keyof OpenRegistrationValues,
+          value as OpenRegistrationValues[keyof OpenRegistrationValues],
+        );
+      }
+      setRegistrationStep(Math.min(Math.max(draft.step, 1), 4));
+    }
+    setDraftLoaded(true);
+  }, [draftKey, event.mode, setValue]);
+
+  useEffect(() => {
+    if (!draftLoaded || isRegisteredListMode(event.mode) || attendeeQr) return;
+
+    eventRegistrationDrafts.set(
+      draftKey,
+      {
+        values: form,
+        step: registrationStep,
+      },
+    );
+  }, [attendeeQr, draftKey, draftLoaded, event.mode, form, registrationStep]);
+
+  useEffect(() => {
     setWarning(scanBlockReason);
   }, [scanBlockReason]);
 
@@ -206,16 +262,6 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       if (profileImage?.url) URL.revokeObjectURL(profileImage.url);
     };
   }, [profileImage?.url]);
-
-  function changeLocale(locale: string) {
-    const nextPath = pathname.replace(/^\/(en|km)(?=\/|$)/, `/${locale}`);
-    router.replace(`${nextPath}${window.location.search}`);
-  }
-
-  function changeAppearance(mode: AppearanceMode) {
-    setAppearance(mode);
-    setTheme(mode);
-  }
 
   function changeProfileImage(file?: File | null) {
     if (!file) return;
@@ -270,13 +316,18 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
     }
   }
 
-  async function join() {
+  async function join(registrationOverride?: Registration) {
     if (scanBlockReason) {
       setWarning(scanBlockReason);
       return;
     }
 
-    if (!isRegisteredListMode(event.mode) && !(await trigger())) {
+    const selectedRegistration = registrationOverride ?? selected;
+
+    if (
+      !isRegisteredListMode(event.mode) &&
+      !(await trigger(registrationFieldsForDelivery(getValues("deliveryMethod"))))
+    ) {
       return;
     }
 
@@ -292,9 +343,16 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
         event.mode !== "BULK_REGISTRATION" && event.requireLocation
           ? await getCurrentLocation()
           : null;
+      const values = getValues();
       const payload = {
-        ...(selected ?? getValues()),
-        registrationId: selected?.id,
+        ...(selectedRegistration ?? {
+          ...values,
+          email:
+            values.deliveryMethod === "email" && values.email?.trim()
+              ? values.email
+              : undefined,
+        }),
+        registrationId: selectedRegistration?.id,
         ...(position
           ? {
               latitude: position.coords.latitude,
@@ -367,43 +425,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       style={themeStyle}
     >
       <div className="mx-auto max-w-3xl space-y-5">
-        <div className="flex flex-wrap justify-end gap-2">
-          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
-            <Languages size={16} className="text-primary" />
-            <Select
-              value={params.locale}
-              onValueChange={(value) => changeLocale(value)}
-            >
-              <SelectTrigger className="h-9 min-w-24 border-0 bg-transparent px-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">{t("english")}</SelectItem>
-                <SelectItem value="km">{t("khmer")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-1 rounded-md border border-border bg-card p-1">
-            <ModeButton
-              icon={Sun}
-              active={effectiveAppearance === "light"}
-              label="Light"
-              onClick={() => changeAppearance("light")}
-            />
-            <ModeButton
-              icon={Moon}
-              active={effectiveAppearance === "dark"}
-              label="Dark"
-              onClick={() => changeAppearance("dark")}
-            />
-            <ModeButton
-              icon={Monitor}
-              active={effectiveAppearance === "system"}
-              label="System"
-              onClick={() => changeAppearance("system")}
-            />
-          </div>
-        </div>
+        <ScanControls locale={params.locale} />
         {isRegisteredListMode(event.mode) ? (
           <EventHeaderCard event={event} label={registrationModeLabel(event.mode, t)} />
         ) : null}
@@ -444,6 +466,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                     onClick={() => {
                       setSelected(person);
                       setResults([]);
+                      void join(person);
                     }}
                   >
                     <span className="grid size-5 shrink-0 place-items-center rounded border border-border bg-background">
@@ -506,7 +529,8 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                 profileImage={profileImage}
                 onProfileImageChange={changeProfileImage}
                 onProfileImageRemove={removeProfileImage}
-                onSubmit={join}
+                onSubmit={() => join()}
+                locale={params.locale}
                 t={t}
               />
             </RegistrationSurface>
@@ -530,7 +554,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           {isRegisteredListMode(event.mode) ? (
             <Button
               disabled={busy || Boolean(attendeeQr) || Boolean(scanBlockReason) || !selected}
-              onClick={join}
+              onClick={() => void join()}
               className="w-full"
             >
               {status === t("confirmedStatus") ? (
@@ -723,6 +747,22 @@ function isRegisteredListMode(mode: Event["mode"]) {
   return mode === "BULK_REGISTRATION";
 }
 
+function registrationFieldsForDelivery(
+  method: OpenRegistrationValues["deliveryMethod"],
+) {
+  const fields = [
+    "fullNameEn",
+    "fullNameKm",
+    "gender",
+    "position",
+    "organization",
+    "phoneNumber",
+    "deliveryMethod",
+  ] as const;
+
+  return method === "email" ? [...fields, "email" as const] : fields;
+}
+
 function registrationModeLabel(
   mode: Event["mode"],
   t: ReturnType<typeof useTranslations<"scan">>,
@@ -748,7 +788,7 @@ function getCurrentLocation() {
 
 function RegistrationSurface({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-5 rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-xl shadow-black/5 sm:p-6">
+    <div className="space-y-5 text-card-foreground">
       {children}
     </div>
   );
@@ -763,39 +803,85 @@ function EventHeaderCard({
   label: string;
   compact?: boolean;
 }) {
-  const startsAt = new Date(event.startsAt);
   const location = event.scanPlace?.locationName ?? event.locationName;
+  const shiftText = formatShifts(event.shifts);
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-border bg-secondary text-primary">
-            <CalendarDays size={25} />
+    <section className="rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
+            <CalendarDays size={22} />
           </span>
           <div className="min-w-0">
             <h1
-              className={`truncate font-bold tracking-tight text-card-foreground ${
+              className={`font-bold tracking-tight ${
                 compact ? "text-xl" : "text-2xl"
               }`}
             >
               {event.name}
             </h1>
-            <p className="truncate text-sm font-medium text-muted-fg">
-              {[location, startsAt.toLocaleDateString()].filter(Boolean).join(" · ")}
-            </p>
+            {event.description ? (
+              <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-muted-fg">
+                {event.description}
+              </p>
+            ) : null}
           </div>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1.5 text-sm font-semibold text-primary">
+        <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
           <UserRoundPlus size={16} />
           {label}
         </span>
       </div>
-      {!compact && event.description ? (
-        <p className="mt-4 text-sm font-medium text-muted-fg">{event.description}</p>
-      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2 text-sm font-medium">
+        <HeaderInfo icon={<CalendarDays size={16} />} label="Date" value={formatDate(event.startsAt)} />
+        {shiftText ? <HeaderInfo icon={<Clock3 size={16} />} label="Shift" value={shiftText} /> : null}
+        {location ? <HeaderInfo icon={<MapPin size={16} />} label="Place" value={location} /> : null}
+      </div>
     </section>
   );
+}
+
+function HeaderInfo({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="inline-flex min-w-0 items-center gap-2 rounded-full border border-border bg-secondary/45 px-3 py-2">
+      <span className="shrink-0 text-primary">{icon}</span>
+      <span className="min-w-0 truncate">
+        <span className="font-semibold text-muted-fg">{label}:</span>{" "}
+        <span className="text-card-foreground">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  return value.slice(0, 10);
+}
+
+function formatShifts(shifts: Event["shifts"]) {
+  if (!shifts.length) return null;
+  return shifts
+    .map((shift) => {
+      const time = `${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}`;
+      return shift.name ? `${shift.name}: ${time}` : time;
+    })
+    .join(", ");
+}
+
+function formatTime(value: string) {
+  if (value.includes("T")) {
+    const timePart = value.split("T")[1] ?? "";
+    return timePart.slice(0, 5);
+  }
+  return value.slice(0, 5);
 }
 
 function RegistrationWizard({
@@ -813,6 +899,7 @@ function RegistrationWizard({
   onProfileImageChange,
   onProfileImageRemove,
   onSubmit,
+  locale,
   t,
 }: {
   step: number;
@@ -829,6 +916,7 @@ function RegistrationWizard({
   onProfileImageChange: (file?: File | null) => void;
   onProfileImageRemove: () => void;
   onSubmit: () => void;
+  locale: string;
   t: ReturnType<typeof useTranslations<"scan">>;
 }) {
   async function next() {
@@ -850,7 +938,7 @@ function RegistrationWizard({
       {step === 1 ? (
         <div className="grid gap-4">
           <SectionTitle icon={<UserRoundPlus size={18} />} title={t("profilePhoto")} />
-          <div className="flex items-center gap-5 rounded-2xl border border-border bg-secondary/50 p-4">
+          <div className="flex items-center gap-5 rounded-xl border border-border bg-secondary/50 p-4">
             <label className="relative grid size-20 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full border-2 border-dashed border-primary/40 bg-card text-primary">
               {profileImage ? (
                 <img
@@ -920,11 +1008,15 @@ function RegistrationWizard({
             t={t}
           />
           <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t("title")}>
+              <TitleSelect
+                value={form.title ?? ""}
+                onChange={(value) => setValue("title", value)}
+                locale={locale}
+              />
+            </Field>
             <Field label={t("position")} error={errors.position?.message}>
               <IconInput icon={<BriefcaseBusiness size={16} />} placeholder={t("positionPlaceholder")} invalid={Boolean(errors.position)} {...register("position")} />
-            </Field>
-            <Field label={t("title")}>
-              <IconInput icon={<Badge size={16} />} placeholder={t("titlePlaceholder")} {...register("title")} />
             </Field>
           </div>
         </div>
@@ -952,9 +1044,12 @@ function RegistrationWizard({
             selected={form.deliveryMethod ?? "download"}
             email={form.email ?? ""}
             emailError={errors.email?.message}
-            onMethodChange={(value) =>
-              setValue("deliveryMethod", value, { shouldValidate: true })
-            }
+            onMethodChange={(value) => {
+              setValue("deliveryMethod", value, { shouldValidate: true });
+              if (value !== "email") {
+                setValue("email", "", { shouldValidate: true });
+              }
+            }}
             onEmailChange={(value) =>
               setValue("email", value, { shouldValidate: true })
             }
@@ -965,7 +1060,7 @@ function RegistrationWizard({
       {step === 4 ? (
         <div className="grid gap-4">
           <SectionTitle icon={<CheckCircle2 size={17} />} title={t("reviewDetails")} />
-          <div className="rounded-2xl border border-border bg-secondary/50 p-4">
+          <div className="rounded-xl border border-border bg-secondary/50 p-4">
             <div className="flex items-center gap-4">
               {profileImage ? (
                 <img
@@ -1027,7 +1122,7 @@ function RegistrationWizard({
 
 function StepProgress({ step }: { step: number }) {
   return (
-    <div className="grid grid-cols-[auto_1fr_auto_1fr_auto_1fr_auto] items-center rounded-2xl bg-secondary/50 p-3">
+    <div className="grid grid-cols-[auto_1fr_auto_1fr_auto_1fr_auto] items-center rounded-xl bg-secondary/50 p-3">
       {[1, 2, 3, 4].map((item) => (
         <Fragment key={item}>
           <div
@@ -1073,7 +1168,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-medium text-card-foreground">
+    <label className="grid content-start gap-2 text-sm font-medium text-card-foreground">
       {label}
       {children}
       {error ? <span className="text-xs text-destructive">{error}</span> : null}
@@ -1092,17 +1187,55 @@ function IconInput({
 }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-fg">
+      <span className="pointer-events-none absolute left-3 top-0 flex h-12 items-center text-muted-fg">
         {icon}
       </span>
       <Input
-        className={`h-12 rounded-xl bg-card pl-10 text-base font-medium text-card-foreground shadow-sm placeholder:text-muted-fg focus-visible:ring-primary ${
+        className={`h-12 rounded-xl bg-card pl-10 text-base font-medium leading-none text-card-foreground shadow-sm placeholder:text-muted-fg focus-visible:ring-primary ${
           invalid
             ? "border-destructive focus-visible:ring-destructive"
             : "border-border"
         } ${className}`}
         {...props}
       />
+    </div>
+  );
+}
+
+function TitleSelect({
+  value,
+  onChange,
+  locale,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  locale: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-0 flex h-12 items-center text-muted-fg">
+        <IdCard size={16} />
+      </span>
+      <Select
+        value={value || TITLE_PLACEHOLDER}
+        onValueChange={(nextValue) =>
+          onChange(nextValue === TITLE_PLACEHOLDER ? "" : nextValue)
+        }
+      >
+        <SelectTrigger className="h-12 w-full rounded-xl bg-card pl-10 text-base font-medium text-card-foreground">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={TITLE_PLACEHOLDER}>
+            {locale === "km" ? "ជ្រើសរើសងារ" : "Select title"}
+          </SelectItem>
+        {TITLE_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {locale === "km" ? option.km : option.en}
+          </SelectItem>
+        ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -1185,8 +1318,8 @@ function RegistrationSuccess({
   t: ReturnType<typeof useTranslations<"scan">>;
 }) {
   return (
-    <div className="grid justify-items-center gap-5 rounded-2xl border border-border bg-card p-6 text-center">
-      <div className="w-full rounded-xl border border-border bg-secondary p-3 text-base font-semibold text-primary">
+    <div className="grid justify-items-center gap-5 rounded-xl border border-border bg-secondary/40 p-6 text-center">
+      <div className="w-full rounded-xl border border-border bg-card p-3 text-base font-semibold text-primary">
         {delivery?.method === "email" && delivery.emailSent
           ? t("qrSentEmail")
           : delivery?.method === "telegram"
@@ -1275,7 +1408,7 @@ function DeliveryOptions({
             <button
               key={option.value}
               type="button"
-              className={`flex min-h-20 items-center gap-4 rounded-2xl border p-4 text-left transition ${
+              className={`flex min-h-20 items-center gap-4 rounded-xl border p-4 text-left transition ${
                 selected === option.value
                   ? "border-primary bg-secondary text-primary"
                   : "border-border bg-card text-card-foreground hover:border-primary/40"
@@ -1283,7 +1416,7 @@ function DeliveryOptions({
               onClick={() => onMethodChange(option.value)}
             >
               <span
-                className={`grid size-14 shrink-0 place-items-center rounded-2xl border ${
+                className={`grid size-14 shrink-0 place-items-center rounded-xl border ${
                   selected === option.value
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-secondary text-muted-fg"
@@ -1305,7 +1438,7 @@ function DeliveryOptions({
         })}
       </div>
       {selected === "email" ? (
-        <div className="rounded-2xl border border-border bg-secondary p-4">
+        <div className="rounded-xl border border-border bg-secondary p-4">
           <Field label={t("emailAddress")} error={emailError}>
             <IconInput
               icon={<AtSign size={16} />}
@@ -1341,28 +1474,4 @@ function readableForeground(background: string) {
   const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
 
   return luminance > 0.58 ? "#17131f" : "#ffffff";
-}
-
-function ModeButton({
-  icon: Icon,
-  active,
-  label,
-  onClick,
-}: {
-  icon: typeof Sun;
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant={active ? "secondary" : "outline"}
-      className="size-8 px-0"
-      aria-label={label}
-      onClick={onClick}
-    >
-      <Icon size={16} />
-    </Button>
-  );
 }

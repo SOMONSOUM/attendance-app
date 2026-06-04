@@ -265,6 +265,7 @@ export default function MeetingsPage() {
         })) ?? [],
       shifts:
         meeting.shifts?.map((shift) => ({
+          id: shift.id,
           name: shift.name,
           startTime: toTimeInput(shift.startTime),
           endTime: toTimeInput(shift.endTime),
@@ -1548,6 +1549,7 @@ function normalizeForm(form: MeetingForm): MeetingForm {
       .filter((participant) => participant.fullNameEn.trim())
       .map((participant) => cleanObject(participant)),
     shifts: form.shifts?.map((shift) => ({
+      id: shift.id,
       name: shift.name,
       startTime: normalizeTime(shift.startTime),
       endTime: normalizeTime(shift.endTime),
@@ -1602,6 +1604,7 @@ function toNumber(value: string | number | null | undefined, fallback?: number) 
 
 function stripChairperson(chairperson: MeetingChairperson): MeetingChairperson {
   return {
+    id: chairperson.id,
     catalogChairpersonId: chairperson.catalogChairpersonId,
     honorificTitleEn: chairperson.honorificTitleEn,
     honorificTitleKm: chairperson.honorificTitleKm,
@@ -1616,13 +1619,20 @@ function stripChairperson(chairperson: MeetingChairperson): MeetingChairperson {
 
 function stripParticipant(participant: MeetingParticipant): MeetingParticipant {
   return {
+    id: participant.id,
     fullNameEn: participant.fullNameEn,
     fullNameKm: participant.fullNameKm ?? "",
     gender: participant.gender ?? null,
+    title: participant.title ?? "",
     position: participant.position ?? "",
     organization: participant.organization ?? "",
+    phoneNumber: participant.phoneNumber ?? "",
     email: participant.email ?? "",
     status: participant.status ?? "INVITED",
+    joinedAt: participant.joinedAt ?? null,
+    checkInCode: participant.checkInCode ?? null,
+    placeId: participant.placeId ?? null,
+    shiftId: participant.shiftId ?? null,
   };
 }
 

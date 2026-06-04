@@ -286,6 +286,7 @@ export default function EventsPage() {
       endsAt: toDateInput(event.endsAt),
       shifts:
         event.shifts?.map((shift) => ({
+          id: shift.id,
           name: shift.name,
           startTime: toTimeInput(shift.startTime),
           endTime: toTimeInput(shift.endTime),
@@ -1378,6 +1379,7 @@ function normalizeForm(form: EventForm): EventForm {
       ? clamp(form.radiusMeters ?? 100, 10, 5000)
       : 0,
     shifts: form.shifts?.map((shift) => ({
+      id: shift.id,
       name: shift.name,
       startTime: normalizeTime(shift.startTime),
       endTime: normalizeTime(shift.endTime),
