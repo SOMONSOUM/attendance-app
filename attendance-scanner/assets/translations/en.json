@@ -8,7 +8,6 @@
     "ok": "OK",
     "refresh": "Refresh",
     "settings": "Settings",
-    "profile": "Profile",
     "signOut": "Sign out",
     "language": "Language",
     "theme": "Theme",
@@ -29,21 +28,6 @@
     "invalidPassword": "Enter your password",
     "forgotPassword": "Forgot password?",
     "signIn": "Sign in"
-  },
-  "profile": {
-    "account": "Account",
-    "emailAddress": "Email address",
-    "tenant": "Organization",
-    "permissions": "Permissions",
-    "accessReady": "Access ready",
-    "scannerAccess": "Event check-in",
-    "scannerAccessHelp": "Can scan attendee QR codes and mark event attendance.",
-    "meetingAccess": "Meeting check-in",
-    "meetingAccessHelp": "Can scan participant QR codes and update meeting attendance.",
-    "adminTools": "Admin tools",
-    "adminToolsHelp": "Can manage records from the admin dashboard.",
-    "limitedAccess": "Limited access",
-    "limitedAccessHelp": "Only basic profile access is enabled for this account."
   },
   "settings": {
     "appearance": "Appearance",
@@ -87,8 +71,8 @@
     "phoneNumber": "Phone",
     "position": "Position",
     "organization": "Org",
-    "noProfileYet": "No attendee checked in yet",
-    "noProfileHelp": "Successful scans appear here with the attendee profile and attendance status."
+    "noResultYet": "No attendee checked in yet",
+    "noResultHelp": "Successful scans appear here with the attendee details and attendance status."
   },
   "offline": {
     "title": "No internet connection",

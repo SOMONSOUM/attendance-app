@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  CircleAlert,
   Download,
   IdCard,
   Languages,
@@ -20,6 +21,7 @@ import {
   Send,
   Share2,
   UserRoundPlus,
+  X,
 } from "lucide-react";
 import type React from "react";
 import { useParams } from "next/navigation";
@@ -91,6 +93,7 @@ export function MeetingScanClient({
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(t("readyStatus"));
+  const [alreadyJoinedOpen, setAlreadyJoinedOpen] = useState(false);
   const [participantQr, setParticipantQr] = useState<{
     fullNameEn: string;
     qrImage: string;
@@ -249,7 +252,8 @@ export function MeetingScanClient({
         setStatus(t("confirmedStatus"));
       }
     } catch (error) {
-      if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
+      if (isAlreadyJoinedError(error)) {
+        setAlreadyJoinedOpen(true);
         setStatus(t("alreadyJoinedStatus"));
       } else {
         setStatus(error instanceof Error ? error.message : t("couldNotCheckIn"));
@@ -444,6 +448,15 @@ export function MeetingScanClient({
           <p className="text-center text-sm text-muted-fg">{status}</p>
         </Card>
       </div>
+      {alreadyJoinedOpen ? (
+        <WarningDialog
+          title={t("alreadyJoinedTitle")}
+          message={t("alreadyJoinedStatus")}
+          closeLabel={t("close")}
+          okLabel={t("ok")}
+          onClose={() => setAlreadyJoinedOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -518,6 +531,65 @@ async function shareRegistrationCard(title: string, text: string) {
 
 function isRegisteredListMode(mode: PublicMeeting["mode"]) {
   return mode === "BULK_REGISTRATION";
+}
+
+function WarningDialog({
+  title,
+  message,
+  closeLabel,
+  okLabel,
+  onClose,
+}: {
+  title: string;
+  message: string;
+  closeLabel: string;
+  okLabel: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="meeting-warning-title"
+    >
+      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 text-card-foreground shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-md bg-secondary text-primary">
+              <CircleAlert size={22} />
+            </span>
+            <div>
+              <h2 id="meeting-warning-title" className="text-lg font-semibold">
+                {title}
+              </h2>
+              <p className="mt-1 text-sm text-muted-fg">{message}</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="size-8 shrink-0 px-0"
+            aria-label={closeLabel}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+        <Button type="button" className="mt-5 w-full" onClick={onClose}>
+          {okLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function isAlreadyJoinedError(error: unknown) {
+  if (!(error instanceof ApiRequestError)) return false;
+  return (
+    error.code === "ALREADY_JOINED" ||
+    (error.statusCode === 409 && /already|duplicate|registered|joined/i.test(error.message))
+  );
 }
 
 type MeetingRegistrationValues = {
@@ -751,7 +823,7 @@ function IconInput({
 }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-0 flex h-10 items-center text-muted-fg">
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-fg">
         {icon}
       </span>
       <Input
@@ -773,7 +845,7 @@ function TitleSelect({
 }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-0 flex h-10 items-center text-muted-fg">
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-fg">
         <IdCard size={16} />
       </span>
       <Select
@@ -782,7 +854,7 @@ function TitleSelect({
           onChange(nextValue === TITLE_PLACEHOLDER ? "" : nextValue)
         }
       >
-        <SelectTrigger className="h-10 w-full bg-card pl-10 font-medium text-card-foreground">
+        <SelectTrigger className="h-10 min-h-10 w-full border-border bg-card py-0 pl-10 font-medium leading-none text-card-foreground shadow-sm [&>span]:flex [&>span]:items-center">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

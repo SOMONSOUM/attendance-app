@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, ListFilter, Users } from "lucide-react";
+import { Download, Edit3, ListFilter, Users } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import {
@@ -14,7 +14,9 @@ import { TableSkeleton } from "@/components/admin/loading-skeletons";
 import { PaginationFooter, paginate } from "@/components/admin/pagination-footer";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import {
   Table,
@@ -34,9 +36,12 @@ import {
   listEvents,
   listMeetings,
   meetingKeys,
+  updateEventRegistration,
+  updateMeetingParticipant,
   type AttendanceRecord,
   type MeetingParticipant,
   type MeetingPlace,
+  type RegistrationForm,
 } from "@/lib/admin-data";
 import { formatDateTime } from "@/lib/format";
 
@@ -44,13 +49,20 @@ type SourceType = "ALL" | "EVENT" | "MEETING";
 
 type AttendanceLog = {
   id: string;
+  eventId?: string;
+  registrationId?: string | null;
   sourceKey: string;
   sourceType: Exclude<SourceType, "ALL">;
   sourceName: string;
   placeName: string;
   fullNameEn: string;
   fullNameKm?: string | null;
+  gender?: string | null;
+  title?: string | null;
+  position?: string | null;
   organization?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
   checkInAt: string;
   status: "JOINED" | "CANCELLED";
 };
@@ -74,6 +86,10 @@ export default function AttendancePage() {
   const [search, setSearch] = useState("");
   const [scanType, setScanType] = useState<Exclude<SourceType, "ALL">>("EVENT");
   const [page, setPage] = useState(1);
+  const [viewingLog, setViewingLog] = useState<AttendanceLog | null>(null);
+  const [editingLog, setEditingLog] = useState<AttendanceLog | null>(null);
+  const [attendanceForm, setAttendanceForm] =
+    useState<RegistrationForm>(emptyRegistrationForm);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const eventsQuery = useQuery({
     queryKey: eventKeys.all,
@@ -127,19 +143,53 @@ export default function AttendancePage() {
       attendanceQueries.forEach((query) => query.refetch());
     },
   });
+  const updateLogMutation = useMutation<unknown, Error>({
+    mutationFn: () => {
+      if (!editingLog) throw new Error("No attendee selected");
+      if (editingLog.sourceType === "EVENT") {
+        if (!editingLog.eventId || !editingLog.registrationId) {
+          throw new Error("Only registered event attendees can be edited here.");
+        }
+        return updateEventRegistration(
+          editingLog.eventId,
+          editingLog.registrationId,
+          attendanceForm,
+        );
+      }
+      return updateMeetingParticipant(
+        editingLog.sourceKey.replace("MEETING:", ""),
+        editingLog.id,
+        attendanceForm,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      queryClient.invalidateQueries({ queryKey: meetingKeys.all });
+      attendanceQueries.forEach((query) => query.refetch());
+      setEditingLog(null);
+      setAttendanceForm(emptyRegistrationForm);
+    },
+  });
 
   const eventLogs = useMemo(
     () =>
       events.flatMap((event, index) =>
         (attendanceQueries[index]?.data?.items ?? []).map((row) => ({
           id: row.id,
+          eventId: event.id,
+          registrationId: row.registrationId,
           sourceKey: sourceOptionKey("EVENT", event.id),
           sourceType: "EVENT" as const,
           sourceName: event.name,
           placeName: row.placeName ?? placeName(event.places, row.placeId),
           fullNameEn: row.fullNameEn,
           fullNameKm: row.fullNameKm,
+          gender: row.gender,
+          title: row.title,
+          position: row.position,
           organization: row.organization,
+          phoneNumber: row.phoneNumber,
+          email: row.email,
           checkInAt: row.createdAt,
           status: row.status,
         })),
@@ -361,7 +411,11 @@ export default function AttendancePage() {
             </TableHeader>
             <TableBody>
               {pageLogs.map((row) => (
-                <TableRow key={`${row.sourceType}-${row.id}`}>
+                <TableRow
+                  key={`${row.sourceType}-${row.id}`}
+                  className="cursor-pointer"
+                  onClick={() => setViewingLog(row)}
+                >
                   <TableCell className="font-medium">
                     <p>{row.fullNameEn}</p>
                     {row.fullNameKm ? (
@@ -389,14 +443,35 @@ export default function AttendancePage() {
                     </StatusPill>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="outline"
-                      className="h-8"
-                      disabled={cancelMutation.isPending}
-                      onClick={() => cancelMutation.mutate(row)}
+                    <div
+                      className="flex flex-wrap gap-2"
+                      onClick={(event) => event.stopPropagation()}
                     >
-                      {t("cancelJoin")}
-                    </Button>
+                      <Button
+                        variant="outline"
+                        className="size-8 px-0"
+                        disabled={
+                          row.sourceType === "EVENT" && !row.registrationId
+                        }
+                        onClick={() => {
+                          setViewingLog(null);
+                          setEditingLog(row);
+                          setAttendanceForm(formFromLog(row));
+                        }}
+                        aria-label={`Edit ${row.fullNameEn}`}
+                        title={`Edit ${row.fullNameEn}`}
+                      >
+                        <Edit3 size={14} />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8"
+                        disabled={cancelMutation.isPending}
+                        onClick={() => cancelMutation.mutate(row)}
+                      >
+                        {t("cancelJoin")}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -416,6 +491,28 @@ export default function AttendancePage() {
           />
         )}
         </TableShell>
+        <AttendanceDetailDialog
+          open={Boolean(viewingLog)}
+          row={viewingLog}
+          onOpenChange={(open) => {
+            if (!open) setViewingLog(null);
+          }}
+        />
+        <AttendanceEditDialog
+          open={Boolean(editingLog)}
+          row={editingLog}
+          values={attendanceForm}
+          isPending={updateLogMutation.isPending}
+          error={updateLogMutation.error?.message}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingLog(null);
+              setAttendanceForm(emptyRegistrationForm);
+            }
+          }}
+          onChange={setAttendanceForm}
+          onSubmit={() => updateLogMutation.mutate()}
+        />
       </div>
     </AdminShell>
   );
@@ -449,10 +546,233 @@ function meetingLogFromParticipant(
     placeName: placeName(places, participant.placeId),
     fullNameEn: participant.fullNameEn,
     fullNameKm: participant.fullNameKm,
+    gender: participant.gender,
+    title: participant.title,
+    position: participant.position,
     organization: participant.organization,
+    phoneNumber: participant.phoneNumber,
+    email: participant.email,
     checkInAt: participant.joinedAt!,
     status: participant.status === "CANCELLED" ? "CANCELLED" : "JOINED",
   };
+}
+
+const emptyRegistrationForm: RegistrationForm = {
+  fullNameEn: "",
+  fullNameKm: "",
+  gender: "",
+  title: "",
+  position: "",
+  organization: "",
+  phoneNumber: "",
+  email: "",
+  shiftId: "",
+};
+
+function formFromLog(row: AttendanceLog): RegistrationForm {
+  return {
+    fullNameEn: row.fullNameEn,
+    fullNameKm: row.fullNameKm ?? "",
+    gender: (row.gender as RegistrationForm["gender"]) ?? "",
+    title: row.title ?? "",
+    position: row.position ?? "",
+    organization: row.organization ?? "",
+    phoneNumber: row.phoneNumber ?? "",
+    email: row.email ?? "",
+  };
+}
+
+function AttendanceDetailDialog({
+  open,
+  row,
+  onOpenChange,
+}: {
+  open: boolean;
+  row: AttendanceLog | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={row?.fullNameEn ?? "Attendee"}
+      description={row?.sourceName ?? undefined}
+    >
+      <dl className="grid gap-2 text-sm">
+        {[
+          ["Khmer name", row?.fullNameKm],
+          ["Type", row?.sourceType],
+          ["Place", row?.placeName],
+          ["Title", row?.title],
+          ["Gender", row?.gender],
+          ["Position", row?.position],
+          ["Organization", row?.organization],
+          ["Phone", row?.phoneNumber],
+          ["Email", row?.email],
+          ["Status", row?.status],
+          ["Check-in time", row ? formatDateTime(row.checkInAt) : null],
+        ].map(([label, value]) => (
+          <div
+            key={String(label)}
+            className="grid gap-1 rounded-md border border-border p-3 sm:grid-cols-[140px_1fr]"
+          >
+            <dt className="font-medium text-muted-fg">{label}</dt>
+            <dd className="font-semibold">{value || "-"}</dd>
+          </div>
+        ))}
+      </dl>
+      <DialogFooter showCloseButton />
+    </Dialog>
+  );
+}
+
+function AttendanceEditDialog({
+  open,
+  row,
+  values,
+  isPending,
+  error,
+  onOpenChange,
+  onChange,
+  onSubmit,
+}: {
+  open: boolean;
+  row: AttendanceLog | null;
+  values: RegistrationForm;
+  isPending: boolean;
+  error?: string;
+  onOpenChange: (open: boolean) => void;
+  onChange: (values: RegistrationForm) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={row ? `Edit ${row.fullNameEn}` : "Edit attendee"}
+      description={row?.sourceName}
+    >
+      <form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField label="Full name in English" className="sm:col-span-2">
+            <Input
+              value={values.fullNameEn}
+              onChange={(event) =>
+                onChange({ ...values, fullNameEn: event.target.value })
+              }
+              required
+            />
+          </FormField>
+          <FormField label="Full name in Khmer" className="sm:col-span-2">
+            <Input
+              value={values.fullNameKm ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, fullNameKm: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Gender">
+            <Select
+              value={values.gender ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...values,
+                  gender: event.target.value as RegistrationForm["gender"],
+                })
+              }
+            >
+              <option value="">Not specified</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
+            </Select>
+          </FormField>
+          <FormField label="Title">
+            <Select
+              value={values.title ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, title: event.target.value })
+              }
+            >
+              <option value="">Not specified</option>
+              {["Dr.", "H.E.", "Mr.", "Mrs.", "Ms.", "Miss", "Prof."].map(
+                (title) => (
+                  <option key={title} value={title}>
+                    {title}
+                  </option>
+                ),
+              )}
+            </Select>
+          </FormField>
+          <FormField label="Position">
+            <Input
+              value={values.position ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, position: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Organization">
+            <Input
+              value={values.organization ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, organization: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Phone number">
+            <Input
+              value={values.phoneNumber ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, phoneNumber: event.target.value })
+              }
+            />
+          </FormField>
+          <FormField label="Email">
+            <Input
+              type="email"
+              value={values.email ?? ""}
+              onChange={(event) =>
+                onChange({ ...values, email: event.target.value })
+              }
+            />
+          </FormField>
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending || !values.fullNameEn.trim()}>
+            {isPending ? "Saving..." : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
+  );
+}
+
+function FormField({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`grid gap-2 text-sm font-medium ${className ?? ""}`}>
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
 }
 
 function sourceOptionKey(type: Exclude<SourceType, "ALL">, id: string) {

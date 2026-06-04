@@ -165,6 +165,10 @@ export class MeetingsService {
   async update(tenantId: string | null, meetingId: string, dto: UpdateMeetingDto) {
     const existing = await this.assertMeeting(tenantId, meetingId);
     if (dto.chairpersons) this.assertChairpersons(dto.chairpersons);
+    const incomingParticipants = dto.participants?.length
+      ? dto.participants
+      : undefined;
+    const incomingPlaces = dto.places?.length ? dto.places : undefined;
 
     const meeting = await this.prisma.$transaction(async (tx) => {
       if (dto.chairpersons) {
@@ -178,8 +182,8 @@ export class MeetingsService {
           },
         });
       }
-      if (dto.participants) {
-        const incomingIds = dto.participants
+      if (incomingParticipants) {
+        const incomingIds = incomingParticipants
           .map((participant) => participant.id)
           .filter((id): id is string => Boolean(id));
         await tx.meetingParticipant.deleteMany({
@@ -200,8 +204,8 @@ export class MeetingsService {
           },
         });
       }
-      if (dto.places) {
-        const incomingIds = dto.places
+      if (incomingPlaces) {
+        const incomingIds = incomingPlaces
           .map((place) => place.id)
           .filter((id): id is string => Boolean(id));
         await tx.meetingPlace.deleteMany({
@@ -271,8 +275,8 @@ export class MeetingsService {
         }
       }
 
-      if (dto.participants) {
-        for (const participant of dto.participants) {
+      if (incomingParticipants) {
+        for (const participant of incomingParticipants) {
           const { id, checkInCode, ...participantData } = participant;
           const data = {
             ...participantData,
@@ -291,8 +295,8 @@ export class MeetingsService {
         }
       }
 
-      if (dto.places && separateQrByPlace) {
-        for (const place of dto.places) {
+      if (incomingPlaces && separateQrByPlace) {
+        for (const place of incomingPlaces) {
           const placeData = await this.toMeetingPlaceData(
             tx,
             tenantId,
@@ -312,7 +316,7 @@ export class MeetingsService {
         }
       }
 
-      if (dto.places && separateQrByPlace) {
+      if (incomingPlaces && separateQrByPlace) {
         const places = await tx.meetingPlace.findMany({
           where: { meetingId },
           include: { qrCodes: true },
@@ -338,7 +342,7 @@ export class MeetingsService {
           (await tx.meetingPlace.create({
             data: this.toDefaultMeetingPlaceData(meetingId, allowLocation, dto),
           }));
-        if (!dto.places) {
+        if (!incomingPlaces) {
           await tx.meetingPlace.update({
             where: { id: defaultPlace.id },
             data: this.toDefaultMeetingPlaceData(meetingId, allowLocation, dto),
@@ -424,6 +428,7 @@ export class MeetingsService {
       }));
 
     if (!data.length) return { count: 0 };
+    await this.assertParticipantsUnique(meetingId, data);
     await this.prisma.meetingParticipant.createMany({ data });
     return { count: data.length };
   }
@@ -442,8 +447,7 @@ export class MeetingsService {
 
     if (!rows.length) return { count: 0 };
 
-    await this.prisma.meetingParticipant.createMany({
-      data: rows.map((row) => ({
+    const data = rows.map((row) => ({
         meetingId,
         placeId,
         fullNameEn: row.fullNameEn,
@@ -453,8 +457,9 @@ export class MeetingsService {
         phoneNumber: row.phoneNumber,
         checkInCode: this.toQrCode(),
         source: `IMPORT:${importId}`,
-      })),
-    });
+      }));
+    await this.assertParticipantsUnique(meetingId, data);
+    await this.prisma.meetingParticipant.createMany({ data });
 
     return { count: rows.length };
   }
@@ -1031,24 +1036,57 @@ export class MeetingsService {
     dto: JoinMeetingDto,
     excludeParticipantId?: string,
   ) {
-    const fullNameEn = dto.fullNameEn?.trim();
-    const phoneNumber = dto.phoneNumber?.trim();
-    if (!fullNameEn || !phoneNumber) return;
+    await this.assertParticipantsUnique(
+      meetingId,
+      [{ fullNameEn: dto.fullNameEn, phoneNumber: dto.phoneNumber }],
+      excludeParticipantId,
+    );
+  }
+
+  private async assertParticipantsUnique(
+    meetingId: string,
+    participants: Array<{ fullNameEn?: string | null; phoneNumber?: string | null }>,
+    excludeParticipantId?: string,
+  ) {
+    const fullNames = new Set<string>();
+    const phoneNumbers = new Set<string>();
+
+    for (const participant of participants) {
+      const fullNameEn = participant.fullNameEn?.trim();
+      const phoneNumber = participant.phoneNumber?.trim();
+      if (fullNameEn) {
+        if (fullNames.has(fullNameEn)) throw this.duplicateParticipantException();
+        fullNames.add(fullNameEn);
+      }
+      if (phoneNumber) {
+        if (phoneNumbers.has(phoneNumber)) throw this.duplicateParticipantException();
+        phoneNumbers.add(phoneNumber);
+      }
+    }
+
+    const duplicateChecks: Prisma.MeetingParticipantWhereInput[] = [];
+    if (fullNames.size) duplicateChecks.push({ fullNameEn: { in: [...fullNames] } });
+    if (phoneNumbers.size) {
+      duplicateChecks.push({ phoneNumber: { in: [...phoneNumbers] } });
+    }
+
+    if (!duplicateChecks.length) return;
 
     const existing = await this.prisma.meetingParticipant.findFirst({
       where: {
         meetingId,
         id: excludeParticipantId ? { not: excludeParticipantId } : undefined,
-        fullNameEn,
-        phoneNumber,
+        OR: duplicateChecks,
       },
       select: { id: true },
     });
-    if (existing) {
-      throw new BadRequestException(
-        "A participant with the same full name and phone number is already registered.",
-      );
-    }
+    if (existing) throw this.duplicateParticipantException();
+  }
+
+  private duplicateParticipantException() {
+    return new BadRequestException(
+      "A participant with the same full name or phone number is already registered.",
+    );
   }
 
   private async toMeetingPlaceData(

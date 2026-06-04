@@ -210,7 +210,7 @@ export class AttendanceService {
     });
     if (!registration) throw new NotFoundException("Registration not found");
     await this.assertUniqueRegistration(eventId, dto, registrationId);
-    return this.prisma.eventRegistration.update({
+    const updatedRegistration = await this.prisma.eventRegistration.update({
       where: { id: registrationId },
       data: {
         fullNameEn: dto.fullNameEn,
@@ -224,6 +224,21 @@ export class AttendanceService {
         shiftId: dto.shiftId || null,
       },
     });
+
+    await this.prisma.attendance.updateMany({
+      where: { eventId, registrationId },
+      data: {
+        fullNameEn: updatedRegistration.fullNameEn,
+        fullNameKm: updatedRegistration.fullNameKm,
+        gender: updatedRegistration.gender,
+        position: updatedRegistration.position,
+        organization: updatedRegistration.organization,
+        phoneNumber: updatedRegistration.phoneNumber,
+        shiftId: updatedRegistration.shiftId,
+      },
+    });
+
+    return updatedRegistration;
   }
 
   async registrationCard(
@@ -688,20 +703,22 @@ export class AttendanceService {
   ) {
     const fullNameEn = dto.fullNameEn?.trim();
     const phoneNumber = dto.phoneNumber?.trim();
-    if (!fullNameEn || !phoneNumber) return;
+    const duplicateChecks: Prisma.EventRegistrationWhereInput[] = [];
+    if (fullNameEn) duplicateChecks.push({ fullNameEn });
+    if (phoneNumber) duplicateChecks.push({ phoneNumber });
+    if (!duplicateChecks.length) return;
 
     const existing = await this.prisma.eventRegistration.findFirst({
       where: {
         eventId,
         id: excludeRegistrationId ? { not: excludeRegistrationId } : undefined,
-        fullNameEn,
-        phoneNumber,
+        OR: duplicateChecks,
       },
       select: { id: true },
     });
     if (existing) {
       throw new ConflictException(
-        "An attendee with the same full name and phone number is already registered.",
+        "An attendee with the same full name or phone number is already registered.",
       );
     }
   }

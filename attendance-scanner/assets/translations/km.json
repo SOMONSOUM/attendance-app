@@ -8,7 +8,6 @@
     "ok": "យល់ព្រម",
     "refresh": "ធ្វើថ្មី",
     "settings": "ការកំណត់",
-    "profile": "ប្រវត្តិរូប",
     "signOut": "ចាកចេញ",
     "language": "ភាសា",
     "theme": "រូបរាង",
@@ -29,21 +28,6 @@
     "invalidPassword": "សូមបញ្ចូលពាក្យសម្ងាត់",
     "forgotPassword": "ភ្លេចពាក្យសម្ងាត់?",
     "signIn": "ចូលប្រើ"
-  },
-  "profile": {
-    "account": "គណនី",
-    "emailAddress": "អ៊ីមែល",
-    "tenant": "អង្គភាព",
-    "permissions": "សិទ្ធិប្រើប្រាស់",
-    "accessReady": "អាចប្រើប្រាស់បាន",
-    "scannerAccess": "Check-in ព្រឹត្តិការណ៍",
-    "scannerAccessHelp": "អាចស្កេន QR អ្នកចូលរួម និងកត់ត្រាវត្តមានព្រឹត្តិការណ៍។",
-    "meetingAccess": "Check-in កិច្ចប្រជុំ",
-    "meetingAccessHelp": "អាចស្កេន QR អ្នកចូលរួម និងកែប្រែវត្តមានកិច្ចប្រជុំ។",
-    "adminTools": "ឧបករណ៍ Admin",
-    "adminToolsHelp": "អាចគ្រប់គ្រងទិន្នន័យពីផ្ទាំង Admin។",
-    "limitedAccess": "សិទ្ធិមានកំណត់",
-    "limitedAccessHelp": "គណនីនេះអាចប្រើបានតែព័ត៌មានប្រវត្តិរូបមូលដ្ឋាន។"
   },
   "settings": {
     "appearance": "រូបរាងកម្មវិធី",
@@ -87,8 +71,8 @@
     "phoneNumber": "ទូរស័ព្ទ",
     "position": "តួនាទី",
     "organization": "អង្គភាព",
-    "noProfileYet": "មិនទាន់មានអ្នក check-in",
-    "noProfileHelp": "ពេលស្កេនជោគជ័យ ព័ត៌មានអ្នកចូលរួមនឹងបង្ហាញនៅទីនេះ។"
+    "noResultYet": "មិនទាន់មានអ្នក check-in",
+    "noResultHelp": "ពេលស្កេនជោគជ័យ ព័ត៌មានអ្នកចូលរួមនឹងបង្ហាញនៅទីនេះ។"
   },
   "offline": {
     "title": "គ្មានអ៊ីនធឺណិត",

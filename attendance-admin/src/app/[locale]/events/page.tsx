@@ -1406,7 +1406,7 @@ function normalizeForm(form: EventForm): EventForm {
             ? clamp(place.radiusMeters ?? 100, 10, 5000)
             : 0,
         }))
-      : [],
+      : undefined,
     theme: {
       ...form.theme,
       backgroundImageUrl: form.theme.backgroundImageUrl?.trim() || null,

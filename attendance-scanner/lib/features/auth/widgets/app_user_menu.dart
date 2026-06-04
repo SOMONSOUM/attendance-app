@@ -8,8 +8,8 @@ import '../../../core/localization/translation_keys.dart';
 import '../data/auth_models.dart';
 import '../state/auth_controller.dart';
 
-class ProfileMenu extends ConsumerWidget {
-  const ProfileMenu({
+class AppUserMenu extends ConsumerWidget {
+  const AppUserMenu({
     super.key,
     required this.user,
     required this.fallbackName,
@@ -25,16 +25,14 @@ class ProfileMenu extends ConsumerWidget {
     final email = user?.email ?? 'admin@organization.com';
 
     return PopupMenuButton<String>(
-      tooltip: L.common.profile.tr(),
+      tooltip: L.common.settings.tr(),
       offset: const Offset(0, 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: colors.outline),
       ),
       onSelected: (value) {
-        if (value == 'profile') {
-          context.push('/profile');
-        } else if (value == 'settings') {
+        if (value == 'settings') {
           context.push('/settings');
         } else if (value == 'logout') {
           ref.read(authControllerProvider).logout();
@@ -43,16 +41,9 @@ class ProfileMenu extends ConsumerWidget {
       itemBuilder: (context) => [
         PopupMenuItem(
           enabled: false,
-          child: _ProfileHeader(name: name, email: email),
+          child: _AccountHeader(name: name, email: email),
         ),
         const PopupMenuDivider(height: 1),
-        PopupMenuItem(
-          value: 'profile',
-          child: _MenuRow(
-            icon: LucideIcons.userRound,
-            text: L.common.profile.tr(),
-          ),
-        ),
         PopupMenuItem(
           value: 'settings',
           child: _MenuRow(
@@ -86,8 +77,8 @@ class ProfileMenu extends ConsumerWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.name, required this.email});
+class _AccountHeader extends StatelessWidget {
+  const _AccountHeader({required this.name, required this.email});
 
   final String name;
   final String email;

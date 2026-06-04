@@ -65,6 +65,8 @@ import {
   formatChairperson,
 } from "./_components/meeting-detail-components";
 
+const TITLE_OPTIONS = ["Dr.", "H.E.", "Mr.", "Mrs.", "Ms.", "Miss", "Prof."];
+
 export default function MeetingDetailPage() {
   const t = useTranslations("details");
   const common = useTranslations("common");
@@ -81,6 +83,8 @@ export default function MeetingDetailPage() {
   const [pageSize, setPageSize] = useState(10);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
+  const [viewingParticipant, setViewingParticipant] =
+    useState<MeetingParticipant | null>(null);
   const [registrationForm, setRegistrationForm] =
     useState<RegistrationForm>(emptyRegistrationForm);
 
@@ -472,7 +476,11 @@ export default function MeetingDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {pagedParticipants.map((participant) => (
-                      <TableRow key={participant.id ?? participant.fullNameEn}>
+                      <TableRow
+                        key={participant.id ?? participant.fullNameEn}
+                        className="cursor-pointer"
+                        onClick={() => setViewingParticipant(participant)}
+                      >
                         <TableCell>
                           <p className="font-medium">{participant.fullNameEn}</p>
                           {participant.fullNameKm ? (
@@ -506,7 +514,10 @@ export default function MeetingDetailPage() {
                             : "-"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
+                          <div
+                            className="flex flex-wrap justify-end gap-2"
+                            onClick={(event) => event.stopPropagation()}
+                          >
                             {participant.id ? (
                               <>
                                 <Button
@@ -644,6 +655,30 @@ export default function MeetingDetailPage() {
             }
             submitLabel={editingParticipantId ? "Save changes" : undefined}
           />
+          <AttendeeDetailDialog
+            open={Boolean(viewingParticipant)}
+            title={viewingParticipant?.fullNameEn ?? ""}
+            rows={
+              viewingParticipant
+                ? [
+                    ["Khmer name", viewingParticipant.fullNameKm],
+                    ["Title", viewingParticipant.title],
+                    ["Gender", viewingParticipant.gender],
+                    ["Position", viewingParticipant.position],
+                    ["Organization", viewingParticipant.organization],
+                    ["Phone", viewingParticipant.phoneNumber],
+                    ["Email", viewingParticipant.email],
+                    ["Place", placeName(meeting.places, viewingParticipant.placeId, t)],
+                    ["Shift", shiftName(meeting.shifts, viewingParticipant.shiftId)],
+                    ["Status", viewingParticipant.status],
+                    ["Joined time", viewingParticipant.joinedAt ? formatDateTime(viewingParticipant.joinedAt) : null],
+                  ]
+                : []
+            }
+            onOpenChange={(open) => {
+              if (!open) setViewingParticipant(null);
+            }}
+          />
         </div>
       )}
     </AdminShell>
@@ -749,12 +784,19 @@ function RegistrationDialog({
             </Select>
           </FormField>
           <FormField label="Title">
-            <Input
+            <Select
               value={values.title ?? ""}
               onChange={(event) =>
                 onChange({ ...values, title: event.target.value })
               }
-            />
+            >
+              <option value="">{labels.noTitle}</option>
+              {TITLE_OPTIONS.map((title) => (
+                <option key={title} value={title}>
+                  {title}
+                </option>
+              ))}
+            </Select>
           </FormField>
           {shifts.length ? (
             <FormField label={labels.shift} className="sm:col-span-2">
@@ -834,6 +876,7 @@ type RegistrationDialogLabels = {
   other: string;
   shift: string;
   noShift: string;
+  noTitle: string;
   position: string;
   organization: string;
   cancel: string;
@@ -861,6 +904,7 @@ function registrationDialogLabels(
     other: t("other"),
     shift: t("shift"),
     noShift: t("noShiftSelected"),
+    noTitle: t("notSpecified"),
     position: t("position"),
     organization: t("organization"),
     cancel: t("cancel"),
@@ -883,6 +927,40 @@ function FormField({
       <Label>{label}</Label>
       {children}
     </div>
+  );
+}
+
+function AttendeeDetailDialog({
+  open,
+  title,
+  rows,
+  onOpenChange,
+}: {
+  open: boolean;
+  title: string;
+  rows: Array<[string, ReactNode]>;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title || "Participant"}
+      description="Participant details"
+    >
+      <dl className="grid gap-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="grid gap-1 rounded-md border border-border p-3 sm:grid-cols-[140px_1fr]"
+          >
+            <dt className="font-medium text-muted-fg">{label}</dt>
+            <dd className="font-semibold">{value || "-"}</dd>
+          </div>
+        ))}
+      </dl>
+      <DialogFooter showCloseButton />
+    </Dialog>
   );
 }
 

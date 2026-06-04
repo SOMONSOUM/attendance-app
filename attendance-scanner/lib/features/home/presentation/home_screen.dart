@@ -11,7 +11,7 @@ import '../../../core/widgets/offline_view.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../core/widgets/scanner_logo.dart';
 import '../../auth/state/auth_controller.dart';
-import '../../auth/widgets/profile_menu.dart';
+import '../../auth/widgets/app_user_menu.dart';
 import '../data/event_meeting_models.dart';
 import '../state/home_controller.dart';
 
@@ -60,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
         actions: [
           const AppSettingsActions(),
-          ProfileMenu(user: auth.user, fallbackName: L.common.adminUser.tr()),
+          AppUserMenu(user: auth.user, fallbackName: L.common.adminUser.tr()),
         ],
       ),
       body: state.when(

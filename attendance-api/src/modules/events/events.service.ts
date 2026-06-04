@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventMode, Gender, Prisma } from "@prisma/client";
 import type { Event, EventRegistration, Attendance } from "@prisma/client";
 import { randomBytes } from "node:crypto";
@@ -182,6 +182,7 @@ export class EventsService {
       ...eventDto
     } = dto;
     const allowLocation = true;
+    const incomingPlaces = places?.length ? places : undefined;
 
     const event = await this.prisma.$transaction(async (tx) => {
       if (shifts) {
@@ -221,8 +222,8 @@ export class EventsService {
         },
       });
 
-      if (places) {
-        const incomingPlaceIds = places
+      if (incomingPlaces) {
+        const incomingPlaceIds = incomingPlaces
           .map((place) => place.id)
           .filter((id): id is string => Boolean(id));
 
@@ -233,7 +234,7 @@ export class EventsService {
           },
         });
 
-        for (const place of places) {
+        for (const place of incomingPlaces) {
           if (place.id) {
             const placeData = await this.toEventPlaceData(tx, tenantId, allowLocation, place);
             await tx.eventPlace.updateMany({
@@ -388,9 +389,10 @@ export class EventsService {
         position: row.Position?.trim(),
         phoneNumber: (row["Phone Number"] ?? row.Phone)?.trim(),
         checkInCode: this.toQrCode(),
-      }));
+    }));
 
     if (!data.length) return { count: 0 };
+    await this.assertRegistrationsUnique(eventId, data);
     await this.prisma.eventRegistration.createMany({ data });
     return { count: data.length };
   }
@@ -433,8 +435,7 @@ export class EventsService {
 
     if (!sourceRegistrations.length) return { count: 0 };
 
-    await this.prisma.eventRegistration.createMany({
-      data: sourceRegistrations.map((registration) => ({
+    const data = sourceRegistrations.map((registration) => ({
         eventId,
         fullNameEn: registration.fullNameEn,
         fullNameKm: registration.fullNameKm,
@@ -443,8 +444,9 @@ export class EventsService {
         phoneNumber: registration.phoneNumber,
         checkInCode: this.toQrCode(),
         source: `COPY:${sourceEventId}`,
-      })),
-    });
+      }));
+    await this.assertRegistrationsUnique(eventId, data);
+    await this.prisma.eventRegistration.createMany({ data });
 
     return { count: sourceRegistrations.length };
   }
@@ -463,8 +465,7 @@ export class EventsService {
 
     if (!rows.length) return { count: 0 };
 
-    await this.prisma.eventRegistration.createMany({
-      data: rows.map((row) => ({
+    const data = rows.map((row) => ({
         eventId,
         placeId,
         fullNameEn: row.fullNameEn,
@@ -474,8 +475,9 @@ export class EventsService {
         phoneNumber: row.phoneNumber,
         checkInCode: this.toQrCode(),
         source: `IMPORT:${importId}`,
-      })),
-    });
+      }));
+    await this.assertRegistrationsUnique(eventId, data);
+    await this.prisma.eventRegistration.createMany({ data });
 
     return { count: rows.length };
   }
@@ -539,6 +541,47 @@ export class EventsService {
     });
     if (!place) throw new NotFoundException("Event place not found");
     return place;
+  }
+
+  private async assertRegistrationsUnique(
+    eventId: string,
+    registrations: Array<{ fullNameEn?: string | null; phoneNumber?: string | null }>,
+  ) {
+    const fullNames = new Set<string>();
+    const phoneNumbers = new Set<string>();
+
+    for (const registration of registrations) {
+      const fullNameEn = registration.fullNameEn?.trim();
+      const phoneNumber = registration.phoneNumber?.trim();
+      if (fullNameEn) {
+        if (fullNames.has(fullNameEn)) throw this.duplicateRegistrationException();
+        fullNames.add(fullNameEn);
+      }
+      if (phoneNumber) {
+        if (phoneNumbers.has(phoneNumber)) throw this.duplicateRegistrationException();
+        phoneNumbers.add(phoneNumber);
+      }
+    }
+
+    const duplicateChecks: Prisma.EventRegistrationWhereInput[] = [];
+    if (fullNames.size) duplicateChecks.push({ fullNameEn: { in: [...fullNames] } });
+    if (phoneNumbers.size) {
+      duplicateChecks.push({ phoneNumber: { in: [...phoneNumbers] } });
+    }
+
+    if (!duplicateChecks.length) return;
+
+    const existing = await this.prisma.eventRegistration.findFirst({
+      where: { eventId, OR: duplicateChecks },
+      select: { id: true },
+    });
+    if (existing) throw this.duplicateRegistrationException();
+  }
+
+  private duplicateRegistrationException() {
+    return new ConflictException(
+      "An attendee with the same full name or phone number is already registered.",
+    );
   }
 
   private async toEventPlaceData(

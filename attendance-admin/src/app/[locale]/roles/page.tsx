@@ -273,7 +273,7 @@ export default function RolesPage() {
         ) : null
       }
     >
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_520px]">
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
         <TableShell>
           <SectionToolbar title="Roles people can use" />
           {rolesQuery.isLoading ? (
@@ -305,7 +305,7 @@ export default function RolesPage() {
           )}
         </TableShell>
 
-        <Card className="overflow-hidden xl:sticky xl:top-20">
+        <Card className="min-w-0 overflow-hidden xl:sticky xl:top-20">
           <CardHeader className="border-b border-border bg-muted/30 p-4">
             <CardTitle>
               {editing ? t("updateRole") : t("createRole")}
@@ -322,7 +322,7 @@ export default function RolesPage() {
                   saveRoleMutation.mutate(values),
                 )}
               >
-                <div className="grid gap-4 overflow-y-auto p-4">
+                <div className="grid min-w-0 gap-4 overflow-y-auto p-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -376,7 +376,7 @@ export default function RolesPage() {
                   </div>
 
                   <div className="grid gap-3">
-                    <div className="grid gap-3 md:hidden">
+                    <div className="grid gap-3 lg:hidden">
                       {actionColumns.map((action) => {
                         const actionPermissions = permissionGroups
                           .filter((group) => groupHasAction(group, action))
@@ -476,8 +476,8 @@ export default function RolesPage() {
                         })}
                       </div>
                     </div>
-                    <div className="hidden overflow-x-auto rounded-md border border-border md:block">
-                      <div className="min-w-[30rem]">
+                    <div className="hidden max-w-full overflow-x-auto rounded-md border border-border lg:block">
+                      <div className="min-w-[34rem]">
                         <div className="grid grid-cols-[minmax(11rem,1fr)_repeat(4,minmax(4.75rem,5.5rem))] border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-fg">
                           <span>Access area</span>
                           {actionColumns.map((action) => {

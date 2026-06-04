@@ -13,7 +13,7 @@ import '../../../core/widgets/app_settings_actions.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../../core/widgets/scanner_logo.dart';
 import '../../auth/state/auth_controller.dart';
-import '../../auth/widgets/profile_menu.dart';
+import '../../auth/widgets/app_user_menu.dart';
 import '../../home/data/event_meeting_models.dart';
 import '../../home/data/events_repository.dart';
 import '../data/check_in_models.dart';
@@ -75,8 +75,8 @@ class _L10n {
   String get alignQrCode => L.scanner.alignQrCode.tr();
   String get recentCheckIns => L.scanner.recentCheckIns.tr();
   String get noRecentCheckIns => L.scanner.noRecentCheckIns.tr();
-  String get noProfileYet => L.scanner.noProfileYet.tr();
-  String get noProfileHelp => L.scanner.noProfileHelp.tr();
+  String get noResultYet => L.scanner.noResultYet.tr();
+  String get noResultHelp => L.scanner.noResultHelp.tr();
   String get fullName => L.scanner.fullName.tr();
   String get gender => L.scanner.gender.tr();
   String get phoneNumber => L.scanner.phoneNumber.tr();
@@ -195,7 +195,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
               ),
         actions: [
           const AppSettingsActions(),
-          ProfileMenu(user: auth.user, fallbackName: l10n.adminUser),
+          AppUserMenu(user: auth.user, fallbackName: l10n.adminUser),
         ],
       ),
       body: ResponsivePage(

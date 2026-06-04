@@ -6,7 +6,6 @@ abstract final class L {
   static const header = _HeaderKeys();
   static const login = _LoginKeys();
   static const loginForm = _LoginFormKeys();
-  static const profile = _ProfileKeys();
   static const settings = _SettingsKeys();
   static const scanner = _ScannerKeys();
   static const offline = _OfflineKeys();
@@ -32,7 +31,6 @@ class _CommonKeys {
   final ok = 'common.ok';
   final refresh = 'common.refresh';
   final settings = 'common.settings';
-  final profile = 'common.profile';
   final signOut = 'common.signOut';
   final language = 'common.language';
   final theme = 'common.theme';
@@ -62,24 +60,6 @@ class _LoginFormKeys {
   final invalidPassword = 'loginForm.invalidPassword';
   final forgotPassword = 'loginForm.forgotPassword';
   final signIn = 'loginForm.signIn';
-}
-
-class _ProfileKeys {
-  const _ProfileKeys();
-
-  final account = 'profile.account';
-  final emailAddress = 'profile.emailAddress';
-  final tenant = 'profile.tenant';
-  final permissions = 'profile.permissions';
-  final accessReady = 'profile.accessReady';
-  final scannerAccess = 'profile.scannerAccess';
-  final scannerAccessHelp = 'profile.scannerAccessHelp';
-  final meetingAccess = 'profile.meetingAccess';
-  final meetingAccessHelp = 'profile.meetingAccessHelp';
-  final adminTools = 'profile.adminTools';
-  final adminToolsHelp = 'profile.adminToolsHelp';
-  final limitedAccess = 'profile.limitedAccess';
-  final limitedAccessHelp = 'profile.limitedAccessHelp';
 }
 
 class _SettingsKeys {
@@ -117,8 +97,8 @@ class _ScannerKeys {
   final successMessage = 'scanner.successMessage';
   final recentCheckIns = 'scanner.recentCheckIns';
   final noRecentCheckIns = 'scanner.noRecentCheckIns';
-  final noProfileYet = 'scanner.noProfileYet';
-  final noProfileHelp = 'scanner.noProfileHelp';
+  final noResultYet = 'scanner.noResultYet';
+  final noResultHelp = 'scanner.noResultHelp';
   final fullName = 'scanner.fullName';
   final gender = 'scanner.gender';
   final phoneNumber = 'scanner.phoneNumber';

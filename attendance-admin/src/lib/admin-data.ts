@@ -227,6 +227,8 @@ export type UserForm = {
 export type AttendanceRecord = {
   id: string;
   eventId: string;
+  registrationId?: string | null;
+  shiftId?: string | null;
   placeId?: string | null;
   placeName?: string | null;
   fullNameEn: string;

@@ -345,14 +345,23 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
           : null;
       const values = getValues();
       const payload = {
-        ...(selectedRegistration ?? {
-          ...values,
-          email:
-            values.deliveryMethod === "email" && values.email?.trim()
-              ? values.email
-              : undefined,
-        }),
-        registrationId: selectedRegistration?.id,
+        ...(selectedRegistration
+          ? {
+              registrationId: selectedRegistration.id,
+              fullNameEn: selectedRegistration.fullNameEn,
+              fullNameKm: selectedRegistration.fullNameKm,
+              gender: selectedRegistration.gender,
+              position: selectedRegistration.position,
+              organization: selectedRegistration.organization,
+              phoneNumber: selectedRegistration.phoneNumber,
+            }
+          : {
+              ...values,
+              email:
+                values.deliveryMethod === "email" && values.email?.trim()
+                  ? values.email
+                  : undefined,
+            }),
         ...(position
           ? {
               latitude: position.coords.latitude,
@@ -394,7 +403,7 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
         setStatus(t("confirmedStatus"));
       }
     } catch (error) {
-      if (error instanceof ApiRequestError && error.code === "ALREADY_JOINED") {
+      if (isAlreadyJoinedError(error)) {
         setAlreadyJoinedOpen(true);
         setStatus(t("alreadyJoinedStatus"));
       } else if (
@@ -466,7 +475,6 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
                     onClick={() => {
                       setSelected(person);
                       setResults([]);
-                      void join(person);
                     }}
                   >
                     <span className="grid size-5 shrink-0 place-items-center rounded border border-border bg-background">
@@ -501,7 +509,9 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
 
           {attendeeQr ? (
             <RegistrationSurface>
-              <EventHeaderCard event={event} label={registrationModeLabel(event.mode, t)} compact />
+              {!isRegisteredListMode(event.mode) ? (
+                <EventHeaderCard event={event} label={registrationModeLabel(event.mode, t)} compact />
+              ) : null}
               <RegistrationSuccess
                 contextName={event.name}
                 fullName={attendeeQr.fullNameEn}
@@ -535,8 +545,16 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
               />
             </RegistrationSurface>
           ) : selected ? (
-            <div className="rounded-md bg-secondary p-4">
-              <p className="font-semibold">{selected.fullNameEn}</p>
+            <div className="rounded-xl border border-border bg-secondary/70 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{selected.fullNameEn}</p>
+                  <p className="mt-1 text-sm text-muted-fg">
+                    {t("selectBeforeJoining")}
+                  </p>
+                </div>
+                <QrCode className="shrink-0 text-primary" size={22} />
+              </div>
               <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                 <Detail label={t("khmerName")} value={selected.fullNameKm} />
                 <Detail label={t("gender")} value={selected.gender} />
@@ -570,49 +588,13 @@ export function ScanClient({ code, event }: { code: string; event: Event }) {
       </div>
 
       {alreadyJoinedOpen ? (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="already-joined-title"
-        >
-          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 text-card-foreground shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-md bg-secondary text-primary">
-                  <CircleAlert size={22} />
-                </span>
-                <div>
-                  <h2
-                    id="already-joined-title"
-                    className="text-lg font-semibold"
-                  >
-                    {t("alreadyJoinedTitle")}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-fg">
-                    {t("alreadyJoinedMessage")}
-                  </p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="size-8 shrink-0 px-0"
-                aria-label={t("close")}
-                onClick={() => setAlreadyJoinedOpen(false)}
-              >
-                <X size={16} />
-              </Button>
-            </div>
-            <Button
-              type="button"
-              className="mt-5 w-full"
-              onClick={() => setAlreadyJoinedOpen(false)}
-            >
-              {t("ok")}
-            </Button>
-          </div>
-        </div>
+        <WarningDialog
+          title={t("alreadyJoinedTitle")}
+          message={t("alreadyJoinedMessage")}
+          closeLabel={t("close")}
+          okLabel={t("ok")}
+          onClose={() => setAlreadyJoinedOpen(false)}
+        />
       ) : null}
 
       {warning ? (
@@ -745,6 +727,14 @@ function endOfDay(date: Date) {
 
 function isRegisteredListMode(mode: Event["mode"]) {
   return mode === "BULK_REGISTRATION";
+}
+
+function isAlreadyJoinedError(error: unknown) {
+  if (!(error instanceof ApiRequestError)) return false;
+  return (
+    error.code === "ALREADY_JOINED" ||
+    (error.statusCode === 409 && /already|duplicate|registered|joined/i.test(error.message))
+  );
 }
 
 function registrationFieldsForDelivery(
@@ -1187,7 +1177,7 @@ function IconInput({
 }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-0 flex h-12 items-center text-muted-fg">
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-fg">
         {icon}
       </span>
       <Input
@@ -1213,7 +1203,7 @@ function TitleSelect({
 }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-0 flex h-12 items-center text-muted-fg">
+      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-fg">
         <IdCard size={16} />
       </span>
       <Select
@@ -1222,7 +1212,7 @@ function TitleSelect({
           onChange(nextValue === TITLE_PLACEHOLDER ? "" : nextValue)
         }
       >
-        <SelectTrigger className="h-12 w-full rounded-xl bg-card pl-10 text-base font-medium text-card-foreground">
+        <SelectTrigger className="h-12 min-h-12 w-full rounded-xl border-border bg-card py-0 pl-10 text-base font-medium leading-none text-card-foreground shadow-sm focus-visible:ring-primary [&>span]:flex [&>span]:items-center">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -1496,7 +1496,7 @@ class _EmptyProfile extends StatelessWidget {
             Icon(Icons.person_search_rounded, size: 48, color: colors.primary),
             const SizedBox(height: 14),
             Text(
-              l10n.noProfileYet,
+              l10n.noResultYet,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -1504,7 +1504,7 @@ class _EmptyProfile extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              l10n.noProfileHelp,
+              l10n.noResultHelp,
               textAlign: TextAlign.center,
               style: TextStyle(color: colors.onSurface.withValues(alpha: 0.62)),
             ),

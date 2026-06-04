@@ -115,6 +115,9 @@
     "registrationComplete": "ការចុះឈ្មោះបានបញ្ចប់។ សូមបង្ហាញ QR នេះទៅអ្នកគ្រប់គ្រងពេលមកដល់។",
     "confirmedStatus": "បានបញ្ជាក់ការចុះវត្តមាន",
     "alreadyJoinedStatus": "អ្នកចូលរួមនេះបានចូលរួមរួចហើយ។",
-    "couldNotCheckIn": "មិនអាចចុះវត្តមានបានទេ"
+    "couldNotCheckIn": "មិនអាចចុះវត្តមានបានទេ",
+    "alreadyJoinedTitle": "បានចូលរួមហើយ",
+    "close": "បិទ",
+    "ok": "យល់ព្រម"
   }
 }

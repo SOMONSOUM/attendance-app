@@ -116,6 +116,9 @@
     "registrationComplete": "Registration complete. Show this QR to admin at arrival.",
     "confirmedStatus": "Check-in confirmed",
     "alreadyJoinedStatus": "This participant already joined.",
+    "alreadyJoinedTitle": "Already joined",
+    "close": "Close",
+    "ok": "OK",
     "couldNotCheckIn": "Could not check in"
   }
 }

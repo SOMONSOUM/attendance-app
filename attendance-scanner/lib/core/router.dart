@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/offline_screen.dart';
-import '../features/auth/presentation/profile_screen.dart';
 import '../features/auth/state/auth_controller.dart';
 import '../features/home/data/event_meeting_models.dart';
 import '../features/home/presentation/home_screen.dart';
@@ -48,10 +47,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/error',
         builder: (context, state) => UnexpectedErrorScreen(error: state.extra),
-      ),
-      GoRoute(
-        path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: '/scan',

@@ -68,6 +68,7 @@ import {
 
 const ALL = "all";
 const DEFAULT_PAGE_SIZE = 10;
+const TITLE_OPTIONS = ["Dr.", "H.E.", "Mr.", "Mrs.", "Ms.", "Miss", "Prof."];
 
 export default function EventDetailPage() {
   const t = useTranslations("details");
@@ -88,6 +89,7 @@ export default function EventDetailPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editingRegistrationId, setEditingRegistrationId] = useState<string | null>(null);
+  const [viewingRow, setViewingRow] = useState<EventRosterRecord | null>(null);
   const [registrationForm, setRegistrationForm] =
     useState<RegistrationForm>(emptyRegistrationForm);
 
@@ -525,7 +527,11 @@ export default function EventDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {pageRows.map((row) => (
-                      <TableRow key={`${row.registrationId ?? row.attendanceId}`}>
+                      <TableRow
+                        key={`${row.registrationId ?? row.attendanceId}`}
+                        className="cursor-pointer"
+                        onClick={() => setViewingRow(row)}
+                      >
                         <TableCell className="font-medium">
                           <div>
                             <p>{row.fullNameEn}</p>
@@ -565,7 +571,10 @@ export default function EventDetailPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           {row.registrationId ? (
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div
+                              className="flex flex-wrap justify-end gap-2"
+                              onClick={(event) => event.stopPropagation()}
+                            >
                               <Button
                                 variant="outline"
                                 size="icon-sm"
@@ -651,9 +660,10 @@ export default function EventDetailPage() {
                               size="icon-sm"
                               className="shrink-0"
                               disabled={cancelMutation.isPending}
-                              onClick={() =>
-                                cancelMutation.mutate(row.attendanceId!)
-                              }
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                cancelMutation.mutate(row.attendanceId!);
+                              }}
                               aria-label={`Cancel check-in for ${row.fullNameEn}`}
                               title={`Cancel check-in for ${row.fullNameEn}`}
                             >
@@ -724,6 +734,30 @@ export default function EventDetailPage() {
                 : registerMutation.mutate(registrationForm)
             }
             submitLabel={editingRegistrationId ? "Save changes" : undefined}
+          />
+          <AttendeeDetailDialog
+            open={Boolean(viewingRow)}
+            title={viewingRow?.fullNameEn ?? ""}
+            rows={
+              viewingRow
+                ? [
+                    ["Khmer name", viewingRow.fullNameKm],
+                    ["Title", viewingRow.title],
+                    ["Gender", viewingRow.gender],
+                    ["Position", viewingRow.position],
+                    ["Organization", viewingRow.organization],
+                    ["Phone", viewingRow.phoneNumber],
+                    ["Email", viewingRow.email],
+                    ["Place", viewingRow.placeName],
+                    ["Shift", viewingRow.shiftName],
+                    ["Status", viewingRow.status],
+                    ["Joined time", viewingRow.joinedAt ? formatDateTime(viewingRow.joinedAt) : null],
+                  ]
+                : []
+            }
+            onOpenChange={(open) => {
+              if (!open) setViewingRow(null);
+            }}
           />
         </div>
       )}
@@ -876,12 +910,19 @@ function RegistrationDialog({
             </Select>
           </FormField>
           <FormField label="Title">
-            <Input
+            <Select
               value={values.title ?? ""}
               onChange={(event) =>
                 onChange({ ...values, title: event.target.value })
               }
-            />
+            >
+              <option value="">{labels.noTitle}</option>
+              {TITLE_OPTIONS.map((title) => (
+                <option key={title} value={title}>
+                  {title}
+                </option>
+              ))}
+            </Select>
           </FormField>
           {shifts.length ? (
             <FormField label={labels.shift} className="sm:col-span-2">
@@ -961,6 +1002,7 @@ type RegistrationDialogLabels = {
   other: string;
   shift: string;
   noShift: string;
+  noTitle: string;
   position: string;
   organization: string;
   cancel: string;
@@ -988,6 +1030,7 @@ function registrationDialogLabels(
     other: t("other"),
     shift: t("shift"),
     noShift: t("noShiftSelected"),
+    noTitle: t("notSpecified"),
     position: t("position"),
     organization: t("organization"),
     cancel: t("cancel"),
@@ -1010,6 +1053,40 @@ function FormField({
       <Label>{label}</Label>
       {children}
     </div>
+  );
+}
+
+function AttendeeDetailDialog({
+  open,
+  title,
+  rows,
+  onOpenChange,
+}: {
+  open: boolean;
+  title: string;
+  rows: Array<[string, ReactNode]>;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title || "Attendee"}
+      description="Attendee details"
+    >
+      <dl className="grid gap-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="grid gap-1 rounded-md border border-border p-3 sm:grid-cols-[140px_1fr]"
+          >
+            <dt className="font-medium text-muted-fg">{label}</dt>
+            <dd className="font-semibold">{value || "-"}</dd>
+          </div>
+        ))}
+      </dl>
+      <DialogFooter showCloseButton />
+    </Dialog>
   );
 }
 

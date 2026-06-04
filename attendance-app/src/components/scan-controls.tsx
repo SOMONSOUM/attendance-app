@@ -2,11 +2,13 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { Button } from "@/components/ui/button";
-import { type AppearanceMode } from "@/components/appearance-provider";
+import {
+  type AppearanceMode,
+  useAppearance,
+} from "@/components/appearance-provider";
 
 export function ScanControls({ locale }: { locale: string }) {
   const router = useRouter();
@@ -41,10 +43,10 @@ export function ScanControls({ locale }: { locale: string }) {
 }
 
 function AppearanceToggle() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useAppearance();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const current = (theme as AppearanceMode | undefined) ?? "system";
+  const current = theme;
   const options: Array<{
     value: AppearanceMode;
     icon: typeof Sun;

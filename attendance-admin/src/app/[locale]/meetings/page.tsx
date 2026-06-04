@@ -1538,16 +1538,18 @@ function normalizeForm(form: MeetingForm): MeetingForm {
                   : 0,
             }),
           )
-      : [],
+      : undefined,
     chairpersons: form.chairpersons.map((chairperson) =>
       cleanObject({
         ...chairperson,
         catalogChairpersonId: chairperson.catalogChairpersonId,
       }),
     ),
-    participants: (form.participants ?? [])
-      .filter((participant) => participant.fullNameEn.trim())
-      .map((participant) => cleanObject(participant)),
+    participants: form.participants?.length
+      ? form.participants
+          .filter((participant) => participant.fullNameEn.trim())
+          .map((participant) => cleanObject(participant))
+      : undefined,
     shifts: form.shifts?.map((shift) => ({
       id: shift.id,
       name: shift.name,
